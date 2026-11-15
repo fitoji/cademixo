@@ -47,7 +47,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [x] T4 alimentaciones 3002-3005,3011: las cinco ancladas (comp01 stray=0).
 - [x] T5 bobinas 9001,9002; resistencias 1050,1051: las cuatro ancladas (comp01 stray=0).
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
-- [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
+- [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003 anclados (comp02 stray=0). 5004 bloqueado (8 bornes).
 - [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6005, 6008 y 6010 anclados (comp01 stray=0). 6006 medido pero bloqueado por la inserción de 8 bornes. Resto pendiente.
 - [ ] T9 restantes comp01/comp02: 7003,8014,8015,8017 y exclusivos/cruzados (2006,5001,5003,6000,6002,6003,6009,8014, resto comp02).
 - [ ] T10 verificación comp02, diferencial, suite, tsc, push.
@@ -200,3 +200,12 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
   **stray=0** en todas (refOnly por rótulos de texto). `feed()` viejo y defs de
   3002-3005 reemplazados; 3011 movido de `families.ts` a `library.ts`. `tsc`
   limpio, suite **383/383**.
+
+- L22 (T7 — fusibles comp02): 5001,5003 anclados al origen en `library.ts`
+  sobre `componentes02` (S=4, OX=-2, OY=-60, stray=0). Medidos los cuerpos
+  superiores de fusible seccionador (5001 2 polos en x=-6,0; 5003 3 polos en
+  x=-6,0,6, rectángulos y vástagos de y=-6 a -0,25); terminales/mecanismo
+  inferior quedan refOnly. Gates: 5001 (30,54) ref=128 ov=93 stray=0; 5003
+  (72,57) ref=256 ov=183 stray=0. Overrides de `families.ts` quitados; `fuseBody`
+  sin uso eliminado; `symbol-grid.test.ts` actualizado (5001,5003 migran a
+  anclaje). `tsc` limpio, suite **384/384**.
