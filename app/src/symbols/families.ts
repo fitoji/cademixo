@@ -462,8 +462,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   // alimentación y fuentes
   def(3009, 'alimentacion', [], (w, h) => [{ d: line(w * 0.35, 0, w * 0.35, h), thin: true }], { w: 12, h: 12 },
     (w, h) => [{ x: w * 0.62, y: h / 2, value: '-', size: Math.min(w, h) * 0.42, anchor: 'middle' }]),
-  def(3011, 'alimentacion', [], (w, h) => [{ d: line(w * 0.35, 0, w * 0.35, h), thin: true }], { w: 12, h: 12 },
-    (w, h) => [{ x: w * 0.62, y: h / 2, value: 'LNP', size: Math.min(w, h) * 0.3, anchor: 'middle' }]),
+  // 3011 («Alimentación L N PE») vive en `library.ts` calibrada contra
+  // `componentes01` (tres terminales, stray=0).
   def(3012, 'alimentacion', motorTriYD, (w, h) => [
     { d: circle(w / 2, h * 0.35, Math.min(w, h) * 0.15), thin: true },
     { d: circle(w / 2, h * 0.65, Math.min(w, h) * 0.15), thin: true },

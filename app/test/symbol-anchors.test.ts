@@ -627,3 +627,21 @@ test('el disyuntor II (6008) va anclado al origen', () => {
   assert.ok(shapes.some((s) => s.d === 'M6 0L6 3'));
   assert.ok(shapes.some((s) => s.d === 'M-3 12H9V18H-3Z'));
 });
+
+test('las alimentaciones 3002,3003,3004,3005,3011 van ancladas al origen con terminales medidos', () => {
+  const check = (code: number, cols: number[], w: number) => {
+    const sym = resolveSymbol(code, []);
+    assert.equal(sym.anchor, 'origin', `${code} anchor`);
+    assert.deepEqual(sym.size, { w, h: 3 }, `${code} size`);
+    const shapes = sym.shapes(w, 3);
+    for (const c of cols) {
+      assert.ok(shapes.some((s) => s.d === `M${c} -2L${c} -0.25`), `${code} stem ${c}`);
+    }
+    assert.equal(shapes.length, cols.length * 3, `${code} shapes`);
+  };
+  check(3002, [0], 6);
+  check(3003, [0, 6], 12);
+  check(3004, [0, 6, 12], 18);
+  check(3005, [0, 6, 12], 24);
+  check(3011, [0, 6, 12], 18);
+});

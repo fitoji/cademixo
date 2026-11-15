@@ -1089,15 +1089,37 @@ const feedTerminal = (code: number, name: string, letter: string): SymbolDef => 
 
 const feedL: SymbolDef = feedTerminal(3000, 'Alimentación L', 'L');
 const feedN: SymbolDef = feedTerminal(3001, 'Alimentación N', 'N');
-const feedLN: SymbolDef = feed(3003, 'Alimentación L N', [], 'L/N');
-const feed3PE: SymbolDef = feed(3005, 'Alimentación L1 L2 L3 PE', [], 'L123');
-const feedPE: SymbolDef = feed(3002, 'Alimentación PE', [right(0.5, 'PE')]);
+/**
+ * Terminales de alimentación medidos sobre `docs/03/componentes01.png`
+ * (S=4, OX=-17, OY=-101): círculo de radio 1 centrado en (p, -2.5) con
+ * vástago bajando a (p, -0.25), repetido en columnas de 6 unidades.
+ */
+const feedTerminalCols = (code: number, name: string, cols: number[]): SymbolDef => ({
+  code,
+  name,
+  group: 'alimentacion',
+  pins: [],
+  anchor: 'origin',
+  size: { w: Math.max(6, cols.length * 6), h: 3 },
+  shapes() {
+    return cols.flatMap((x) => [
+      // Círculo pequeño medido: tapa en y=-3, lados en -2.75/-2.5, cierre en -2.25.
+      { d: `M${x - 1} -3L${x - 0.75} -2.75L${x - 0.75} -2.5L${x - 0.25} -2.25` },
+      { d: `M${x + 0.75} -3L${x + 0.5} -2.75L${x + 0.5} -2.5L${x} -2.25` },
+      { d: line(x, -2, x, -0.25) },
+    ]);
+  },
+});
 
-const feed3: SymbolDef = feed(3004, 'Alimentación L1 L2 L3', [
-  right(0.2, 'L1'),
-  right(0.5, 'L2'),
-  right(0.8, 'L3'),
-]);
+const feedLN: SymbolDef = feedTerminalCols(3003, 'Alimentación L N', [0, 6]);
+const feed3PE: SymbolDef = {
+  ...feedTerminalCols(3005, 'Alimentación L1 L2 L3 PE', [0, 6, 12]),
+  size: { w: 24, h: 3 },
+};
+const feedPE: SymbolDef = feedTerminalCols(3002, 'Alimentación PE', [0]);
+
+const feed3: SymbolDef = feedTerminalCols(3004, 'Alimentación L1 L2 L3', [0, 6, 12]);
+const feedLNP3011: SymbolDef = feedTerminalCols(3011, 'Alimentación L N PE', [0, 6, 12]);
 
 const feed3N: SymbolDef = feed(3006, 'Alimentación L1 L2 L3 N', [
   right(0.15, 'L1'),
@@ -1466,6 +1488,7 @@ const ALL: SymbolDef[] = [
   feed3PE,
   feedPE,
   feed3,
+  feedLNP3011,
   feed3N,
   feed3NPE,
   feedPos,
