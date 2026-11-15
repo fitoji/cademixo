@@ -521,14 +521,9 @@ test('el disyuntor 6009 dibuja un cuerpo de dos filas: gancho arriba, triángulo
 
 // --- el unipolar y la grilla de los polos ------------------------------------
 
-test('la resistencia III (1051) conserva sus bornes en la columna central', () => {
-  // La 1050 se midió contra `componentes01`: es vertical y quedó anclada al
-  // origen, así que su grilla se verifica en `symbol-anchors.test.ts`. Para la
-  // 1051 sigue sin haber referencia de CADeSimu, así que no se mueve.
-  const r1051 = symbolFor(1051);
-  assert.ok(r1051?.size);
-  assert.deepEqual(r1051.pins.map((p) => Math.round(p.nx * r1051.size!.w)), [0, 0, 6, 6, 12, 12]);
-});
+// Las resistencias 1050 y 1051 se midieron contra `componentes01`: son
+// verticales y quedaron ancladas al origen. Su grilla se verifica en
+// `symbol-anchors.test.ts`.
 
 test('los unipolares de potencia se anclan al origen, como la familia de protección', () => {
   // Misma convención: en el archivo el primer borne es el origen del registro.

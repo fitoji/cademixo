@@ -421,6 +421,30 @@ test('el telerruptor (9002) va anclado al origen con el chevrón biestable', () 
   assert.ok(shapes.some((s) => s.d === 'M0 8L0 12'), 'falta la salida');
 });
 
+test('la resistencia III (1051) repite el cuerpo de la 1050 sobre las columnas 0/6/12', () => {
+  const sym = resolveSymbol(1051, ['1', '3', '5', '2', '4', '6']);
+  assert.equal(sym.anchor, 'origin', 'la 1051 migró a anclaje al origen');
+  assert.deepEqual(sym.originPins, [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '5', x: 12, y: 0 },
+    { name: '2', x: 0, y: 15 },
+    { name: '4', x: 6, y: 15 },
+    { name: '6', x: 12, y: 15 },
+  ]);
+
+  // Medido sobre `componentes01` (registro `*…*33*81*…*-12*-3*18*18*`).
+  const shapes = sym.shapes(18, 18);
+  const ink = shapesBounds(shapes);
+  assert.ok(near(ink.minX, -1.5) && near(ink.maxX, 13.25), `la resistencia mide ${ink.minX}..${ink.maxX} de ancho`);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 15), `la resistencia mide ${ink.minY}..${ink.maxY} de alto`);
+  for (const p of [0, 6, 12]) {
+    assert.ok(shapes.some((s) => s.d === `M${p} 0L${p} 3`), `falta la conductora superior del polo ${p}`);
+    assert.ok(shapes.some((s) => s.d === `M${p - 1.5} 3H${p + 1.25}V12H${p - 1.5}Z`), `falta el cuerpo del polo ${p}`);
+    assert.ok(shapes.some((s) => s.d === `M${p} 12L${p} 15`), `falta la conductora inferior del polo ${p}`);
+  }
+});
+
 test('los bornes de los símbolos anclados caen donde el archivo los conecta', () => {
   // El criterio real del anclaje: el símbolo tiene que estar sobre sus cables.
   for (const rec of project.records) {

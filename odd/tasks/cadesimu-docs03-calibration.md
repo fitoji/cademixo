@@ -45,7 +45,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [x] T2 lote 1 (S4,S5,S6): 9009 anclada (commit `504cc58`, stray=0).
 - [~] T3 lote 2 contactos auxiliares/conmutadores: 7000,7001 anclados (`ede08c3`). 7002,8018 anclados (`dd7d5b1`). 8017 anclado (comp01 stray=0). 7003,8015,8014 pendientes.
 - [ ] T4 alimentaciones 3002-3005,3011.
-- [~] T5 bobinas 9001,9002; resistencias 1050,1051: 1050, 9001 y 9002 ancladas (comp01 stray=0). 1051 pendiente.
+- [x] T5 bobinas 9001,9002; resistencias 1050,1051: las cuatro ancladas (comp01 stray=0).
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
 - [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
 - [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6010 anclado (comp01 stray=0). Resto pendiente.
@@ -133,3 +133,11 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
   - Nota: el registro real del 9002 trae **sólo** A1 y A2 (no el contacto 1-2
     que dibujaba la familia); la def medida se queda con los dos bornes que el
     archivo escribe.
+- L16 (T5 cerrado — 1051): Resistencia III anclada al origen (`resistor3`, caja
+  18×18, bornes 1/3/5 arriba y 2/4/6 en la fila 15). Medido sobre
+  `componentes01` (registro 33,81): tres cuerpos verticales idénticos al de la
+  1050 sobre las columnas 0/6/12. Gate: ref=364 overlap=348 refOnly=16
+  **stray=0**. `resistor(1051,3)` y el helper `resistor` quitados de
+  `families.ts` (ya no lo usaba nadie); el test de grilla que fijaba el cuerpo
+  horizontal se reemplazó por el test de anclaje. `tsc` limpio, suite
+  **378/378**. T5 cerrada.

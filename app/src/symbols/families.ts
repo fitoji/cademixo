@@ -133,22 +133,6 @@ const motorDC: SymbolPin[] = [left(0.38, 'A1'), right(0.38, 'A2'), left(0.7, 'E1
 
 // --- potencia --------------------------------------------------------------
 
-const resistor = (code: number, count: number): SymbolDef => {
-  const size = { w: 18, h: count === 1 ? 12 : 24 };
-  // El resistor dibuja un cuerpo horizontal: sus bornes quedan arriba y abajo
-  // en el centro de la caja y no en la columna de los polos. No hay referencia
-  // de CADeSimu para el resistor, así que se deja como estaba (T10).
-  const pins = poles(count, size, true);
-  return def(code, 'potencia', pins, (w, h) => {
-    const rows = spread(count).map((n) => n * h);
-    return rows.flatMap((y) => [
-      { d: line(0, y, w * 0.3, y) },
-      { d: rect(w * 0.3, y - h * 0.06, w * 0.4, h * 0.12) },
-      { d: line(w * 0.7, y, w, y) },
-    ]);
-  }, size);
-};
-
 /** Aparato de potencia con `n` polos y una etiqueta opcional. */
 const polesDevice = (code: number, n: number, group: SymbolGroup, letter?: string): SymbolDef => {
   const size = { w: n === 1 ? 12 : n * 6, h: 15 };
@@ -446,7 +430,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   // potencia
   // 1050 («Resistencia I») vive en `library.ts` calibrada contra
   // `componentes01`: es vertical (caja 6×18), no el cuerpo horizontal de antes.
-  resistor(1051, 3),
+  // 1051 («Resistencia III») vive en `library.ts` calibrada contra
+  // `componentes01`: tres cuerpos verticales como el de la 1050.
   def(1052, 'potencia', motorTriYD, (w, h) => [
     { d: circle(w / 2, h * 0.35, Math.min(w, h) * 0.16), thin: true },
     { d: circle(w / 2, h * 0.65, Math.min(w, h) * 0.16), thin: true },

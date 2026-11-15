@@ -388,6 +388,38 @@ const telerruptor: SymbolDef = {
   },
 };
 
+/**
+ * Resistencia III (la 1051), anclada al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png`, registro
+ * `*1051#-R##1#3#5#2#4#6##*…*33*81*…*-12*-3*18*18*`: tres cuerpos verticales
+ * idénticos al de la 1050 sobre las columnas 0/6/12, de y=3 a y=12, con los
+ * bornes en las filas 0 y 15.
+ */
+const resistor3: SymbolDef = {
+  code: 1051,
+  name: 'Resistencia III',
+  group: 'potencia',
+  pins: polesInCadeOrder(3, { w: 18, h: 18 }),
+  anchor: 'origin',
+  originPins: [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '5', x: 12, y: 0 },
+    { name: '2', x: 0, y: 15 },
+    { name: '4', x: 6, y: 15 },
+    { name: '6', x: 12, y: 15 },
+  ],
+  size: { w: 18, h: 18 },
+  shapes() {
+    return [0, 6, 12].flatMap((p) => [
+      { d: line(p, 0, p, 3) },
+      { d: rect(p - 1.5, 3, 2.75, 9) },
+      { d: line(p, 12, p, 15) },
+    ]);
+  },
+};
+
 /** Bornes de los aparatos tripolares: 1-3-5 arriba, 2-4-6 abajo. */
 const SIX_POLES: SymbolPin[] = [
   left(0.18, '1'),
@@ -1244,6 +1276,7 @@ const ALL: SymbolDef[] = [
   powerContact2,
   breakerMotor1,
   resistor1,
+  resistor3,
   coilBistable,
   telerruptor,
   feedL,
