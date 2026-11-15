@@ -550,9 +550,10 @@ test('los unipolares de potencia se anclan al origen, como la familia de protecc
 });
 
 test('los multipolares de la familia siguen en la grilla de 6 unidades', () => {
+  // 5002 y 5000 migraron al anclaje al origen (geometría medida en
+  // `docs/03/componentes01`); su grilla se verifica en `symbol-anchors.test.ts`.
   for (const [code, cols] of [
     [5001, [0, 6]],
-    [5002, [0, 6]],
     [5003, [0, 6, 12]],
     [6001, [0, 6]],
     [6002, [0, 6]],

@@ -27,13 +27,19 @@ test('el conmutador tiene dos contactos verticales con cuchillas opuestas', () =
   assert.ok(Math.abs(a) > 15 && Math.abs(a) < 30, `el giro debe ser el de la cuchilla: ${a}`);
 });
 
-test('el acoplamiento mecánico es una línea punteada con el corchete', () => {
+test('el acoplamiento mecánico enlaza los dos contactos a media altura', () => {
+  // Medido sobre `docs/03/componentes01` (registro 144,90): tramos horizontales
+  // en y=6 de −6 a 7,5 y el operador en la columna derecha (x=12,75).
   const shapes = sym.shapes(15, 15);
-  const dashed = shapes.filter((s) => s.dashed);
-  assert.equal(dashed.length, 1, 'la línea de acoplamiento');
-  // El corchete de la derecha: tres tramos.
-  const corchete = shapes.filter((s) => !s.dashed && s.d.includes('L15.9') || s.d.includes('14.1'));
-  assert.ok(corchete.length >= 3, `el corchete de la derecha: ${corchete.length} tramos`);
+  const enlace = shapes.find((s) => s.thin && s.d.startsWith('M-6 6H'));
+  assert.ok(enlace, 'falta el enlace mecánico');
+  assert.equal(
+    enlace!.d,
+    'M-6 6H-4.25 M-3 6H-1.25 M0 6H1.75 M3 6H4.75 M6 6H7.5',
+    'los tramos del enlace no son los medidos',
+  );
+  assert.ok(shapes.some((s) => s.d === 'M12.75 4L12.75 5' && s.thin), 'falta el guion alto del operador');
+  assert.ok(shapes.some((s) => s.d === 'M12.75 7L12.75 7.75' && s.thin), 'falta el guion bajo del operador');
 });
 
 test('los bornes caen en la grilla de CADeSimu: 0 y 12 de alto, cada 9 de ancho', () => {
@@ -48,19 +54,20 @@ test('los bornes caen en la grilla de CADeSimu: 0 y 12 de alto, cada 9 de ancho'
   );
 });
 
-test('cada cuchilla pivota en su propio borne de abajo y abre hacia un lado', () => {
+test('cada cuchilla pivota en la fila inferior del contacto y abre hacia un lado', () => {
   const blades = sym.shapes(15, 15).filter((s) => s.blade);
   const tips = blades.map((s) => {
     const m = /M(-?[\d.]+) (-?[\d.]+)L(-?[\d.]+) (-?[\d.]+)/.exec(s.d)!;
     return { pivot: [Number(m[1]), Number(m[2])], tip: [Number(m[3]), Number(m[4])] };
   });
-  // Los dos pivotes en la fila inferior de la grilla (y = 12).
+  // Los dos pivotes en la fila inferior del contacto (y = 9), como en 2000 y
+  // 2001: del pivote al borne (y = 12) baja el tramo recto.
   for (const { pivot } of tips) {
-    assert.equal(pivot[1], 12, `el pivote debe estar en el borne de abajo: ${pivot[1]}`);
+    assert.equal(pivot[1], 9, `el pivote debe estar en la fila inferior del contacto: ${pivot[1]}`);
   }
-  // Cada cuchilla abre hacia un lado distinto: la de 95-96 a la izquierda y la
-  // de 97-98 a la derecha.
-  const [izq, der] = tips;
-  assert.ok(izq!.tip[0] < izq!.pivot[0], 'la de 95-96 abre a la izquierda');
-  assert.ok(der!.tip[0] > der!.pivot[0], 'la de 97-98 abre a la derecha');
+  // La lambda medida en `componentes01`: la de 95-96 abre hacia la derecha y la
+  // de 97-98 hacia la izquierda, así que las puntas se miran.
+  const [nc, na] = tips;
+  assert.ok(nc!.tip[0] > nc!.pivot[0], 'la de 95-96 abre a la derecha');
+  assert.ok(na!.tip[0] < na!.pivot[0], 'la de 97-98 abre a la izquierda');
 });

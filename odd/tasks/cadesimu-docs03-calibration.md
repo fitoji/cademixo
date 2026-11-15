@@ -92,3 +92,11 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
     def viejo de 2001. Sirve de patrón para el resto de la familia.
   - Suite completa: 4 tests ajenos a 2000 quedan en rojo desde los lotes de
     8018 y fusibles (aserciones contra geometría vieja); se corrigen aparte.
+- L12 (cierre de tests obsoletos): las 4 aserciones que contradecían la
+  geometría medida se alinearon con la evidencia del gate (8018, 5000 y 5002
+  siguen en stray=0 sobre `componentes01`). `conmutador.test.ts`: el enlace
+  mecánico es un path de tramos explícitos (no `dashed`) y el pivote de cada
+  hoja está en y=9; la lambda abre las puntas hacia adentro. `protection-symbols.test.ts`:
+  el fusible 5000 va de 3 a 9 y se afirma por `originPins`. `symbol-grid.test.ts`:
+  5002 sale del test de caja porque ya está anclado al origen. `tsc` limpio y
+  suite **374/374**.
