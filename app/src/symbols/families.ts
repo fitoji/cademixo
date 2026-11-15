@@ -501,6 +501,9 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   // izquierda, sin celdas ni botón de ensayo (`rele diferencial.png`).
   // 6005 («Diferencial IN») vive en `library.ts` calibrado contra
   // `componentes01`: caja 12×21 con el toroide medido y el disparo magnético.
+  // 6006 («Diferencial IIIN») sigue acá: su registro real tiene ocho bornes y
+  // la inserción sólo sintetiza hasta siete (ver `place.ts`). El dibujo medido
+  // sobre `componentes01` está anotado en `odd/tasks/cadesimu-docs03-calibration.md`.
   protectionDevice(6006, 3, { w: 18, h: 15 }, { cadesimu: true, tripSquare: 'none', torus: true, trip: true, cadeOrder: true }),
   // El térmico dibuja el gancho de cada polo en su celda (`rele termico.png`):
   // sus conductores son rectos, no llevan cuchilla.

@@ -48,7 +48,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [x] T5 bobinas 9001,9002; resistencias 1050,1051: las cuatro ancladas (comp01 stray=0).
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
 - [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
-- [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6005 y 6010 anclados (comp01 stray=0). Resto pendiente.
+- [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6005 y 6010 anclados (comp01 stray=0). 6006 medido pero bloqueado por la inserción de 8 bornes. Resto pendiente.
 - [ ] T9 restantes comp01/comp02: 7003,8014,8015,8017 y exclusivos/cruzados (2006,5001,5003,6000,6002,6003,6009,8014, resto comp02).
 - [ ] T10 verificación comp02, diferencial, suite, tsc, push.
 
@@ -151,3 +151,16 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
     eso el ancho declarado llega a 7,52 y no a 7,25 como la captura.
   - El test de «cuchilla de CADeSimu» exigía el segmento escrito de la punta al
     pivote; ahora acepta los dos órdenes. `tsc` limpio, suite **379/379**.
+- L18 (6006, bloqueado por la inserción): el «Diferencial IIIN» ya está medido
+  sobre `componentes01` (registro 174,66): cuatro polos en 0/6/12/18, caja
+  24×21, toroide de 0 a 18 con un arco por lado y el mismo disparo magnético que
+  el 6005; gate ref=648 overlap=582 **stray=0**. No se puede declarar todavía:
+  su registro real trae **ocho** bornes (`1 3 5 7 2 4 6 8`) y `place.ts`
+  sintetiza sobre plantillas base de 7 como máximo (`PIN_SLOTS`), así que
+  insertarlo escribiría un aparato de siete bornes.
+  - Probado y descartado: cortar `synthesize` devolviendo `undefined` cuando hay
+    más de 7 bornes, para que la UI avise en vez de truncar. El invariante «todo
+    símbolo del catálogo se puede insertar» lo rechaza, así que hacen falta una
+    plantilla base de ocho bornes y un retoque al generador de `templates.ts`.
+  - La geometría quedó lista igual: `differentialDef(code, name, n)` sirve para
+    6005 y para 6006 en cuanto exista esa base.
