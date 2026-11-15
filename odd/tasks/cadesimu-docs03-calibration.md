@@ -44,7 +44,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
   - comp02: `S=4, OX=-2, OY=-60` verificado stray=0 en 3000; 6001/2001 no cierran con defs actuales (requiere revisión).
 - [x] T2 lote 1 (S4,S5,S6): 9009 anclada (commit `504cc58`, stray=0).
 - [~] T3 lote 2 contactos auxiliares/conmutadores: 7000,7001 anclados (`ede08c3`). 7002,8018 anclados (`dd7d5b1`). 8017 anclado (comp01 stray=0). 7003,8015 anclados (comp01 stray=0). 8014 pendiente.
-- [ ] T4 alimentaciones 3002-3005,3011.
+- [x] T4 alimentaciones 3002-3005,3011: las cinco ancladas (comp01 stray=0).
 - [x] T5 bobinas 9001,9002; resistencias 1050,1051: las cuatro ancladas (comp01 stray=0).
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
 - [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
@@ -188,3 +188,15 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
   **stray=0**. Override `protectionDevice(6008,…)` quitado de `families.ts`;
   `disyuntor2` reescrito. `tsc` limpio, suite **381/382** (1 fallo ajeno:
   `parse-perf` por variación de tiempo). 
+
+- L21 (T4 — alimentaciones comp01): 3002,3003,3004,3005,3011 ancladas al
+  origen en `library.ts` (`feedTerminalCols`) sobre `componentes01` (stray=0).
+  Medido: terminales de alimentación como círculo (aprox. radio 1, centro
+  y≈-2,5) con vástago a (p,-0,25), repetidos en columnas de 6 unidades según lo
+  que muestra la captura: 3002 (45,48) 1 col [0]; 3003 (57,42) 2 cols [0,6];
+  3004 (78,39) 3 cols [0,6,12]; 3005 (84,54) 3 cols [0,6,12] visibles (caja
+  24×3 conservada) y 3011 (57,54) 3 cols [0,6,12]. Gates: 3002 ref=34 ov=20,
+  3003 ref=61 ov=40, 3004 ref=99 ov=60, 3005 ref=99 ov=60, 3011 ref=93 ov=60,
+  **stray=0** en todas (refOnly por rótulos de texto). `feed()` viejo y defs de
+  3002-3005 reemplazados; 3011 movido de `families.ts` a `library.ts`. `tsc`
+  limpio, suite **383/383**.
