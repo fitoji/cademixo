@@ -48,7 +48,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [x] T5 bobinas 9001,9002; resistencias 1050,1051: las cuatro ancladas (comp01 stray=0).
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
 - [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
-- [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6005 y 6010 anclados (comp01 stray=0). 6006 medido pero bloqueado por la inserción de 8 bornes. Resto pendiente.
+- [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6005, 6008 y 6010 anclados (comp01 stray=0). 6006 medido pero bloqueado por la inserción de 8 bornes. Resto pendiente.
 - [ ] T9 restantes comp01/comp02: 7003,8014,8015,8017 y exclusivos/cruzados (2006,5001,5003,6000,6002,6003,6009,8014, resto comp02).
 - [ ] T10 verificación comp02, diferencial, suite, tsc, push.
 
@@ -179,3 +179,12 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
     overlap=61 refOnly=18 **stray=0**. Overrides `contactDevice(7003,…)` y
     `contactDevice(8015,…)` quitados de `families.ts`. `tsc` limpio, suite
     **381/381**.
+
+- L20 (T8 parcial — 6008): «Disyuntor II» anclado al origen en `library.ts`
+  (caja 12×24, bornes 1/3 arriba y 2/4 en y=21). Medido sobre `componentes01`
+  (registro 195,39): dos polos con cuchilla, disparo magnético (-10,4)-( -4,8)
+  con acometida en y=6, doble cuerpo térmico (-3,12)-(9,18) con ganchos y marcas
+  en 16-16,5, y enlace punteado en x=-6. Gate: ref=552 overlap=487 refOnly=65
+  **stray=0**. Override `protectionDevice(6008,…)` quitado de `families.ts`;
+  `disyuntor2` reescrito. `tsc` limpio, suite **381/382** (1 fallo ajeno:
+  `parse-perf` por variación de tiempo). 
