@@ -818,7 +818,7 @@ const lamp: SymbolDef = {
 
 /**
  * Contacto del térmico (8017), anclado al origen.
- * Medido sobre `docs/03/componentes01.png` (S=4, OX=-17, OY=-101), en (126,108).
+ * Medido sobre `docs/03/componentes02.png` (S=4, OX=-2, OY=-60), en (138,117).
  */
 const thermalContact: SymbolDef = {
   code: 8017,
@@ -827,16 +827,52 @@ const thermalContact: SymbolDef = {
   pins: [left(0.5, '95'), right(0.5, '96')],
   anchor: 'origin',
   originPins: [
-    { name: '95', x: 0, y: 0 },
-    { name: '96', x: 0, y: 12 },
+    { name: '95', x: -5.75, y: 0 },
+    { name: '96', x: -5.75, y: 12 },
   ],
-  size: { w: 6, h: 15 },
+  size: { w: 12, h: 15 },
   shapes() {
     return [
-      { d: line(0, 0, 0, 3) },
-      { d: line(0, 3.5, 3.25, 3.5) },
-      { d: line(0, 9, 2.5, 3.75), blade: { px: 0, py: 9, deg: -PUSH_BLADE_DEG } },
-      { d: line(0, 9, 0, 12) },
+      // Conductor principal (superior e inferior)
+      { d: line(-5.75, -12, -5.75, -8.5) },
+      { d: line(-5.75, -6, -5.75, -6) },
+      { d: line(-5.75, -3.25, -5.75, -0.25) },
+      // Marcas superiores/inferiores
+      { d: line(-4.25, -11.5, -3, -11.5) },
+      { d: line(-4.25, -10.75, -4.25, -10.75) },
+      { d: line(-3, -11, -3, -11) },
+      { d: line(-4.25, -10, -3, -10) },
+      { d: line(-4.25, -2.5, -3, -2.5) },
+      { d: line(-4.25, -1.75, -4.25, -1.75) },
+      { d: line(-3, -2, -3, -2) },
+      { d: line(-4.25, -1, -3, -1) },
+      // Contacto NC (paleta)
+      { d: line(-5.75, -8.5, -2.5, -8.5) },
+      { d: line(-2.75, -9, -2.75, -9) },
+      { d: line(-3, -8.75, -3, -8.75) },
+      { d: line(-3.25, -8.25, -3.25, -8) },
+      { d: line(-3.5, -7.75, -3.5, -7.25) },
+      { d: line(-3.75, -7.25, -3.75, -6.75) },
+      { d: line(-4, -6.75, -4, -6.25) },
+      { d: line(-4.25, -6.25, -4.25, -5.75) },
+      { d: line(-4.5, -5.75, -4.5, -5.25) },
+      { d: line(-4.75, -5.25, -4.75, -4.75) },
+      { d: line(-5, -4.75, -5, -4.25) },
+      { d: line(-5.25, -4.25, -5.25, -3.75) },
+      { d: line(-5.5, -3.75, -5.5, -3.25) },
+      { d: line(-5.75, -3.25, -5.75, -3.25) },
+      { d: line(-5.75, -3, -5.75, -3) },
+      // Elemento térmico
+      { d: line(-2, -8, -2, -7) },
+      { d: line(-2, -7, -0.75, -7) },
+      { d: line(-0.75, -7, -0.75, -5) },
+      { d: line(-2, -5, -1, -5) },
+      { d: line(-2, -5, -2, -4.75) },
+      // Actuador izquierdo
+      { d: line(-11.75, -6, -11.75, -4.25) },
+      { d: line(-10.5, -5.75, -10.5, -4.25) },
+      { d: line(-10, -6, -7, -6) },
+      { d: line(-5.75, -6, -4.25, -6) },
     ];
   },
 };

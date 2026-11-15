@@ -577,9 +577,12 @@ test('el contacto del térmico (8017) va anclado al origen', () => {
   const sym = resolveSymbol(8017, ['95', '96']);
   assert.equal(sym.anchor, 'origin');
   assert.deepEqual(sym.originPins, [
-    { name: '95', x: 0, y: 0 },
-    { name: '96', x: 0, y: 12 },
+    { name: '95', x: -5.75, y: 0 },
+    { name: '96', x: -5.75, y: 12 },
   ]);
+  const sh = sym.shapes(12, 15);
+  assert.ok(sh.some((x) => x.d === 'M-5.75 -12L-5.75 -8.5'), 'upper stem');
+  assert.ok(sh.some((x) => x.d === 'M-5.75 -3.25L-5.75 -0.25'), 'lower stem');
 });
 
 test('el contacto auxiliar conmutado (7003) va anclado al origen', () => {
@@ -661,3 +664,4 @@ test('los fusibles 5001 y 5003 van anclados al origen (comp02)', () => {
   assert.ok(s3.some((s) => s.d === 'M-5.75 -6L-5.75 -0.25'), '5003 stem left');
   assert.ok(s3.some((s) => s.d === 'M6.25 -6L6.25 -0.25'), '5003 stem right');
 });
+
