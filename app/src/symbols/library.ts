@@ -207,6 +207,42 @@ const powerContact: SymbolDef = {
   },
 };
 
+/**
+ * Contactor bipolar (el 2000), anclado al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png` (S=4, OX=-17, OY=-101), registro
+ * `*2000#-KM##1#3#2#4####*…*27*126*…*-12*-3*12*15*`: por polo (columnas 0/6)
+ * el conductor superior baja de 0 a 3, la hoja sale del borne inferior (p,9)
+ * hasta (p−3,3) y la bajada cierra en la fila de abajo. El guion mecánico
+ * punteado va a media hoja (y=6), del cruce de la hoja 1 al de la hoja 2:
+ * −1,5 … 4,5 en tramos de 1,75 con hueco de 2,5.
+ */
+const powerContact2: SymbolDef = {
+  code: 2000,
+  name: 'Contactor II',
+  group: 'potencia',
+  pins: polesInCadeOrder(2, { w: 12, h: 15 }),
+  anchor: 'origin',
+  originPins: [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '2', x: 0, y: 12 },
+    { name: '4', x: 6, y: 12 },
+  ],
+  size: { w: 12, h: 15 },
+  shapes() {
+    return [
+      ...[0, 6].flatMap((p) => [
+        { d: line(p, 0, p, 3) },
+        { d: line(p, 9, p - 3, 3), blade: { px: p, py: 9, deg: PUSH_BLADE_DEG } },
+        { d: line(p, 9, p, 12) },
+      ]),
+      { d: line(-1.5, 6, 0.25, 6), thin: true },
+      { d: line(2.75, 6, 4.5, 6), thin: true },
+    ];
+  },
+};
+
 /** Bornes de los aparatos tripolares: 1-3-5 arriba, 2-4-6 abajo. */
 const SIX_POLES: SymbolPin[] = [
   left(0.18, '1'),
@@ -1059,6 +1095,7 @@ const switchNANC: SymbolDef = {
 const ALL: SymbolDef[] = [
   motor,
   powerContact,
+  powerContact2,
   feedL,
   feedN,
   feedLN,

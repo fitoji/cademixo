@@ -301,6 +301,37 @@ test('el contactor de potencia (2001) va anclado al origen con la fila de bornes
   assert.ok(shapes.some((s) => s.d === 'M8.5 0L10.5 0' && s.thin), 'falta el tercer tramo del guion');
 });
 
+test('el contactor bipolar (2000) va anclado al origen con la hoja y el guion medidos en docs/03', () => {
+  const sym = resolveSymbol(2000, ['1', '3', '2', '4']);
+  assert.equal(sym.anchor, 'origin', 'el 2000 migró a anclaje al origen');
+  assert.deepEqual(sym.originPins, [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '2', x: 0, y: 12 },
+    { name: '4', x: 6, y: 12 },
+  ]);
+
+  // Medido sobre docs/cadesimu-svg/reference/componentes01.png (S=4, OX=-17,
+  // OY=-101), registro `*2000#-KM##1#3#2#4####*...*27*126*...*-12*-3*12*15*`.
+  // Por polo (columnas 0/6): conductor superior (p,0)→(p,3), hoja (p,9)→(p−3,3)
+  // con pivote en el borne inferior, y bajada (p,9)→(p,12). El guion mecánico
+  // punteado va a media hoja (y=6), de cruce a cruce: −1,5 … 4,5.
+  const shapes = sym.shapes(12, 15);
+  const ink = shapesBounds(shapes);
+  assert.ok(near(ink.minX, -3) && near(ink.maxX, 6), `el contactor mide ${ink.minX}..${ink.maxX} de ancho`);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 12), `el contactor mide ${ink.minY}..${ink.maxY} de alto`);
+  for (const p of [0, 6]) {
+    assert.ok(shapes.some((s) => s.d === `M${p} 0L${p} 3`), `falta el conductor superior del polo ${p}`);
+    assert.ok(shapes.some((s) => s.d === `M${p} 9L${p - 3} 3`), `falta la hoja del polo ${p}`);
+    assert.ok(shapes.some((s) => s.d === `M${p} 9L${p} 12`), `falta la bajada del polo ${p}`);
+  }
+  const blades = shapes.filter((s) => s.blade);
+  assert.equal(blades.length, 2, 'las dos cuchillas son móviles');
+  for (const b of blades) assert.ok(b.blade!.deg > 0, 'la hoja cierra girando hacia el conductor');
+  assert.ok(shapes.some((s) => s.d === 'M-1.5 6L0.25 6' && s.thin), 'falta el primer tramo del guion');
+  assert.ok(shapes.some((s) => s.d === 'M2.75 6L4.5 6' && s.thin), 'falta el segundo tramo del guion');
+});
+
 test('los bornes de los símbolos anclados caen donde el archivo los conecta', () => {
   // El criterio real del anclaje: el símbolo tiene que estar sobre sus cables.
   for (const rec of project.records) {

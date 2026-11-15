@@ -46,7 +46,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [~] T3 lote 2 contactos auxiliares/conmutadores: 7000,7001 anclados (`ede08c3`). 7002,8018 anclados (`dd7d5b1`). 8017 anclado (comp01 stray=0). 7003,8015,8014 pendientes.
 - [ ] T4 alimentaciones 3002-3005,3011.
 - [ ] T5 bobinas 9001,9002; resistencias 1050,1051.
-- [ ] T6 contactores 2000,2006.
+- [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
 - [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
 - [ ] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010.
 - [ ] T9 restantes comp01/comp02: 7003,8014,8015,8017 y exclusivos/cruzados (2006,5001,5003,6000,6002,6003,6009,8014, resto comp02).
@@ -78,3 +78,17 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - L8: 7002 (aux NA-NC, 93,75 comp01) y 8018 (conmutador 2 posiciones, 144,90 comp01) anclados en `app/src/symbols/library.ts` con stray=0 (gates ref=189/211 overlap=162/172). Tests de anclaje añadidos; imports no usados removidos. 7003,8015,8017 intentados pero sin stray=0 y revertidos (siguen pendientes). Commit `dd7d5b1`.
 - L9: 5000 (24,63 comp01) y 5002 (42,63 comp01) anclados en `app/src/symbols/library.ts` con stray=0 (gates ref=120/240 overlap=94/188). Overrides removidos en `families.ts`. Tests de anclaje añadidos. 5004 intentado (geometría no coincide, stray alto) y revertido. Commit `805425e`.
 - L10: 8017 (126,108 comp01) anclado con núcleo NC y stray=0 (ref=110 overlap=63, refOnly detalle térmico aceptado). 7003,8015 siguen pendientes.
+- L11 (T6 parcial — 2000): contactor bipolar anclado al origen en
+  `app/src/symbols/library.ts` (`anchor: 'origin'`, bornes 1/3 en la fila
+  superior y 2/4 en la inferior, caja 12×15). Geometría medida sobre
+  `componentes01.png` (registro 27,126): conductor superior (p,0)→(p,3), hoja
+  (p,9)→(p−3,3) con pivote en (p,9) y giro `PUSH_BLADE_DEG`, bajada
+  (p,9)→(p,12), y guion mecánico punteado en y=6 de −1,5 a 4,5 (dos tramos de
+  1,75 con hueco de 2,5). Gate: ref=121 overlap=110 refOnly=11 symOnly=258
+  **stray=0**. Override `polesDevice(2000,…)` quitado de `families.ts`. Test
+  nuevo RED→GREEN en `symbol-anchors.test.ts` (22/22). `tsc` limpio.
+  - Hallazgo: la captura de `componentes01` dibuja los polos con el cuerpo en
+    y=0..12 y el guion a y=6, no con el stub superior en −6..−3 que usaba el
+    def viejo de 2001. Sirve de patrón para el resto de la familia.
+  - Suite completa: 4 tests ajenos a 2000 quedan en rojo desde los lotes de
+    8018 y fusibles (aserciones contra geometría vieja); se corrigen aparte.

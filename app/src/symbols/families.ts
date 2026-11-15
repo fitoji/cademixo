@@ -461,7 +461,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   ], { w: 18, h: 15 }, motorLabel('K')),
 
   // contactores e interruptores
-  polesDevice(2000, 2, 'potencia'),
+  // 2000 («Contactor II») vive en `library.ts` calibrado contra
+  // `componentes01`: anclado al origen, con la hoja y el guion medidos.
   polesDevice(2003, 2, 'potencia'),
   polesDevice(2004, 3, 'potencia'),
   polesDevice(2006, 1, 'potencia'),
