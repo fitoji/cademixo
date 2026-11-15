@@ -499,7 +499,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   protectionDevice(6004, 3, { w: 18, h: 15 }, { cadesimu: true, tripSquare: 'all', cadeOrder: true }), // medido
   // Diferencial: toroide cruzando los polos por abajo y disparador arriba a la
   // izquierda, sin celdas ni botón de ensayo (`rele diferencial.png`).
-  protectionDevice(6005, 2, { w: 12, h: 15 }, { cadesimu: true, tripSquare: 'none', torus: true, trip: true, cadeOrder: true }),
+  // 6005 («Diferencial IN») vive en `library.ts` calibrado contra
+  // `componentes01`: caja 12×21 con el toroide medido y el disparo magnético.
   protectionDevice(6006, 3, { w: 18, h: 15 }, { cadesimu: true, tripSquare: 'none', torus: true, trip: true, cadeOrder: true }),
   // El térmico dibuja el gancho de cada polo en su celda (`rele termico.png`):
   // sus conductores son rectos, no llevan cuchilla.

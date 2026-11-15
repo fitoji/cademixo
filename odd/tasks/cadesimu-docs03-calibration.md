@@ -48,7 +48,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [x] T5 bobinas 9001,9002; resistencias 1050,1051: las cuatro ancladas (comp01 stray=0).
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
 - [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
-- [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6010 anclado (comp01 stray=0). Resto pendiente.
+- [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6005 y 6010 anclados (comp01 stray=0). Resto pendiente.
 - [ ] T9 restantes comp01/comp02: 7003,8014,8015,8017 y exclusivos/cruzados (2006,5001,5003,6000,6002,6003,6009,8014, resto comp02).
 - [ ] T10 verificación comp02, diferencial, suite, tsc, push.
 
@@ -141,3 +141,13 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
   `families.ts` (ya no lo usaba nadie); el test de grilla que fijaba el cuerpo
   horizontal se reemplazó por el test de anclaje. `tsc` limpio, suite
   **378/378**. T5 cerrada.
+- L17 (T8 parcial — 6005): «Diferencial IN» anclado al origen (`differential1`,
+  caja 12×21, bornes 1/3 arriba y 2/4 en la fila 18). Medido sobre
+  `componentes01` (registro 183,102): dos polos con el patrón de siempre,
+  toroide de (0,12) a (6,15) con un arco por lado (radio 1,52 → panza 1,75) y
+  el disparo magnético (−8,4)-(−4,8) con acometida en y=6 y punteado en x=−6.
+  Gate: ref=379 overlap=358 refOnly=21 **stray=0** al primer intento.
+  - Ojo con los arcos: `shapesBounds` los acota como punto final + radio, por
+    eso el ancho declarado llega a 7,52 y no a 7,25 como la captura.
+  - El test de «cuchilla de CADeSimu» exigía el segmento escrito de la punta al
+    pivote; ahora acepta los dos órdenes. `tsc` limpio, suite **379/379**.

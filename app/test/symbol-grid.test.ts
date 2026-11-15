@@ -588,7 +588,12 @@ test('el diferencial y el disyuntor usan la cuchilla de CADeSimu', () => {
     const ds = shapes.map((s) => s.d);
     for (let i = 0; i < n; i++) {
       const x = i * 6;
-      assert.ok(ds.includes(`M${x - 3} 3L${x} 9`), `${code}: falta la cuchilla del polo ${x}`);
+      // El segmento puede escribirse del pivote a la punta o al revés; las defs
+      // calibradas lo dibujan desde el pivote (p,9) hacia la punta (p−3,3).
+      assert.ok(
+        ds.includes(`M${x - 3} 3L${x} 9`) || ds.includes(`M${x} 9L${x - 3} 3`),
+        `${code}: falta la cuchilla del polo ${x}`,
+      );
     }
     assert.equal(shapes.filter((s) => s.fill).length, 0, `${code}: no lleva cuadro relleno`);
   }

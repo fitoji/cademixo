@@ -420,6 +420,56 @@ const resistor3: SymbolDef = {
   },
 };
 
+/**
+ * Diferencial IN (el 6005), anclado al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png` (S=4, OX=-17, OY=-101), registro
+ * `*6005#-F##1#3#2#4####*…*183*102*…*-21*-3*12*21*`: dos polos con el patrón de
+ * siempre (conductor 0→3, hoja (p,9)→(p−3,3), bajada 9→12), el toroide del
+ * diferencial de (0,12) a (6,15) con un arco a cada lado (radio 1,52, panza de
+ * 1,75) y el disparo magnético a la izquierda, enlazado por el punteado de x=−6.
+ */
+const differential1: SymbolDef = {
+  code: 6005,
+  name: 'Diferencial IN',
+  group: 'proteccion',
+  pins: polesInCadeOrder(2, { w: 12, h: 21 }),
+  anchor: 'origin',
+  originPins: [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '2', x: 0, y: 18 },
+    { name: '4', x: 6, y: 18 },
+  ],
+  size: { w: 12, h: 21 },
+  shapes() {
+    return [
+      ...[0, 6].flatMap((p) => [
+        { d: line(p, 0, p, 3) },
+        { d: line(p, 9, p - 3, 3), blade: { px: p, py: 9, deg: PUSH_BLADE_DEG } },
+        { d: line(p, 9, p, 12) },
+      ]),
+      // Toroide del diferencial, con un arco a cada lado.
+      { d: rect(0, 12, 6, 3) },
+      { d: 'M0 12A1.52 1.52 0 0 0 0 15', thin: true },
+      { d: 'M6 12A1.52 1.52 0 0 1 6 15', thin: true },
+      // Disparo magnético y su acometida.
+      { d: rect(-8, 4, 4, 4) },
+      { d: line(-6, 4, -6, 8) },
+      { d: line(-10, 6, -2.25, 6) },
+      { d: line(-10, 4, -10, 8) },
+      // Enlace mecánico punteado hasta el toroide.
+      { d: line(-6, 8.25, -6, 9.75) },
+      { d: line(-6, 12.25, -6, 13) },
+      { d: line(-6, 13.25, -5.25, 13.25) },
+      { d: line(-3, 13.25, -1.75, 13.25) },
+      // Bajadas a los bornes inferiores.
+      { d: line(0, 15, 0, 18) },
+      { d: line(6, 15, 6, 18) },
+    ];
+  },
+};
+
 /** Bornes de los aparatos tripolares: 1-3-5 arriba, 2-4-6 abajo. */
 const SIX_POLES: SymbolPin[] = [
   left(0.18, '1'),
@@ -1275,6 +1325,7 @@ const ALL: SymbolDef[] = [
   powerContact,
   powerContact2,
   breakerMotor1,
+  differential1,
   resistor1,
   resistor3,
   coilBistable,

@@ -445,6 +445,35 @@ test('la resistencia III (1051) repite el cuerpo de la 1050 sobre las columnas 0
   }
 });
 
+test('el diferencial IN (6005) va anclado al origen con el toroide medido en docs/03', () => {
+  const sym = resolveSymbol(6005, ['1', '3', '2', '4']);
+  assert.equal(sym.anchor, 'origin', 'el 6005 migró a anclaje al origen');
+  assert.deepEqual(sym.originPins, [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '2', x: 0, y: 18 },
+    { name: '4', x: 6, y: 18 },
+  ]);
+
+  // Medido sobre `componentes01` (registro `*…*183*102*…*-21*-3*12*21*`): dos
+  // polos, toroide del diferencial de (0,12) a (6,15) con arcos a los lados y
+  // disparo magnético a la izquierda.
+  const shapes = sym.shapes(12, 21);
+  const ink = shapesBounds(shapes);
+  assert.ok(near(ink.minX, -10) && near(ink.maxX, 7.52), `el diferencial mide ${ink.minX}..${ink.maxX} de ancho`);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 18), `el diferencial mide ${ink.minY}..${ink.maxY} de alto`);
+  for (const p of [0, 6]) {
+    assert.ok(shapes.some((s) => s.d === `M${p} 0L${p} 3`), `falta el conductor superior del polo ${p}`);
+    assert.ok(shapes.some((s) => s.d === `M${p} 9L${p - 3} 3` && s.blade), `falta la hoja del polo ${p}`);
+    assert.ok(shapes.some((s) => s.d === `M${p} 15L${p} 18`), `falta la bajada del polo ${p}`);
+  }
+  assert.ok(shapes.some((s) => s.d === 'M0 12H6V15H0Z'), 'falta el toroide del diferencial');
+  assert.ok(shapes.some((s) => s.d === 'M0 12A1.52 1.52 0 0 0 0 15' && s.thin), 'falta el arco izquierdo');
+  assert.ok(shapes.some((s) => s.d === 'M6 12A1.52 1.52 0 0 1 6 15' && s.thin), 'falta el arco derecho');
+  assert.ok(shapes.some((s) => s.d === 'M-8 4H-4V8H-8Z'), 'falta el disparo magnético');
+  assert.ok(shapes.some((s) => s.d === 'M-10 6L-2.25 6'), 'falta la acometida del disparo');
+});
+
 test('los bornes de los símbolos anclados caen donde el archivo los conecta', () => {
   // El criterio real del anclaje: el símbolo tiene que estar sobre sus cables.
   for (const rec of project.records) {
