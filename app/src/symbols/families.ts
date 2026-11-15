@@ -444,7 +444,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   def(1007, 'motor', motorDC, motorBody(motorDC), { w: 24, h: 24 }, motorLabel('M')),
 
   // potencia
-  resistor(1050, 1),
+  // 1050 («Resistencia I») vive en `library.ts` calibrada contra
+  // `componentes01`: es vertical (caja 6×18), no el cuerpo horizontal de antes.
   resistor(1051, 3),
   def(1052, 'potencia', motorTriYD, (w, h) => [
     { d: circle(w / 2, h * 0.35, Math.min(w, h) * 0.16), thin: true },

@@ -296,6 +296,34 @@ const breakerMotor1: SymbolDef = {
   },
 };
 
+/**
+ * Resistencia I (la 1050), anclada al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png` (S=4, OX=-17, OY=-101), registro
+ * `*1050#-R##1#2######*…*12*75*…*-12*-3*6*18*`: el cuerpo es un rectángulo
+ * vertical de 2,75 de ancho pegado al conductor, de y=3 a y=12, con los bornes
+ * en la fila superior y en la inferior (y=15).
+ */
+const resistor1: SymbolDef = {
+  code: 1050,
+  name: 'Resistencia I',
+  group: 'potencia',
+  pins: [left(0.5, '1'), right(0.5, '2')],
+  anchor: 'origin',
+  originPins: [
+    { name: '1', x: 0, y: 0 },
+    { name: '2', x: 0, y: 15 },
+  ],
+  size: { w: 6, h: 18 },
+  shapes() {
+    return [
+      { d: line(0, 0, 0, 3) },
+      { d: rect(-1.5, 3, 2.75, 9) },
+      { d: line(0, 12, 0, 15) },
+    ];
+  },
+};
+
 /** Bornes de los aparatos tripolares: 1-3-5 arriba, 2-4-6 abajo. */
 const SIX_POLES: SymbolPin[] = [
   left(0.18, '1'),
@@ -1151,6 +1179,7 @@ const ALL: SymbolDef[] = [
   powerContact,
   powerContact2,
   breakerMotor1,
+  resistor1,
   feedL,
   feedN,
   feedLN,

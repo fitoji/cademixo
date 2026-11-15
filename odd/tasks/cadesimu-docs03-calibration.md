@@ -45,7 +45,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [x] T2 lote 1 (S4,S5,S6): 9009 anclada (commit `504cc58`, stray=0).
 - [~] T3 lote 2 contactos auxiliares/conmutadores: 7000,7001 anclados (`ede08c3`). 7002,8018 anclados (`dd7d5b1`). 8017 anclado (comp01 stray=0). 7003,8015,8014 pendientes.
 - [ ] T4 alimentaciones 3002-3005,3011.
-- [ ] T5 bobinas 9001,9002; resistencias 1050,1051.
+- [~] T5 bobinas 9001,9002; resistencias 1050,1051: 1050 anclada (comp01 stray=0). 9001,9002,1051 pendientes.
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
 - [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
 - [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6010 anclado (comp01 stray=0). Resto pendiente.
@@ -114,3 +114,11 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
   - Tests: 3 aserciones de protección/grilla afirmaban que 6010 vive en la
     familia; se reescribieron contra `symbolFor()` porque el S7 pide def propia,
     no pertenencia a la familia. `tsc` limpio y suite **375/375**.
+- L14 (T5 parcial — 1050): Resistencia I anclada al origen (`resistor1`, caja
+  6×18, bornes 1/2 en y=0/y=15). Medido sobre `componentes01` (registro 12,75):
+  cuerpo vertical de 2,75 de ancho de (−1,5,3) a (1,25,12) con conductor de 0 a
+  3 arriba y de 12 a 15 abajo. Gate: ref=121 overlap=116 refOnly=5 **stray=0**.
+  - La familia la dibujaba **horizontal** (caja 18×12) porque no había
+    referencia; ahora la hay. `resistor(1050,1)` quitado de `families.ts`; la
+    1051 sigue con el cuerpo horizontal y sin evidencia.
+  - Test de grilla renombrado a la 1051. `tsc` limpio y suite **376/376**.

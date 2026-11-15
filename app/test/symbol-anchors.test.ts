@@ -358,6 +358,25 @@ test('el disyuntor motor (6010) va anclado al origen con su disparo magnético m
   assert.ok(shapes.some((s) => s.d === 'M0 18L0 21'), 'falta la bajada al borne inferior');
 });
 
+test('la resistencia I (1050) va anclada al origen, vertical, como en docs/03', () => {
+  const sym = resolveSymbol(1050, ['1', '2']);
+  assert.equal(sym.anchor, 'origin', 'la 1050 migró a anclaje al origen');
+  assert.deepEqual(sym.originPins, [
+    { name: '1', x: 0, y: 0 },
+    { name: '2', x: 0, y: 15 },
+  ]);
+
+  // Medido sobre `componentes01` (registro `*…*12*75*…*-12*-3*6*18*`): cuerpo
+  // vertical de 2,75 de ancho pegado al conductor, de y=3 a y=12.
+  const shapes = sym.shapes(6, 18);
+  const ink = shapesBounds(shapes);
+  assert.ok(near(ink.minX, -1.5) && near(ink.maxX, 1.25), `la resistencia mide ${ink.minX}..${ink.maxX} de ancho`);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 15), `la resistencia mide ${ink.minY}..${ink.maxY} de alto`);
+  assert.ok(shapes.some((s) => s.d === 'M0 0L0 3'), 'falta la conductora superior');
+  assert.ok(shapes.some((s) => s.d === 'M-1.5 3H1.25V12H-1.5Z'), 'falta el cuerpo medido');
+  assert.ok(shapes.some((s) => s.d === 'M0 12L0 15'), 'falta la conductora inferior');
+});
+
 test('los bornes de los símbolos anclados caen donde el archivo los conecta', () => {
   // El criterio real del anclaje: el símbolo tiene que estar sobre sus cables.
   for (const rec of project.records) {
