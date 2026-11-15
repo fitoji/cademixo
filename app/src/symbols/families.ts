@@ -508,7 +508,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   // El térmico dibuja el gancho de cada polo en su celda (`rele termico.png`):
   // sus conductores son rectos, no llevan cuchilla.
   protectionDevice(6007, 3, { w: 21, h: 15 }, { body: true, hook: true, straight: true, cadeOrder: true }), // medido
-  protectionDevice(6008, 2, { w: 12, h: 15 }, { body: true, hook: true, cadeOrder: true }),
+  // 6008 («Disyuntor II») vive en `library.ts` calibrado contra
+  // `componentes01`, anclado al origen.
   // Disyuntor III: caja de dos filas, gancho arriba y triángulo abajo, con el
   // accionamiento manual a la izquierda (`disyuntor trifasico.png`).
   protectionDevice(6009, 3, { w: 18, h: 24 }, { cadesimu: true, tripSquare: 'none', body: true, hook: true, triangle: true, manual: true, cadeOrder: true }), // medido

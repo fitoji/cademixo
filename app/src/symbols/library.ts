@@ -1135,14 +1135,70 @@ const auto1: SymbolDef = onePole(6000, 'Automático I');
 // 6010 («Disyuntor I») se midió contra `componentes01`: vive arriba como
 // `breakerMotor1`, anclado al origen y con el disparo magnético propio.
 
+/**
+ * Disyuntor II (6008), anclado al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png` (S=4, OX=-17, OY=-101), registro
+ * `*6008#-Q##1#3#2#4####*…*195*39*…*-21*-3*12*24*`: dos polos (columnas 0/6)
+ * con la cuchilla habitual, disparo magnético (-10,4)-( -4,8) con acometida en
+ * y=6, doble cuerpo térmico (-3,12)-(9,18) con ganchos en 12,75-14 y marcas en
+ * 16-16,5, y enlace mecánico punteado en x=-6.
+ */
 const disyuntor2: SymbolDef = {
   code: 6008,
   name: 'Disyuntor II',
   group: 'proteccion',
-  pins: [left(0.3, '1'), left(0.7, '3'), right(0.3, '2'), right(0.7, '4')],
-  size: { w: 12, h: 15 },
-  shapes(w, h) {
-    return [...contact(w, h * 0.3, false), ...contact(w, h * 0.7, false)];
+  pins: polesInCadeOrder(2, { w: 12, h: 24 }),
+  anchor: 'origin',
+  originPins: [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '2', x: 0, y: 21 },
+    { name: '4', x: 6, y: 21 },
+  ],
+  size: { w: 12, h: 24 },
+  shapes() {
+    return [
+      // Polos: conductor superior, hoja y bajada hasta la caja.
+      ...[0, 6].flatMap((p) => [
+        { d: line(p, 0, p, 3) },
+        { d: line(p, 9, p - 3, 3), blade: { px: p, py: 9, deg: PUSH_BLADE_DEG } },
+        { d: line(p, 9, p, 12) },
+      ]),
+      // Disparo magnético: caja con acometida.
+      { d: line(-10, 4, -10, 8) },
+      { d: line(-10, 4, -10, 4) },
+      { d: line(-8, 4, -4, 4) },
+      { d: line(-4, 4, -4, 8) },
+      { d: line(-8, 8, -4, 8) },
+      { d: line(-8, 4, -8, 4.25) },
+      { d: line(-6, 4.25, -6, 4.25) },
+      { d: line(-8, 7.75, -8, 8) },
+      { d: line(-6, 7.75, -6, 8) },
+      { d: line(-10, 6, -2.25, 6) },
+      // Enlace mecánico punteado hasta la caja.
+      { d: line(-6, 8.25, -6, 8.75) },
+      { d: line(-6, 10, -6, 11) },
+      { d: line(-6, 12.25, -6, 13.25) },
+      { d: line(-6, 13.25, -5.25, 13.25) },
+      { d: line(-4, 13.25, -3, 13.25) },
+      // Cuerpo térmico doble.
+      { d: rect(-3, 12, 12, 6) },
+      { d: line(-3, 15, 9, 15) },
+      // Ganchos del térmico (fila superior del cuerpo).
+      { d: line(0, 12, 0, 12.75) },
+      { d: 'M0 12.75H1.25V14H0', thin: true },
+      { d: line(0, 14, 0, 15) },
+      { d: line(6, 12, 6, 12.75) },
+      { d: 'M6 12.75H7.25V14H6', thin: true },
+      { d: line(6, 14, 6, 15) },
+      // Marcas del térmico (fila inferior del cuerpo).
+      { d: line(1.25, 16, 1.25, 16.5) },
+      { d: line(7.25, 16, 7.25, 16.5) },
+      // Bajadas a bornes inferiores.
+      { d: line(0, 18, 0, 21) },
+      { d: line(6, 18, 6, 21) },
+    ];
   },
 };
 

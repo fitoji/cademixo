@@ -611,3 +611,19 @@ test('el contacto final de carrera conmutado (8015) va anclado al origen', () =>
   assert.ok(shapes.some((s) => s.d === 'M0 9L0 12'));
   assert.ok(shapes.some((s) => s.d === 'M6 9L6 12'));
 });
+
+test('el disyuntor II (6008) va anclado al origen', () => {
+  const sym = resolveSymbol(6008, ['1', '3', '2', '4']);
+  assert.equal(sym.anchor, 'origin');
+  assert.deepEqual(sym.originPins, [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '2', x: 0, y: 21 },
+    { name: '4', x: 6, y: 21 },
+  ]);
+  assert.deepEqual(sym.size, { w: 12, h: 24 });
+  const shapes = sym.shapes(12, 24);
+  assert.ok(shapes.some((s) => s.d === 'M0 0L0 3'));
+  assert.ok(shapes.some((s) => s.d === 'M6 0L6 3'));
+  assert.ok(shapes.some((s) => s.d === 'M-3 12H9V18H-3Z'));
+});
