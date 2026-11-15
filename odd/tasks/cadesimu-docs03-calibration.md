@@ -47,7 +47,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [x] T4 alimentaciones 3002-3005,3011: las cinco ancladas (comp01 stray=0).
 - [x] T5 bobinas 9001,9002; resistencias 1050,1051: las cuatro ancladas (comp01 stray=0).
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
-- [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003 anclados (comp02 stray=0). 5004 bloqueado (8 bornes).
+- [~] T7 fusibles 5000-5004: 5000,5001,5002,5003 anclados (comp02 stray=0). 5004 bloqueado (8 bornes).
 - [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6005, 6008 y 6010 anclados (comp01 stray=0). 6006 medido pero bloqueado por la inserción de 8 bornes. Resto pendiente.
 - [~] T9 restantes comp02/exclusivos: 8017 anclado (comp02 stray=0). Pendientes 8014,8016,8018,8019,2006,6000,6001,6002,6003,6009,6011 y resto comp02.
 - [ ] T10 verificación comp02, diferencial, suite, tsc, push.
@@ -216,3 +216,10 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
   actuador izquierdo (y=-12..-0,25); `originPins` (-5,75,0)/(-5,75,12). Comp02-only
   en cad. Gate: ref=136 ov=132 stray=0. Test existente actualizado en
   `symbol-anchors.test.ts`. `tsc` limpio, suite **384/384**.
+
+- L24 (T7 — fusibles comp02): 5000,5002 recalibrados/anclados al origen en
+  `library.ts` sobre `componentes02` (S=4, OX=-2, OY=-60, stray=0). Cuerpos
+  superiores y conductores medidos; mecanismo inferior refOnly (misma estrategia
+  que 5001,5003). Gates: 5000 (15,57) ref=133 ov=73 stray=0; 5002 (54,57)
+  ref=266 ov=146 stray=0. Tests actualizados en `symbol-anchors.test.ts` y
+  `protection-symbols.test.ts`. `tsc` limpio, suite **384/384**.
