@@ -581,3 +581,33 @@ test('el contacto del térmico (8017) va anclado al origen', () => {
     { name: '96', x: 0, y: 12 },
   ]);
 });
+
+test('el contacto auxiliar conmutado (7003) va anclado al origen', () => {
+  const sym = resolveSymbol(7003, ['11', '12', '14']);
+  assert.equal(sym.anchor, 'origin');
+  assert.deepEqual(sym.originPins, [
+    { name: '11', x: 3, y: 0 },
+    { name: '12', x: 0, y: 12 },
+    { name: '14', x: 6, y: 12 },
+  ]);
+  assert.deepEqual(sym.size, { w: 12, h: 15 });
+  const shapes = sym.shapes(12, 15);
+  assert.ok(shapes.some((s) => s.d === 'M3 0L3 3.25'));
+  assert.ok(shapes.some((s) => s.d === 'M0 8.25L0 12'));
+  assert.ok(shapes.some((s) => s.d === 'M6 8.25L6 12'));
+});
+
+test('el contacto final de carrera conmutado (8015) va anclado al origen', () => {
+  const sym = resolveSymbol(8015, ['11', '12', '14']);
+  assert.equal(sym.anchor, 'origin');
+  assert.deepEqual(sym.originPins, [
+    { name: '11', x: 3, y: 0 },
+    { name: '12', x: 0, y: 12 },
+    { name: '14', x: 6, y: 12 },
+  ]);
+  assert.deepEqual(sym.size, { w: 12, h: 15 });
+  const shapes = sym.shapes(12, 15);
+  assert.ok(shapes.some((s) => s.d === 'M3 0L3 3.25'));
+  assert.ok(shapes.some((s) => s.d === 'M0 9L0 12'));
+  assert.ok(shapes.some((s) => s.d === 'M6 9L6 12'));
+});

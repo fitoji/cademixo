@@ -43,7 +43,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
   - comp01: `S=4, OX=-17, OY=-101` (`px=cad*4+(-17,-101)`), verificado stray=0 en 3000/3001.
   - comp02: `S=4, OX=-2, OY=-60` verificado stray=0 en 3000; 6001/2001 no cierran con defs actuales (requiere revisión).
 - [x] T2 lote 1 (S4,S5,S6): 9009 anclada (commit `504cc58`, stray=0).
-- [~] T3 lote 2 contactos auxiliares/conmutadores: 7000,7001 anclados (`ede08c3`). 7002,8018 anclados (`dd7d5b1`). 8017 anclado (comp01 stray=0). 7003,8015,8014 pendientes.
+- [~] T3 lote 2 contactos auxiliares/conmutadores: 7000,7001 anclados (`ede08c3`). 7002,8018 anclados (`dd7d5b1`). 8017 anclado (comp01 stray=0). 7003,8015 anclados (comp01 stray=0). 8014 pendiente.
 - [ ] T4 alimentaciones 3002-3005,3011.
 - [x] T5 bobinas 9001,9002; resistencias 1050,1051: las cuatro ancladas (comp01 stray=0).
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
@@ -164,3 +164,18 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
     plantilla base de ocho bornes y un retoque al generador de `templates.ts`.
   - La geometría quedó lista igual: `differentialDef(code, name, n)` sirve para
     6005 y para 6006 en cuanto exista esa base.
+
+- L19 (T3 parcial — 7003 y 8015): dos contactos conmutados de 3 bornes
+  anclados al origen sobre `componentes01` (stray=0, actuador izquierdo como
+  refOnly aceptable).
+  - 7003 «Contacto auxiliar conmutado» (117,78, caja 12×15, bornes 11@3,0 /
+    12@0,12 / 14@6,12): común bajando a y=3,25, hoja (3,3.25)→(1,8), fijo NC
+    con pestaña (0,8.25)-(1,8.25)-(0,8.25)-(0,12) y fijo NO con pestaña
+    (6,8.25)-(4.75,8.25)-(6,8.25)-(6,12). Gate ref=82 overlap=73 refOnly=9
+    **stray=0**.
+  - 8015 «Contacto final de carrera conmutado» (162,36, misma caja/bornes):
+    núcleo de contacto similar pero el fijo NO baja directo desde y=9 (sin
+    pestaña horizontal a 8,25) y la hoja llega a (0.75,8.5). Gate ref=79
+    overlap=61 refOnly=18 **stray=0**. Overrides `contactDevice(7003,…)` y
+    `contactDevice(8015,…)` quitados de `families.ts`. `tsc` limpio, suite
+    **381/381**.

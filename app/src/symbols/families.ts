@@ -522,7 +522,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   defPoles(6020, 'proteccion', 1, (w, h) => verticalPoles(w, h, 1), { w: 12, h: 15 }),
 
   // mando: contactos y temporizadores
-  contactDevice(7003, 'CO', 'mando'),
+  // 7003 («Contacto auxiliar conmutado») vive en `library.ts` calibrado
+  // contra `componentes01`, anclado al origen.
   contactDevice(7004, 'NA', 'mando', true),
   contactDevice(7005, 'NC', 'mando', true),
   contactDevice(7006, 'NANC', 'mando', true, { w: 6, h: 18 }),
@@ -548,7 +549,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   contactDevice(8009, 'NC', 'senalizacion'),
   contactDevice(8011, 'CO', 'senalizacion'),
   contactDevice(8014, 'NANC', 'senalizacion', false, { w: 6, h: 18 }),
-  contactDevice(8015, 'CO', 'senalizacion'),
+  // 8015 («Conmutador 2 posiciones») vive en `library.ts` calibrado contra
+  // `componentes01`, anclado al origen.
   contactDevice(8100, 'NA', 'senalizacion'),
   contactDevice(10050, 'NA', 'mando'),
   contactDevice(10051, 'NC', 'mando'),

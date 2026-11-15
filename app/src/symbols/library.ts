@@ -480,6 +480,70 @@ const differential1: SymbolDef = differentialDef(6005, 'Diferencial IN', 2);
 // inserción. El dibujo ya está medido (cuatro polos, caja 24×21, toroide de
 // 0 a 18) y se puede cablear en cuanto exista una base de ocho bornes.
 
+/**
+ * Contacto auxiliar conmutado (7003), anclado al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png` (S=4, OX=-17, OY=-101), registro
+ * `*7003#-K##11#12#14#####*…*117*78*…*-12*-3*12*15*`: común 11 arriba en x=3,
+ * fijos 12 (NC, x=0) y 14 (NO, x=6) abajo. El actuador queda a la izquierda
+ * fuera del cuerpo de contacto; se omite (refOnly aceptable) para no introducir
+ * strays sin evidencia geométrica completa.
+ */
+const auxCO7003: SymbolDef = {
+  code: 7003,
+  name: 'Contacto auxiliar conmutado',
+  group: 'mando',
+  pins: [left(0.3, '11'), left(0.7, '12'), right(0.5, '14')],
+  anchor: 'origin',
+  originPins: [
+    { name: '11', x: 3, y: 0 },
+    { name: '12', x: 0, y: 12 },
+    { name: '14', x: 6, y: 12 },
+  ],
+  size: { w: 12, h: 15 },
+  shapes() {
+    return [
+      { d: line(3, 0, 3, 3.25) },
+      { d: line(3, 3.25, 1, 8), blade: { px: 3, py: 3.25, deg: -26 } },
+      { d: line(0, 8.25, 1, 8.25) },
+      { d: line(0, 8.25, 0, 12) },
+      { d: line(6, 8.25, 4.75, 8.25) },
+      { d: line(6, 8.25, 6, 12) },
+    ];
+  },
+};
+
+/**
+ * Conmutador de dos posiciones (8015), anclado al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png`, registro
+ * `*8015#-S##11#12#14#####*…*162*36*…*-18*-3*12*15*`: mismo cuerpo de contacto
+ * conmutado que el 7003; el mecanismo de mando (círculo/brazo a la izquierda)
+ * queda como refOnly.
+ */
+const selectorCO8015: SymbolDef = {
+  code: 8015,
+  name: 'Contacto final de carrera conmutado',
+  group: 'senalizacion',
+  pins: [left(0.3, '11'), left(0.7, '12'), right(0.5, '14')],
+  anchor: 'origin',
+  originPins: [
+    { name: '11', x: 3, y: 0 },
+    { name: '12', x: 0, y: 12 },
+    { name: '14', x: 6, y: 12 },
+  ],
+  size: { w: 12, h: 15 },
+  shapes() {
+    return [
+      { d: line(3, 0, 3, 3.25) },
+      { d: line(3, 3.25, 0.75, 8.5), blade: { px: 3, py: 3.25, deg: -23 } },
+      { d: line(0, 9, 0.75, 8.5) },
+      { d: line(0, 9, 0, 12) },
+      { d: line(6, 9, 6, 12) },
+    ];
+  },
+};
+
 /** Bornes de los aparatos tripolares: 1-3-5 arriba, 2-4-6 abajo. */
 const SIX_POLES: SymbolPin[] = [
   left(0.18, '1'),
@@ -1376,6 +1440,8 @@ const ALL: SymbolDef[] = [
   auto1,
   disyuntor2,
   auxNANC,
+  auxCO7003,
+  selectorCO8015,
   relayCoil,
   timerOn,
   buzzer,
