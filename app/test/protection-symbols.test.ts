@@ -120,19 +120,18 @@ test('el unipolar de la familia se dibuja en el origen, no en el centro de la ca
 });
 
 test('el fusible se dibuja vertical, con el cuerpo alrededor del conductor', () => {
-  // `docs/03/componentes01` (registro 24,63, gate stray=0): rectángulo de 2,5
-  // unidades de ancho centrado en el conductor, de +3 a +9, con el borne '1'
-  // arriba y '2' abajo sobre la misma columna.
+  // `docs/03/componentes02` (registro 15,57, S=4 OX=-2 OY=-60, gate stray=0):
+  // cuerpo superior y conductor medidos; mecanismo inferior refOnly.
   const sym = resolveSymbol(5000, []);
   assert.ok(sym.size);
   const { w, h } = sym.size;
   assert.deepEqual(sym.pins.map((p) => p.name), ['1', '2']);
   assert.deepEqual(sym.originPins, [
-    { name: '1', x: 0, y: 0 },
-    { name: '2', x: 0, y: 12 },
+    { name: '1', x: -5.75, y: 0 },
+    { name: '2', x: -5.75, y: 12 },
   ]);
   const ds = sym.shapes(w, h).map((s) => s.d);
-  assert.ok(ds.includes('M-1.25 3H1.25V9H-1.25Z'), 'el fusible no dibuja el cuerpo medido');
-  assert.ok(ds.includes('M0 0L0 3'), 'falta la conductora superior del fusible');
-  assert.ok(ds.includes('M0 9L0 12'), 'falta la conductora inferior del fusible');
+  assert.ok(ds.includes('M-7.25 -6L-7.25 -3'), 'falta pata izquierda del cuerpo');
+  assert.ok(ds.includes('M-5.75 -6L-5.75 -0.25'), 'falta conductor superior');
+  assert.ok(ds.includes('M-5.75 9L-5.75 11.75'), 'falta conductor inferior');
 });

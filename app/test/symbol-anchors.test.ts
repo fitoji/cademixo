@@ -556,20 +556,26 @@ test('el fusible monofásico (5000) va anclado al origen', () => {
   const sym = resolveSymbol(5000, ['1', '2']);
   assert.equal(sym.anchor, 'origin');
   assert.deepEqual(sym.originPins, [
-    { name: '1', x: 0, y: 0 },
-    { name: '2', x: 0, y: 12 },
+    { name: '1', x: -5.75, y: 0 },
+    { name: '2', x: -5.75, y: 12 },
   ]);
+  const sh = sym.shapes(6, 15);
+  assert.ok(sh.some((x) => x.d === 'M-5.75 -6L-5.75 -0.25'), '5000 stem');
+  assert.ok(sh.some((x) => x.d === 'M-5.75 9L-5.75 11.75'), '5000 lower');
 });
 
 test('el fusible II (5002) va anclado al origen', () => {
   const sym = resolveSymbol(5002, ['1', '3', '2', '4']);
   assert.equal(sym.anchor, 'origin');
   assert.deepEqual(sym.originPins, [
-    { name: '1', x: 0, y: 0 },
-    { name: '3', x: 6, y: 0 },
-    { name: '2', x: 0, y: 12 },
-    { name: '4', x: 6, y: 12 },
+    { name: '1', x: -5.75, y: 0 },
+    { name: '3', x: 0.25, y: 0 },
+    { name: '2', x: -5.75, y: 12 },
+    { name: '4', x: 0.25, y: 12 },
   ]);
+  const sh = sym.shapes(12, 15);
+  assert.ok(sh.some((x) => x.d === 'M-5.75 -6L-5.75 -0.25'), '5002 stem left');
+  assert.ok(sh.some((x) => x.d === 'M0.25 -6L0.25 -0.25'), '5002 stem right');
 });
 
 
