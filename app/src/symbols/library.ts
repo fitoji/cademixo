@@ -324,6 +324,70 @@ const resistor1: SymbolDef = {
   },
 };
 
+/**
+ * Bobina biestable (la 9001), anclada al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png` (S=4, OX=-17, OY=-101), registro
+ * `*9001#-K##A1#B1#A2#####*…*21*105*…*-15*-3*9*15*`: dos patas de entrada en
+ * x=−3 y x=3 que bajan hasta el cuerpo, rectángulo de (−4,4) a (4,8) con las
+ * dos diagonales de la bobina doble, y la pata de salida en el centro hasta la
+ * fila inferior (y=12).
+ */
+const coilBistable: SymbolDef = {
+  code: 9001,
+  name: 'Bobina biestable',
+  group: 'mando',
+  pins: [left(0.4, 'A1'), left(0.6, 'B1'), right(0.5, 'A2')],
+  anchor: 'origin',
+  originPins: [
+    { name: 'A1', x: -3, y: 0 },
+    { name: 'B1', x: 3, y: 0 },
+    { name: 'A2', x: 0, y: 12 },
+  ],
+  size: { w: 9, h: 15 },
+  shapes() {
+    return [
+      { d: line(-3, 0, -3, 4) },
+      { d: line(3, 0, 3, 4) },
+      { d: rect(-4, 4, 8, 4) },
+      { d: line(-1.25, 4.25, -3, 7.75), thin: true },
+      { d: line(1, 4.25, 2.75, 7.75), thin: true },
+      { d: line(0, 8, 0, 12) },
+    ];
+  },
+};
+
+/**
+ * Telerruptor (el 9002), anclado al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png`, registro
+ * `*9002#-K##A1#A2######*…*42*108*…*-15*-3*9*15*`: conductor de 0 a 4,
+ * rectángulo de (−4,4) a (4,8) con el chevrón biestable pegado al borde
+ * izquierdo y la barra vertical en x=−1, y salida hasta la fila inferior.
+ */
+const telerruptor: SymbolDef = {
+  code: 9002,
+  name: 'Telerruptor',
+  group: 'mando',
+  pins: [left(0.3, 'A1'), right(0.3, 'A2')],
+  anchor: 'origin',
+  originPins: [
+    { name: 'A1', x: 0, y: 0 },
+    { name: 'A2', x: 0, y: 12 },
+  ],
+  size: { w: 9, h: 15 },
+  shapes() {
+    return [
+      { d: line(0, 0, 0, 4) },
+      { d: rect(-4, 4, 8, 4) },
+      { d: line(-1, 4.25, -4, 6), thin: true },
+      { d: line(-4, 6, -1, 7.75), thin: true },
+      { d: line(-1, 4.25, -1, 7.75), thin: true },
+      { d: line(0, 8, 0, 12) },
+    ];
+  },
+};
+
 /** Bornes de los aparatos tripolares: 1-3-5 arriba, 2-4-6 abajo. */
 const SIX_POLES: SymbolPin[] = [
   left(0.18, '1'),
@@ -1180,6 +1244,8 @@ const ALL: SymbolDef[] = [
   powerContact2,
   breakerMotor1,
   resistor1,
+  coilBistable,
+  telerruptor,
   feedL,
   feedN,
   feedLN,

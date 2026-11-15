@@ -377,6 +377,50 @@ test('la resistencia I (1050) va anclada al origen, vertical, como en docs/03', 
   assert.ok(shapes.some((s) => s.d === 'M0 12L0 15'), 'falta la conductora inferior');
 });
 
+test('la bobina biestable (9001) va anclada al origen con sus dos entradas', () => {
+  const sym = resolveSymbol(9001, ['A1', 'B1', 'A2']);
+  assert.equal(sym.anchor, 'origin', 'la 9001 migró a anclaje al origen');
+  assert.deepEqual(sym.originPins, [
+    { name: 'A1', x: -3, y: 0 },
+    { name: 'B1', x: 3, y: 0 },
+    { name: 'A2', x: 0, y: 12 },
+  ]);
+
+  // Medido sobre `componentes01` (registro `*…*21*105*…*-15*-3*9*15*`): dos
+  // patas de entrada en x=−3 y x=3, cuerpo de (−4,4) a (4,8) y salida centrada.
+  const shapes = sym.shapes(9, 15);
+  const ink = shapesBounds(shapes);
+  assert.ok(near(ink.minX, -4) && near(ink.maxX, 4), `la bobina mide ${ink.minX}..${ink.maxX} de ancho`);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 12), `la bobina mide ${ink.minY}..${ink.maxY} de alto`);
+  assert.ok(shapes.some((s) => s.d === 'M-3 0L-3 4'), 'falta la pata de A1');
+  assert.ok(shapes.some((s) => s.d === 'M3 0L3 4'), 'falta la pata de B1');
+  assert.ok(shapes.some((s) => s.d === 'M-4 4H4V8H-4Z'), 'falta el cuerpo de la bobina');
+  assert.ok(shapes.some((s) => s.d === 'M-1.25 4.25L-3 7.75' && s.thin), 'falta la diagonal izquierda');
+  assert.ok(shapes.some((s) => s.d === 'M1 4.25L2.75 7.75' && s.thin), 'falta la diagonal derecha');
+  assert.ok(shapes.some((s) => s.d === 'M0 8L0 12'), 'falta la salida de A2');
+});
+
+test('el telerruptor (9002) va anclado al origen con el chevrón biestable', () => {
+  const sym = resolveSymbol(9002, ['A1', 'A2']);
+  assert.equal(sym.anchor, 'origin', 'el 9002 migró a anclaje al origen');
+  assert.deepEqual(sym.originPins, [
+    { name: 'A1', x: 0, y: 0 },
+    { name: 'A2', x: 0, y: 12 },
+  ]);
+
+  // Medido sobre `componentes01` (registro `*…*42*108*…*-15*-3*9*15*`).
+  const shapes = sym.shapes(9, 15);
+  const ink = shapesBounds(shapes);
+  assert.ok(near(ink.minX, -4) && near(ink.maxX, 4), `el telerruptor mide ${ink.minX}..${ink.maxX} de ancho`);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 12), `el telerruptor mide ${ink.minY}..${ink.maxY} de alto`);
+  assert.ok(shapes.some((s) => s.d === 'M0 0L0 4'), 'falta el conductor de entrada');
+  assert.ok(shapes.some((s) => s.d === 'M-4 4H4V8H-4Z'), 'falta el cuerpo');
+  assert.ok(shapes.some((s) => s.d === 'M-1 4.25L-4 6' && s.thin), 'falta el chevrón de subida');
+  assert.ok(shapes.some((s) => s.d === 'M-4 6L-1 7.75' && s.thin), 'falta el chevrón de bajada');
+  assert.ok(shapes.some((s) => s.d === 'M-1 4.25L-1 7.75' && s.thin), 'falta la barra del chevrón');
+  assert.ok(shapes.some((s) => s.d === 'M0 8L0 12'), 'falta la salida');
+});
+
 test('los bornes de los símbolos anclados caen donde el archivo los conecta', () => {
   // El criterio real del anclaje: el símbolo tiene que estar sobre sus cables.
   for (const rec of project.records) {

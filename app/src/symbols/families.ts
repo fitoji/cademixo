@@ -578,11 +578,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   // bobinas y temporizadores
   // (el 9000 ya no va por familia: la def medida y anclada al origen vive en
   // library.ts, como la lámpara y los pulsadores)
-  coilDevice(9001, 'K'),
-  def(9002, 'mando', [left(0.3, 'A1'), right(0.3, 'A2'), left(0.7, '1'), right(0.7, '2')], (w, h) => [
-    { d: rect(w * 0.1, h * 0.1, w * 0.8, h * 0.8) },
-    ...contact(w, h * 0.72, false),
-  ], { w: 15, h: 15 }, motorLabel('K')),
+  // 9001 («Bobina biestable») y 9002 («Telerruptor») se midieron contra
+  // `componentes01` y viven en `library.ts`, ancladas al origen.
   coilDevice(9005, 'KT', 'off'),
   coilDevice(9006, 'KT', 'both'),
   coilDevice(9007, 'KT', 'flash'),

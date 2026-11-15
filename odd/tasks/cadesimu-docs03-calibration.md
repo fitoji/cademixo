@@ -45,7 +45,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [x] T2 lote 1 (S4,S5,S6): 9009 anclada (commit `504cc58`, stray=0).
 - [~] T3 lote 2 contactos auxiliares/conmutadores: 7000,7001 anclados (`ede08c3`). 7002,8018 anclados (`dd7d5b1`). 8017 anclado (comp01 stray=0). 7003,8015,8014 pendientes.
 - [ ] T4 alimentaciones 3002-3005,3011.
-- [~] T5 bobinas 9001,9002; resistencias 1050,1051: 1050 anclada (comp01 stray=0). 9001,9002,1051 pendientes.
+- [~] T5 bobinas 9001,9002; resistencias 1050,1051: 1050, 9001 y 9002 ancladas (comp01 stray=0). 1051 pendiente.
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
 - [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
 - [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6010 anclado (comp01 stray=0). Resto pendiente.
@@ -122,3 +122,14 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
     referencia; ahora la hay. `resistor(1050,1)` quitado de `families.ts`; la
     1051 sigue con el cuerpo horizontal y sin evidencia.
   - Test de grilla renombrado a la 1051. `tsc` limpio y suite **376/376**.
+- L15 (T5 — 9001 y 9002): las dos bobinas ancladas al origen en `library.ts`.
+  9001 «Bobina biestable» (caja 9×15, bornes A1(−3,0)/B1(3,0)/A2(0,12)): dos
+  patas de entrada, cuerpo (−4,4)-(4,8) con las diagonales de la bobina doble y
+  salida centrada; gate ref=191 overlap=172 **stray=0**. 9002 «Telerruptor»
+  (bornes A1(0,0)/A2(0,12)): conductor de 0 a 4, cuerpo igual y chevrón
+  biestable pegado al borde izquierdo con barra en x=−1; gate ref=172
+  overlap=163 **stray=0**. `coilDevice(9001)` y la `def` de 9002 quitadas de
+  `families.ts`. `tsc` limpio y suite **378/378**.
+  - Nota: el registro real del 9002 trae **sólo** A1 y A2 (no el contacto 1-2
+    que dibujaba la familia); la def medida se queda con los dos bornes que el
+    archivo escribe.
