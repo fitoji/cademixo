@@ -871,6 +871,64 @@ const flashingLamp: SymbolDef = {
 };
 
 /**
+ * Fusibles 5001/5003 medidos sobre `docs/03/componentes02.cad` /
+ * `docs/cadesimu-svg/reference/componentes02.png` (S=4, OX=-2, OY=-60).
+ * Fusibles seccionadores multipolares: cuerpos arriba del origen y
+ * prolongaciones inferiores hasta los bornes de salida.
+ */
+const fuse5001: SymbolDef = {
+  code: 5001,
+  name: 'Fusible II',
+  group: 'proteccion',
+  pins: [left(0.3, '1'), left(0.7, '3'), right(0.3, '2'), right(0.7, '4')],
+  anchor: 'origin',
+  originPins: [
+    { name: '1', x: -6, y: 0 },
+    { name: '3', x: 0, y: 0 },
+    { name: '2', x: -6, y: 12 },
+    { name: '4', x: 0, y: 12 },
+  ],
+  size: { w: 12, h: 15 },
+  shapes() {
+    return [
+      // Cuerpos superiores (medidos en comp02; refOnly en terminales inferiores).
+      { d: line(-7.25, -6, -7.25, -3) },
+      { d: line(-5.75, -6, -5.75, -0.25) },
+      { d: line(-4.5, -6, -4.5, -3) },
+      { d: line(0.25, -6, 0.25, -0.25) },
+      { d: line(-7.25, -3, -4.75, -3) },
+      { d: line(-0.75, -3, 1, -3) },
+    ];
+  },
+};
+
+const fuse5003: SymbolDef = {
+  code: 5003,
+  name: 'Fusible III',
+  group: 'proteccion',
+  pins: [left(0.18, '1'), left(0.5, '3'), left(0.82, '5'), right(0.18, '2'), right(0.5, '4'), right(0.82, '6')],
+  anchor: 'origin',
+  originPins: [
+    { name: '1', x: -6, y: 0 },
+    { name: '3', x: 0, y: 0 },
+    { name: '5', x: 6, y: 0 },
+    { name: '2', x: -6, y: 12 },
+    { name: '4', x: 0, y: 12 },
+    { name: '6', x: 6, y: 12 },
+  ],
+  size: { w: 18, h: 15 },
+  shapes() {
+    return [-6, 0, 6].flatMap((x) => [
+      // Cuerpos superiores (medidos en comp02; refOnly en mecanismo inferior).
+      { d: line(x - 1.25, -6, x - 1.25, -3) },
+      { d: line(x + 0.25, -6, x + 0.25, -0.25) },
+      { d: line(x + 1.5, -6, x + 1.5, -3) },
+      { d: line(x - 1.25, -3, x + 1.25, -3) },
+    ]);
+  },
+};
+
+/**
  * Fusible monofásico (5000), anclado al origen.
  * Medido sobre `docs/03/componentes01.png` (S=4, OX=-17, OY=-101), en (24,63).
  */
@@ -1494,6 +1552,8 @@ const ALL: SymbolDef[] = [
   feedPos,
   feedDC,
   fuse,
+  fuse5001,
+  fuse5003,
   fuse1,
   fuse2,
   breaker,

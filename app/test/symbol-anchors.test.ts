@@ -645,3 +645,19 @@ test('las alimentaciones 3002,3003,3004,3005,3011 van ancladas al origen con ter
   check(3005, [0, 6, 12], 24);
   check(3011, [0, 6, 12], 18);
 });
+
+test('los fusibles 5001 y 5003 van anclados al origen (comp02)', () => {
+  const f1 = resolveSymbol(5001, []);
+  assert.equal(f1.anchor, 'origin', '5001 anchor');
+  assert.deepEqual(f1.originPins?.map((p) => [p.name, p.x, p.y]), [['1', -6, 0], ['3', 0, 0], ['2', -6, 12], ['4', 0, 12]]);
+  const s1 = f1.shapes(12, 15);
+  assert.ok(s1.some((s) => s.d === 'M-5.75 -6L-5.75 -0.25'), '5001 stem left');
+  assert.ok(s1.some((s) => s.d === 'M0.25 -6L0.25 -0.25'), '5001 stem right');
+
+  const f3 = resolveSymbol(5003, []);
+  assert.equal(f3.anchor, 'origin', '5003 anchor');
+  assert.deepEqual(f3.originPins?.map((p) => [p.name, p.x, p.y]), [['1', -6, 0], ['3', 0, 0], ['5', 6, 0], ['2', -6, 12], ['4', 0, 12], ['6', 6, 12]]);
+  const s3 = f3.shapes(18, 15);
+  assert.ok(s3.some((s) => s.d === 'M-5.75 -6L-5.75 -0.25'), '5003 stem left');
+  assert.ok(s3.some((s) => s.d === 'M6.25 -6L6.25 -0.25'), '5003 stem right');
+});

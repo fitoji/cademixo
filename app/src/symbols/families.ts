@@ -479,9 +479,9 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
 
   // protección
   // 5000 calibrado y anclado en library.ts (docs/03, comp01).
-  defPoles(5001, 'proteccion', 2, (w, h) => fuseBody(w, h, 2), { w: 12, h: 15 }),
+  // 5001 («Fusible II») vive en `library.ts` calibrado contra `componentes02` (stray=0).
   // 5002 calibrado y anclado en library.ts (docs/03, comp01).
-  defPoles(5003, 'proteccion', 3, (w, h) => fuseBody(w, h, 3), { w: 18, h: 15 }),
+  // 5003 («Fusible III») vive en `library.ts` calibrado contra `componentes02` (stray=0).
   defPoles(5005, 'proteccion', 1, (w, h) => verticalPoles(w, h, 1), { w: 12, h: 15 }),
   defPoles(5006, 'proteccion', 2, (w, h) => verticalPoles(w, h, 2), { w: 12, h: 15 }),
   defPoles(5007, 'proteccion', 2, (w, h) => verticalPoles(w, h, 2), { w: 12, h: 15 }),
@@ -637,20 +637,6 @@ export const LINE_SYMBOLS: SymbolDef[] = [4000, 4009, 4010, 4019].map((code) => 
  * el cuerpo va de +2,3 a +9,3 y mide 2,5 unidades de ancho, centrado en el
  * conductor. El borne de arriba es '1' y el de abajo '2'.
  */
-function fuseBody(_w: number, h: number, n = 1): Shape[] {
-  const bottom = gridBottom(h);
-  const half = 1.25;
-  const top = 2.3;
-  const bot = 9.3;
-  const out: Shape[] = [];
-  for (const x of poleColumns(n)) {
-    out.push({ d: line(x, 0, x, top) });
-    out.push({ d: rect(x - half, top, half * 2, bot - top) });
-    out.push({ d: line(x, bot, x, bottom) });
-  }
-  return out;
-}
-
 function testButton(w: number, h: number): Shape[] {
   const r = Math.min(w, h) * 0.1;
   return [{ d: circle(w * 0.82, h * 0.16, r), thin: true }];
