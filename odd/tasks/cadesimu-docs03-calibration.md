@@ -48,7 +48,7 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
 - [ ] T5 bobinas 9001,9002; resistencias 1050,1051.
 - [~] T6 contactores 2000,2006: 2000 anclado (comp01 stray=0). 2006 pendiente (comp02).
 - [~] T7 fusibles 5000-5004: 5000,5002 anclados (comp01 stray=0). 5001,5003,5004 pendientes.
-- [ ] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010.
+- [~] T8 protección 6000,6002,6003,6005,6006,6008,6009,6010: 6010 anclado (comp01 stray=0). Resto pendiente.
 - [ ] T9 restantes comp01/comp02: 7003,8014,8015,8017 y exclusivos/cruzados (2006,5001,5003,6000,6002,6003,6009,8014, resto comp02).
 - [ ] T10 verificación comp02, diferencial, suite, tsc, push.
 
@@ -100,3 +100,17 @@ Branch: `main`. Test runner: `pnpm test` desde `app/`.
   el fusible 5000 va de 3 a 9 y se afirma por `originPins`. `symbol-grid.test.ts`:
   5002 sale del test de caja porque ya está anclado al origen. `tsc` limpio y
   suite **374/374**.
+- L13 (T8 parcial — 6010): disyuntor motor unipolar anclado al origen en
+  `library.ts` (`breakerMotor1`, caja 6×24, bornes 1/2 en y=0/y=21). Medido
+  sobre `componentes01` (registro 156,120): polo en la columna 0 con hoja
+  (0,9)→(−3,3), caja doble (−3,12)-(3,18) con divisoria en y=15, gancho del
+  térmico (0,12,75)…(1,25,14), dos puntos en x=1,25 y disparo magnético:
+  cuadrado (−8,4)-(−4,8) con cruz, acometida en y=6 de −10 a −2,25 y punteado
+  en x=−6 hasta la caja. Gate: ref=363 overlap=342 refOnly=21 **stray=0**.
+  - Trampa encontrada: 6010 tenía **dos** definiciones propias (`disyuntor1` en
+    `ALL` y `protectionDevice` en la familia) que pisaban la nueva; se quitaron
+    ambas. Conviene revisar lo mismo en cada código que se calibre de acá en
+    adelante.
+  - Tests: 3 aserciones de protección/grilla afirmaban que 6010 vive en la
+    familia; se reescribieron contra `symbolFor()` porque el S7 pide def propia,
+    no pertenencia a la familia. `tsc` limpio y suite **375/375**.

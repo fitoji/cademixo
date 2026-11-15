@@ -401,16 +401,16 @@ test('el accionamiento manual se dibuja a la izquierda, con un pie por fila', ()
 // --- códigos de protección con dibujo propio (S7) ----------------------------
 
 test('cada código de protección 6000-6010 tiene símbolo propio (S7)', () => {
-  const missing = Array.from({ length: 11 }, (_, i) => 6000 + i).filter(
-    (code) => !FAMILY_SYMBOLS.some((s) => s.code === code),
-  );
+  // No alcanza con la familia: 6010 se midió contra `componentes01` y vive en
+  // `library.ts`, así que la pregunta es si el código tiene definición propia.
+  const missing = Array.from({ length: 11 }, (_, i) => 6000 + i).filter((code) => !symbolFor(code));
   assert.deepEqual(missing, [], `códigos que caen al dibujo genérico: ${missing.join(', ')}`);
 });
 
 test('los bornes de 6000-6010 se escriben en el orden del CAD: impares arriba', () => {
   const off: string[] = [];
   for (let code = 6000; code <= 6010; code++) {
-    const sym = FAMILY_SYMBOLS.find((s) => s.code === code);
+    const sym = symbolFor(code);
     assert.ok(sym, `falta el símbolo ${code}`);
     const numbers = sym.pins.map((p) => Number(p.name));
     const sorted = [...numbers].sort((a, b) => a - b);

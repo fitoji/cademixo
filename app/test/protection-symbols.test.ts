@@ -103,7 +103,9 @@ test('el automático IN sigue anclado al origen con el cuadro sólo en el primer
 test('el unipolar de la familia se dibuja en el origen, no en el centro de la caja', () => {
   // En el archivo el primer borne está en el origen del registro: el polo va
   // en el borde izquierdo de la caja, como el primer polo de los multipolares.
-  for (const code of [6000, 6010, 6017, 5005, 6019, 6020]) {
+  // 6010 salió de la familia: se midió contra `componentes01` y quedó anclado
+  // al origen en `library.ts` (ver `symbol-anchors.test.ts`).
+  for (const code of [6000, 6017, 5005, 6019, 6020]) {
     const sym = resolveSymbol(code, []);
     assert.ok(sym.size, `${code} debe declarar caja`);
     const { w, h } = sym.size;

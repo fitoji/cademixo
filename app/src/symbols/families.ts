@@ -522,7 +522,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   // Disyuntor III: caja de dos filas, gancho arriba y triángulo abajo, con el
   // accionamiento manual a la izquierda (`disyuntor trifasico.png`).
   protectionDevice(6009, 3, { w: 18, h: 24 }, { cadesimu: true, tripSquare: 'none', body: true, hook: true, triangle: true, manual: true, cadeOrder: true }), // medido
-  protectionDevice(6010, 1, { w: 12, h: 15 }, { body: true, hook: true, cadeOrder: true }),
+  // 6010 («Disyuntor I») vive en `library.ts` calibrado contra `componentes01`:
+  // anclado al origen, caja 6×24 y disparo magnético a la izquierda.
   protectionDevice(6015, 3, { w: 18, h: 15 }, { body: true, manual: true }),
   protectionDevice(6016, 3, { w: 18, h: 15 }, { body: true, hook: true }),
   protectionDevice(6017, 1, { w: 12, h: 15 }, { square: true }),

@@ -332,6 +332,32 @@ test('el contactor bipolar (2000) va anclado al origen con la hoja y el guion me
   assert.ok(shapes.some((s) => s.d === 'M2.75 6L4.5 6' && s.thin), 'falta el segundo tramo del guion');
 });
 
+test('el disyuntor motor (6010) va anclado al origen con su disparo magnético medido en docs/03', () => {
+  const sym = resolveSymbol(6010, ['1', '2']);
+  assert.equal(sym.anchor, 'origin', 'el 6010 migró a anclaje al origen');
+  assert.deepEqual(sym.originPins, [
+    { name: '1', x: 0, y: 0 },
+    { name: '2', x: 0, y: 21 },
+  ]);
+
+  // Medido sobre `componentes01` (registro `*…*156*120*…*-21*-3*6*24*`): polo en
+  // la columna 0, caja doble de (−3,12) a (3,18) y disparo magnético a la
+  // izquierda, con el enlace punteado en x=−6.
+  const shapes = sym.shapes(6, 24);
+  const ink = shapesBounds(shapes);
+  assert.ok(near(ink.minX, -10) && near(ink.maxX, 3), `el disyuntor mide ${ink.minX}..${ink.maxX} de ancho`);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 21), `el disyuntor mide ${ink.minY}..${ink.maxY} de alto`);
+  assert.ok(shapes.some((s) => s.d === 'M0 0L0 3'), 'falta el conductor superior');
+  assert.ok(shapes.some((s) => s.d === 'M0 9L-3 3' && s.blade), 'falta la hoja del polo');
+  assert.ok(shapes.some((s) => s.d === 'M-3 12H3V18H-3Z'), 'falta la caja doble');
+  assert.ok(shapes.some((s) => s.d === 'M-3 15L3 15'), 'falta la divisoria del térmico');
+  assert.ok(shapes.some((s) => s.d === 'M0 12.75H1.25V14H0' && s.thin), 'falta el gancho del térmico');
+  assert.ok(shapes.some((s) => s.d === 'M-8 4H-4V8H-8Z'), 'falta el cuadro del disparo magnético');
+  assert.ok(shapes.some((s) => s.d === 'M-6 4L-6 8'), 'falta la cruz del disparo magnético');
+  assert.ok(shapes.some((s) => s.d === 'M-10 6L-2.25 6'), 'falta la acometida del disparo');
+  assert.ok(shapes.some((s) => s.d === 'M0 18L0 21'), 'falta la bajada al borne inferior');
+});
+
 test('los bornes de los símbolos anclados caen donde el archivo los conecta', () => {
   // El criterio real del anclaje: el símbolo tiene que estar sobre sus cables.
   for (const rec of project.records) {

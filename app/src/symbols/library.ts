@@ -243,6 +243,59 @@ const powerContact2: SymbolDef = {
   },
 };
 
+/**
+ * Disyuntor motor unipolar (el 6010), anclado al origen.
+ *
+ * Medido sobre `docs/03/componentes01.png` (S=4, OX=-17, OY=-101), registro
+ * `*6010#-Q##1#2######*…*156*120*…*-21*-3*6*24*`: el polo ocupa la columna 0
+ * (conductor de 0 a 3, hoja (0,9)→(−3,3), bajada 9→12), la caja doble va de
+ * (−3,12) a (3,18) con la divisoria en y=15, el gancho del térmico se abre a la
+ * derecha entre 12,75 y 14 y el disparo magnético es el cuadrado con cruz
+ * (−8,4)-(−4,8), enlazado al polo por una línea en y=6 y un punteado en x=−6.
+ */
+const breakerMotor1: SymbolDef = {
+  code: 6010,
+  name: 'Disyuntor I',
+  group: 'proteccion',
+  pins: [left(0.5, '1'), right(0.5, '2')],
+  anchor: 'origin',
+  originPins: [
+    { name: '1', x: 0, y: 0 },
+    { name: '2', x: 0, y: 21 },
+  ],
+  size: { w: 6, h: 24 },
+  shapes() {
+    return [
+      // Polo: conductor superior, hoja y bajada hasta la caja.
+      { d: line(0, 0, 0, 3) },
+      { d: line(0, 9, -3, 3), blade: { px: 0, py: 9, deg: PUSH_BLADE_DEG } },
+      { d: line(0, 9, 0, 12) },
+      // Caja doble con la divisoria del térmico.
+      { d: rect(-3, 12, 6, 6) },
+      { d: line(-3, 15, 3, 15) },
+      // Gancho del elemento térmico.
+      { d: line(0, 12, 0, 12.75) },
+      { d: 'M0 12.75H1.25V14H0', thin: true },
+      { d: line(0, 14, 0, 15) },
+      // Dos puntos del térmico.
+      { d: line(1.25, 16, 1.25, 16) },
+      { d: line(1.25, 16.5, 1.25, 16.5) },
+      // Disparo magnético: cuadrado con cruz y su acometida.
+      { d: rect(-8, 4, 4, 4) },
+      { d: line(-6, 4, -6, 8) },
+      { d: line(-10, 6, -2.25, 6) },
+      { d: line(-10, 4, -10, 8) },
+      // Enlace mecánico punteado hasta la caja.
+      { d: line(-6, 8.25, -6, 9) },
+      { d: line(-6, 10, -6, 11) },
+      { d: line(-6, 13.25, -5.25, 13.25) },
+      { d: line(-4, 13.25, -3, 13.25) },
+      // Bajada al borne inferior.
+      { d: line(0, 18, 0, 21) },
+    ];
+  },
+};
+
 /** Bornes de los aparatos tripolares: 1-3-5 arriba, 2-4-6 abajo. */
 const SIX_POLES: SymbolPin[] = [
   left(0.18, '1'),
@@ -831,7 +884,8 @@ const onePole = (code: number, name: string): SymbolDef => ({
 
 const auto1: SymbolDef = onePole(6000, 'Automático I');
 
-const disyuntor1: SymbolDef = onePole(6010, 'Disyuntor I');
+// 6010 («Disyuntor I») se midió contra `componentes01`: vive arriba como
+// `breakerMotor1`, anclado al origen y con el disparo magnético propio.
 
 const disyuntor2: SymbolDef = {
   code: 6008,
@@ -1096,6 +1150,7 @@ const ALL: SymbolDef[] = [
   motor,
   powerContact,
   powerContact2,
+  breakerMotor1,
   feedL,
   feedN,
   feedLN,
@@ -1130,7 +1185,6 @@ const ALL: SymbolDef[] = [
   motorTwoSpeeds,
   motorAsSingle,
   auto1,
-  disyuntor1,
   disyuntor2,
   auxNANC,
   relayCoil,
