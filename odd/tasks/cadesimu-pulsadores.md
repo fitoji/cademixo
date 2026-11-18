@@ -34,11 +34,15 @@ Branch: `main` local. Test runner: `pnpm test` desde `app/`.
   lado plano en x=−6 (de (−6,−2) a (−6,2) pasando por (−8,0)) + vástago
   (−6,0)→(−4,1,0). El contacto es el del 8000 para el 8004 y el del 8001 para
   el 8005 (paleta, guiones y conductores medidos idénticos).
-- S7 (originPins): 8002 → 11 (0,0), 13 (9,0), 12 (0,12), 14 (9,12); 8003 →
-  11 (3,0), 12 (0,12), 14 (6,12); 8004 → 13 (0,0), 14 (0,12); 8005 → 11 (0,0),
-  12 (0,12). Los cables de CADe conectan en las filas 0 y 12 del registro
-  (verificado con los cables reales de S1/8000 en PR1) aunque la tinta se
-  dibuje en −6..5,75.
+- S7 (originPins, corregido por el pedido de L6): 8002 → 11 (0,−6), 13
+  (9,−6), 12 (0,5,75), 14 (9,5,75); 8003 → 11 (3,−6), 12 (0,5,75), 14
+  (6,5,75); 8004 → 13 (0,−6), 14 (0,5,75); 8005 → 11 (0,−6), 12 (0,5,75). El
+  borne declarado cae en el extremo visible del ramal, que es donde CADe_SIMU
+  imprime el rótulo del borne (medido sobre `pulsadores.png`: los "11"/"13"
+  del 8002 en y≈−5,4 y el "11" del 8005 en y≈−4,7). Las filas 0/12 son la
+  grilla del registro, no el punto visible del borne: con ellas el borne
+  superior quedaba en el medio del contacto y el inferior 6 u por debajo de la
+  tinta, que es el defecto reportado en L6.
 - S8 (gate): cada símbolo da stray=0 con
   `overlay-diff.ts pulsadores.png <code> <x> 42|30|51 9 -66 -180`; los refOnly
   esperados son los rótulos de bornes (p. ej. "13"/"14").
@@ -63,6 +67,11 @@ Branch: `main` local. Test runner: `pnpm test` desde `app/`.
   la captura PR1 y su lista `PILOT`; los pulsadores viven en otra captura
   (`docs/02/pulsadores.png`, copiada a `reference/` para el gate) y no
   aparecen en PR1. Se deja la página como está.
+- T7 (S7 corregido): mover los `originPins` de 8002/8003/8004/8005 al extremo
+  de cada ramal en `app/src/symbols/library.ts` y agregar el test de la
+  invariante "el borne declarado cae sobre la tinta". Route: inline. DONE —
+  suite 385/385, `tsc` limpio, gate raster stray=0 en los cuatro. Commit:
+  `ebbc056`.
 
 ## Log
 
@@ -89,3 +98,18 @@ Branch: `main` local. Test runner: `pnpm test` desde `app/`.
 - L5: la captura se guardó como `docs/cadesimu-svg/reference/pulsadores.png`
   (el verificador resuelve los PNG ahí); `docs/02/` sigue sin tocar ni
   commitear.
+- L6 (pedido verbatim del usuario): "ahora vamos al tema de los componentes,
+  los bornes no estan bien ubicados, por ejemplo contacto pulsador codigo
+  8005, el borne superior esta en el medio, el 8002 ,8003, 8004". Reabre S7.
+- L7: evidencia de L6, medida otra vez sobre la captura: (a) el gate raster,
+  que dibuja el def con `y=0` en el origen del registro, da stray=0 con la
+  tinta en −6..5,75, así que la tinta está bien y no se mueve; (b) los
+  rótulos de borne que imprime CADe caen en el extremo del ramal (y≈−5,4 en
+  el 8002, y≈−4,7 en el 8005), no en la fila 0; (c) en PR1 el 8000 tiene la
+  tinta centrada en el origen (ramales en −5,9..−3,1 y 2,9..5,9) y ningún
+  cable dibujado sobre la columna del contacto. Conclusión: las filas 0/12
+  son grilla del archivo; el borne visible va en el extremo del ramal. Se
+  agregó el test "cada borne declarado de los pulsadores anclados cae sobre
+  la tinta del símbolo" como red de regresión. 8000/8001 quedan igual a
+  propósito (S3): son los que tienen cables reales en PR1 y su borne se
+  decide aparte.
