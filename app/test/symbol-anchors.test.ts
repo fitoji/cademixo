@@ -127,11 +127,14 @@ test('el pulsador NC (8001) abre girando al contrario que el NA', () => {
 test('el pulsador NA-NC (8002) va anclado con un contacto en cada columna', () => {
   const sym = resolveSymbol(8002, ['11', '13', '12', '14']);
   assert.equal(sym.anchor, 'origin', 'el 8002 migró a anclaje al origen');
+  // Los bornes van en el extremo de cada ramal, que es donde CADe_SIMU imprime
+  // el rótulo y donde la tinta termina; las filas 0/12 del registro son la
+  // grilla del archivo, no el punto visible del borne.
   assert.deepEqual(sym.originPins, [
-    { name: '11', x: 0, y: 0 },
-    { name: '13', x: 9, y: 0 },
-    { name: '12', x: 0, y: 12 },
-    { name: '14', x: 9, y: 12 },
+    { name: '11', x: 0, y: -6 },
+    { name: '13', x: 9, y: -6 },
+    { name: '12', x: 0, y: 5.75 },
+    { name: '14', x: 9, y: 5.75 },
   ]);
 
   // Medido sobre docs/02/pulsadores.png (9 px por unidad), NA-NC en (528,198):
@@ -155,9 +158,9 @@ test('el pulsador conmutado (8003) lleva el común arriba y los dos tiros abajo'
   const sym = resolveSymbol(8003, ['11', '12', '14']);
   assert.equal(sym.anchor, 'origin', 'el 8003 migró a anclaje al origen');
   assert.deepEqual(sym.originPins, [
-    { name: '11', x: 3, y: 0 },
-    { name: '12', x: 0, y: 12 },
-    { name: '14', x: 6, y: 12 },
+    { name: '11', x: 3, y: -6 },
+    { name: '12', x: 0, y: 5.75 },
+    { name: '14', x: 6, y: 5.75 },
   ]);
 
   // Medido sobre la misma captura, conmutado en (798,198): común arriba en
@@ -181,8 +184,8 @@ test('la seta (8004/8005) se dibuja como cúpula con vástago, no con tapa recta
     const sym = resolveSymbol(code, [...names]);
     assert.equal(sym.anchor, 'origin', `el ${code} migró a anclaje al origen`);
     assert.deepEqual(sym.originPins, [
-      { name: names[0], x: 0, y: 0 },
-      { name: names[1], x: 0, y: 12 },
+      { name: names[0], x: 0, y: -6 },
+      { name: names[1], x: 0, y: 5.75 },
     ]);
 
     // Medido sobre la misma captura, seta en (1041,90) y (1041,279): cúpula de
@@ -196,6 +199,32 @@ test('la seta (8004/8005) se dibuja como cúpula con vástago, no con tapa recta
     assert.ok(shapes.some((s) => s.d.startsWith('M-6 -1.9') && s.d.includes('L-8 0')), `falta la cúpula de la seta ${code}`);
     assert.ok(shapes.some((s) => s.d === 'M-6 -2L-6 2'), `falta el lado plano de la seta ${code}`);
     assert.ok(shapes.some((s) => s.d === 'M-6 0L-4.1 0'), `falta el vástago de la seta ${code}`);
+  }
+});
+
+test('cada borne declarado de los pulsadores anclados cae sobre la tinta del símbolo', () => {
+  // Regresión del defecto reportado: el borne superior quedaba en el medio del
+  // contacto y el inferior seis unidades por debajo de la tinta. El criterio es
+  // que todo punto de `originPins` sea un punto del trazado del def, es decir,
+  // el extremo visible de un ramal.
+  const pairsOf = (d: string): Array<[number, number]> => {
+    const nums = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    const out: Array<[number, number]> = [];
+    for (let i = 0; i + 1 < nums.length; i += 2) out.push([nums[i]!, nums[i + 1]!]);
+    return out;
+  };
+  for (const [code, names] of [
+    [8002, ['11', '13', '12', '14']],
+    [8003, ['11', '12', '14']],
+    [8004, ['13', '14']],
+    [8005, ['11', '12']],
+  ] as const) {
+    const sym = resolveSymbol(code, [...names]);
+    const pts = sym.shapes(9, 15).flatMap((s) => pairsOf(s.d));
+    for (const pin of sym.originPins ?? []) {
+      const onInk = pts.some(([x, y]) => near(x, pin.x, 0.01) && near(y, pin.y, 0.01));
+      assert.ok(onInk, `${code}: el borne ${pin.name} (${pin.x},${pin.y}) no cae sobre la tinta del símbolo`);
+    }
   }
 });
 

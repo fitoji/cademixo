@@ -1418,12 +1418,13 @@ const pushNANC: SymbolDef = {
   anchor: 'origin',
   // Medido sobre docs/02/pulsadores.png (9 px/u), NA-NC en (528,198): el NC
   // ocupa la columna 0 y el NO la 9, con el enlace mecánico discontinuo en
-  // y=0. Los bornes caen en las filas 0 y 12 del registro.
+  // y=0. Los bornes van en el extremo visible de cada ramal: CADe_SIMU imprime
+  // el rótulo del borne ahí (medido en y≈−5,4) y la tinta termina en −6/5,75.
   originPins: [
-    { name: '11', x: 0, y: 0 },
-    { name: '13', x: 9, y: 0 },
-    { name: '12', x: 0, y: 12 },
-    { name: '14', x: 9, y: 12 },
+    { name: '11', x: 0, y: -6 },
+    { name: '13', x: 9, y: -6 },
+    { name: '12', x: 0, y: 5.75 },
+    { name: '14', x: 9, y: 5.75 },
   ],
   size: { w: 15, h: 15 },
   shapes() {
@@ -1465,9 +1466,9 @@ const pushChangeover: SymbolDef = {
   pins: [left(0.25, '11'), right(0, '12'), right(0.5, '14')],
   anchor: 'origin',
   originPins: [
-    { name: '11', x: 3, y: 0 },
-    { name: '12', x: 0, y: 12 },
-    { name: '14', x: 6, y: 12 },
+    { name: '11', x: 3, y: -6 },
+    { name: '12', x: 0, y: 5.75 },
+    { name: '14', x: 6, y: 5.75 },
   ],
   size: { w: 12, h: 15 },
   shapes() {
@@ -1506,12 +1507,12 @@ const mushroom = (code: number, name: string, nc: boolean): SymbolDef => ({
   anchor: 'origin',
   originPins: nc
     ? [
-        { name: '11', x: 0, y: 0 },
-        { name: '12', x: 0, y: 12 },
+        { name: '11', x: 0, y: -6 },
+        { name: '12', x: 0, y: 5.75 },
       ]
     : [
-        { name: '13', x: 0, y: 0 },
-        { name: '14', x: 0, y: 12 },
+        { name: '13', x: 0, y: -6 },
+        { name: '14', x: 0, y: 5.75 },
       ],
   size: { w: 6, h: 15 },
   shapes() {
