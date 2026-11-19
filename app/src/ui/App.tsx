@@ -10,6 +10,7 @@ import {
   MagnetIcon,
   Maximize2Icon,
   MoonIcon,
+  PaletteIcon,
   PlayIcon,
   SquareIcon,
   Redo2Icon,
@@ -84,7 +85,9 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { Toaster } from '@/components/ui/sonner';
+import { SettingsDialog } from './SettingsDialog.tsx';
 import { getScope, setScope, subscribeScope } from '../symbols/scope.ts';
+import { getSettings, subscribeSettings, wireStroke } from './settings.ts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -122,6 +125,8 @@ export function App(): JSX.Element {
   const [zoom, setZoom] = useState(4);
   const [mode, setMode] = useState<Mode>(readMode);
   const scope = useSyncExternalStore(subscribeScope, getScope, getScope);
+  const settings = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   /** Primer clic de un cable: origen. El segundo clic lo cierra. */
   const [wireStart, setWireStart] = useState<{ x: number; y: number } | null>(null);
   const [running, setRunning] = useState(false);
@@ -161,6 +166,11 @@ export function App(): JSX.Element {
   /** Estado retenido: un contactor no olvida entre pasos (enclavamientos). */
   const lastEnergized = useRef<Set<string>>(new Set());
   const fileInput = useRef<HTMLInputElement | null>(null);
+
+  // El grosor de cable es una variable CSS: el lienzo la consume en `diagram.css`.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--wire-w', String(wireStroke(settings.wireWidth)));
+  }, [settings.wireWidth]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', mode === 'dark');
@@ -740,6 +750,18 @@ export function App(): JSX.Element {
             </MenubarMenu>
 
             <MenubarMenu>
+              <MenubarTrigger>Configuración</MenubarTrigger>
+              <MenubarContent>
+                <MenubarGroup>
+                  <MenubarItem onSelect={() => setSettingsOpen(true)}>
+                    <PaletteIcon />
+                    Apariencia
+                  </MenubarItem>
+                </MenubarGroup>
+              </MenubarContent>
+            </MenubarMenu>
+
+            <MenubarMenu>
               <MenubarTrigger>Simulación</MenubarTrigger>
               <MenubarContent>
                 <MenubarGroup>
@@ -922,6 +944,8 @@ export function App(): JSX.Element {
           {placing !== null && <span>colocando código {placing} · esc para salir</span>}
         </footer>
       </div>
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
 
       <Toaster theme={mode} position="top-center" />
     </TooltipProvider>
