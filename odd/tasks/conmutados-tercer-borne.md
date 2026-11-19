@@ -67,12 +67,16 @@ símbolo lo dibuje. Branch: `main` local.
   energizado por designador, temporizadores incluidos). El resultado
   observable es el pedido: el 12 conduce en reposo, el 14 al accionar, nunca los
   dos. `solver.ts`, `visual.ts` y `App.tsx` no se tocaron en esa unidad.
-- L5: efecto visual detectado y corregido acá. `closedContacts` marcaba el
-  registro como cerrado cuando conducía cualquiera de los dos tiros, así que en
-  reposo el símbolo del 8003 se dibujaba accionado. Ahora, para un conmutado de
-  tres bornes, la pose sigue al tiro que gira (`0-2`): conduce el `12` en
-  reposo pero el símbolo se dibuja como está dibujado, y gira al accionar. Los
-  aparatos con una sola pareja de polos y el `8018` no cambian.
+- L5: efecto visual detectado y corregido, con una segunda vuelta gracias a la
+  verificación independiente. `closedContacts` marcaba el registro como cerrado
+  cuando conducía cualquiera de los dos tiros, así que en reposo el 8003 se
+  dibujaba accionado. La primera corrección (`saltar 0-1`) era ciega a la
+  polaridad y dejaba al **8015** (`rest: 'closed'`) con la pose invertida en los
+  dos estados; el verificador lo reprodujo con una sonda. La regla final es
+  consciente de la polaridad: para un aparato de reposo abierto cuenta el tiro
+  `0-2`, y para uno de reposo cerrado el `0-1`. `pose-tercer-borne.test.ts` fija
+  los dos casos (pose dibujada en reposo, rotada al accionar) y que el `8018` de
+  cuatro bornes no se vea afectado.
 - L6: huecos declarados, previos y fuera de alcance. (a) `7003` sigue
   `kind: unknown` en `ComponentSpec`: gana sus dos polos pero no llega al
   solver; agregar la fila cambiaría el `kindOf` y la paridad congelada del doc.
@@ -80,3 +84,10 @@ símbolo lo dibuje. Branch: `main` local.
   `component-spec.test.ts`, así que en reposo su estado visual dice «abierto»
   aunque conduzca el `12`; es coherente para un pulsador (no está apretado) y no
   afecta el dibujo desde L5.
+- L7: correcciones de precisión del verificador. (a) El comentario de
+  `throwIndices` decía que el tiro sigue al rótulo aunque el plano los cablee en
+  otro orden: no es así — devuelve posiciones en la lista de rótulos y el motor
+  las usa como índices de `attachPoints`, con la misma suposición de orden que
+  ya hace `Canvas`. (b) La lista de «aparatos reales» de L2 no se puede
+  reproducir con los archivos del repo (ningún fixture cablea esos bornes salvo
+  el nuevo); vale como los códigos cuyas defs declaran `11 12 14`.

@@ -101,10 +101,13 @@ const THROW_PINS = ['11', '12', '14'] as const;
 /**
  * Índices del común y de los dos tiros de un aparato de tres bornes.
  *
- * Se busca por RÓTULO y no por posición: `attachPoints` ordena de arriba abajo
- * y de izquierda a derecha, así que en el dibujo medido (`11` arriba, `12` a la
- * izquierda, `14` a la derecha) los índices son 0, 1 y 2; si un plano los cablea
- * en otro orden, el tiro sigue siendo el que dice el rótulo.
+ * Los índices son POSICIONES en la lista de rótulos, y el resto del motor los
+ * usa como índices de `attachPoints`: la app asume que el orden del archivo
+ * coincide con el orden geométrico (de arriba abajo y de izquierda a derecha),
+ * igual que `Canvas` al rotular los bornes con `rec.pins[i]`. En el dibujo
+ * medido (`11` arriba, `12` a la izquierda, `14` a la derecha) eso da 0, 1 y 2,
+ * con el común primero. Un plano con los rótulos en otro orden no se remapea:
+ * la limitación es del motor, no de esta función.
  */
 function throwIndices(pinNames: readonly string[]): { common: number; nc: number; no: number } | null {
   if (pinNames.length !== 3) return null;

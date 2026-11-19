@@ -94,7 +94,10 @@ test('polesOf: un conmutado de tres bornes tiene dos tiros que comparten el com�
   assert.deepEqual(polesOf(['11', '12', '14']), [[0, 1], [0, 2]]);
 });
 
-test('polesOf: el tiro sigue al rótulo aunque el dibujo los cablee en otro orden', () => {
+test('polesOf: los polos salen de la posición de cada rótulo en la lista', () => {
+  // Se devuelven las posiciones de cada rótulo; el motor las aplica a
+  // `attachPoints`, así que un archivo con otro orden no se remapea (limitación
+  // conocida, ver el comentario de `throwIndices`).
   assert.deepEqual(polesOf(['11', '14', '12']), [[0, 2], [0, 1]], 'el NC siempre es el primer polo');
   assert.equal(isTwoThrow(['11', '12', '14']), true);
   assert.equal(isTwoThrow(['11', '12']), false);

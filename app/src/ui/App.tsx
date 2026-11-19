@@ -49,7 +49,7 @@ import {
 } from '../editor/state.ts';
 import { buildNetwork, validate } from '../editor/network.ts';
 import { roundTrips } from '../model/project.ts';
-import { isChangeover, isPushable, startsOpen } from '../model/component-spec.ts';
+import { isChangeover, isPushable, specOf, startsOpen } from '../model/component-spec.ts';
 import { changeoverPositions, linkedProtection } from '../sim/apparatus.ts';
 import type { Point } from '../editor/pins.ts';
 import { Canvas } from './Canvas.tsx';
@@ -545,9 +545,11 @@ export function App(): JSX.Element {
     if (!simulation || !project) return out;
     const byId = new Map(project.records.map((r) => [r.id, r]));
     // Conmutados de tres bornes: tienen dos tiros (0-1 en reposo, 0-2 al
-    // accionar) y el símbolo está dibujado en la pose de reposo, así que la
-    // pose sigue al tiro que gira. En reposo el aparato conduce por el 12 pero
-    // no se dibuja accionado.
+    // accionar) y el símbolo está dibujado en una de las dos poses, así que el
+    // registro cuenta con el tiro que le toca según su polaridad: para un
+    // aparato de reposo abierto (8003) la pose activa es el 0-2, y para uno de
+    // reposo cerrado (8015) es el 0-1. Sin esto el símbolo se dibujaría al
+    // revés en uno de los dos casos.
     const twoThrow = new Set<number>();
     for (const device of built?.circuit.devices ?? []) {
       if (device.id.endsWith(':0-2')) twoThrow.add(Number(device.id.split(':')[0]));
@@ -560,7 +562,10 @@ export function App(): JSX.Element {
         if ((positions[String(recordId)] ?? 0) === 0) out.add(recordId);
         continue;
       }
-      if (pair === '0-1' && twoThrow.has(recordId)) continue;
+      if (rec && twoThrow.has(recordId)) {
+        const wants = specOf(rec.code).rest === 'closed' ? '0-1' : '0-2';
+        if (pair !== wants) continue;
+      }
       out.add(recordId);
     }
     for (const rec of project.records) {
