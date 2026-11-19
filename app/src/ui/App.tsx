@@ -544,13 +544,23 @@ export function App(): JSX.Element {
     const out = new Set<number>();
     if (!simulation || !project) return out;
     const byId = new Map(project.records.map((r) => [r.id, r]));
+    // Conmutados de tres bornes: tienen dos tiros (0-1 en reposo, 0-2 al
+    // accionar) y el símbolo está dibujado en la pose de reposo, así que la
+    // pose sigue al tiro que gira. En reposo el aparato conduce por el 12 pero
+    // no se dibuja accionado.
+    const twoThrow = new Set<number>();
+    for (const device of built?.circuit.devices ?? []) {
+      if (device.id.endsWith(':0-2')) twoThrow.add(Number(device.id.split(':')[0]));
+    }
     for (const id of simulation.closed) {
-      const recordId = Number(id.split(':')[0]);
+      const [head, pair] = id.split(':');
+      const recordId = Number(head);
       const rec = byId.get(recordId);
       if (rec && isChangeover(rec.code)) {
         if ((positions[String(recordId)] ?? 0) === 0) out.add(recordId);
         continue;
       }
+      if (pair === '0-1' && twoThrow.has(recordId)) continue;
       out.add(recordId);
     }
     for (const rec of project.records) {
@@ -565,7 +575,7 @@ export function App(): JSX.Element {
       }
     }
     return out;
-  }, [simulation, project, positions]);
+  }, [simulation, project, positions, built]);
 
   /**
    * Tramos con tensión y sentido de la corriente: lazo completo desde la fase,
