@@ -19,7 +19,36 @@ import { cadFileName } from '../format/filename.ts';
 /** Lo poco que se usa de los selectores del navegador. */
 interface PickerScope {
   showSaveFilePicker?: (options?: { suggestedName?: string }) => Promise<FileSystemFileHandle>;
-  showOpenFilePicker?: (options?: { multiple?: boolean }) => Promise<FileSystemFileHandle[]>;
+  showOpenFilePicker?: (options?: {
+    multiple?: boolean;
+    types?: { description?: string; accept: Record<string, string[]> }[];
+  }) => Promise<FileSystemFileHandle[]>;
+}
+
+/**
+ * El filtro del selector de apertura: el mismo que el `accept` del input oculto
+ * (`.cade,.cad`), para que el diálogo del sistema no ofrezca cualquier archivo.
+ */
+const OPEN_TYPES = [
+  { description: 'Documentos CADe_SIMU', accept: { 'application/octet-stream': ['.cade', '.cad'] } },
+];
+
+/**
+ * El selector no se pudo abrir: sin contexto seguro, permiso denegado o una
+ * política que lo prohíba. No es una cancelación y no se puede tratar como tal,
+ * porque el usuario no eligió nada y decirle que "no eligió destino" sería
+ * culparlo de un fallo de la aplicación.
+ */
+export class PickerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PickerError';
+  }
+}
+
+/** ¿El selector se cerró porque el usuario canceló? Esa es la única cancelación. */
+function isAbort(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { name?: unknown }).name === 'AbortError';
 }
 
 /**
@@ -68,11 +97,15 @@ export type SaveShortcut = 'save' | 'save-as';
 /**
  * Atajo de guardado de un `keydown`: ⌘S / Ctrl+S guarda, con Shift guarda como.
  * Es puro para que el manejador de React quede en una línea.
+ *
+ * El tipo describe lo que se mira de un `KeyboardEvent`; `altKey` no participa,
+ * así que Alt+S no es atajo.
  */
 export function saveShortcutOf(event: {
   metaKey?: boolean;
   ctrlKey?: boolean;
   shiftKey?: boolean;
+  altKey?: boolean;
   key: string;
 }): SaveShortcut | null {
   if (!event.metaKey && !event.ctrlKey) return null;
@@ -84,34 +117,39 @@ export function saveShortcutOf(event: {
 
 /**
  * Pide destino y nombre. Devuelve `null` si el navegador no sabe elegir o si el
- * usuario cierra el diálogo: quien llama no debe escribir nada.
+ * usuario cierra el diálogo: quien llama no debe escribir nada. Si el selector
+ * falla, lanza `PickerError`, que es otra cosa y se avisa distinto.
  */
 export async function pickSaveHandle(name: string): Promise<FileSystemFileHandle | null> {
   const scope = globalThis as PickerScope;
   if (typeof scope.showSaveFilePicker !== 'function') return null;
   try {
     return await scope.showSaveFilePicker({ suggestedName: name });
-  } catch {
-    // `AbortError` es el usuario cancelando; cualquier otro fallo del selector
-    // tampoco deja un destino donde escribir.
-    return null;
+  } catch (error) {
+    if (isAbort(error)) return null;
+    throw new PickerError('no se pudo abrir el selector de destino');
   }
 }
 
 /**
  * Pide un archivo y devuelve el handle junto con su contenido, para poder
- * reescribir después ese mismo archivo. `null` si no hay soporte o se cancela.
+ * reescribir después ese mismo archivo. `null` si no hay soporte o si el
+ * usuario cancela; si el selector falla, lanza `PickerError`.
  */
 export async function pickOpenHandle(): Promise<{ handle: FileSystemFileHandle; file: File } | null> {
   const scope = globalThis as PickerScope;
   if (typeof scope.showOpenFilePicker !== 'function') return null;
+  let handle: FileSystemFileHandle | undefined;
   try {
-    const [handle] = await scope.showOpenFilePicker({ multiple: false });
-    if (!handle) return null;
-    return { handle, file: await handle.getFile() };
-  } catch {
-    return null;
+    [handle] = await scope.showOpenFilePicker({ multiple: false, types: OPEN_TYPES });
+  } catch (error) {
+    if (isAbort(error)) return null;
+    throw new PickerError('no se pudo abrir el selector de archivos');
   }
+  if (!handle) return null;
+  // La lectura del archivo elegido queda fuera del `try`: si falla, es un fallo
+  // de lectura y no un problema del selector.
+  return { handle, file: await handle.getFile() };
 }
 
 /**
@@ -129,16 +167,24 @@ export function encodeLatin1(text: string): Uint8Array<ArrayBuffer> {
 
 /**
  * Escribe `text` en el archivo del handle, con los mismos bytes que la descarga
- * (latin1, un carácter por byte). Si la escritura falla se aborta el stream para
- * no dejar el archivo a medio escribir.
+ * (latin1, un carácter por byte).
+ *
+ * Tanto `write` como `close` pueden fallar: `close` es donde el navegador
+ * confirma el archivo, así que un fallo ahí deja el archivo a medio escribir.
+ * En los dos casos se aborta el stream y se propaga el error original, para que
+ * quien llama informe el fallo en vez de dar el guardado por bueno.
  */
 export async function writeHandle(handle: FileSystemFileHandle, text: string): Promise<void> {
   const writable = await handle.createWritable();
   try {
     await writable.write(encodeLatin1(text));
+    await writable.close();
   } catch (error) {
-    await writable.abort();
+    try {
+      await writable.abort();
+    } catch {
+      // El abort es el mejor esfuerzo: manda el error original del guardado.
+    }
     throw error;
   }
-  await writable.close();
 }

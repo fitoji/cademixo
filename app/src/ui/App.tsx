@@ -229,22 +229,35 @@ export function App(): JSX.Element {
   /**
    * Abrir: con selectores se conserva el handle para poder reescribir después
    * ese mismo archivo. Sin soporte queda el input oculto de siempre.
+   *
+   * Cancelar es silencio; que el selector no se pueda abrir es otra cosa y se
+   * avisa, porque si no el usuario ve que no pasa nada y no sabe por qué.
    */
   const openDocument = useCallback(async (): Promise<void> => {
     if (!hasFileSystemAccess()) {
       fileInput.current?.click();
       return;
     }
-    const picked = await pickOpenHandle();
+    let picked: Awaited<ReturnType<typeof pickOpenHandle>>;
+    try {
+      picked = await pickOpenHandle();
+    } catch {
+      flash('no se pudo abrir el selector de archivos');
+      return;
+    }
     if (!picked) return;
     const { text, name } = await loadFile(picked.file);
     openText(text, name, picked.handle);
-  }, [openText]);
+  }, [openText, flash]);
 
   /**
    * Escribe `text` en `handle` y deja la aplicación conforme: ese archivo pasa a
    * ser el actual, la cabecera muestra su nombre y el documento queda limpio.
    * Si la escritura falla no se adopta nada: el documento sigue sucio.
+   *
+   * Limpio sólo si el texto en pantalla es todavía el que se escribió: una
+   * edición tipeada mientras la escritura estaba en vuelo no está en el archivo,
+   * y bendecirla como guardada sería mentir sobre lo que hay en disco.
    */
   const writeDocument = useCallback(
     async (handle: FileSystemFileHandle, text: string): Promise<void> => {
@@ -256,7 +269,7 @@ export function App(): JSX.Element {
       }
       fileHandle.current = handle;
       setFileName(handle.name);
-      setState((s) => (s ? markSaved(s) : s));
+      setState((s) => (s && s.text === text ? markSaved(s) : s));
     },
     [flash],
   );
@@ -289,7 +302,14 @@ export function App(): JSX.Element {
       if (action === 'pick-location') {
         // Se sugiere el `.cad` normalizado; el nombre que queda en pantalla es
         // el del archivo que el usuario eligió.
-        const picked = await pickSaveHandle(suggestedSaveName(fileName));
+        let picked: FileSystemFileHandle | null;
+        try {
+          picked = await pickSaveHandle(suggestedSaveName(fileName));
+        } catch {
+          flash('no se guardó: no se pudo abrir el selector de destino');
+          return;
+        }
+        // `null` es cancelación: el usuario decidió no escribir en ningún lado.
         if (!picked) {
           flash('no se guardó: no se eligió destino');
           return;
@@ -297,12 +317,14 @@ export function App(): JSX.Element {
         await writeDocument(picked, text);
         return;
       }
-      // Sin selectores: se descarga como siempre. Se guarda siempre `.cad`:
-      // abrir un `.cade` y guardarlo lo deja con la extensión del CAD.
+      // Sin selectores: se descarga como siempre, con el `.cad` normalizado como
+      // nombre. El archivo abierto no se toca, así que la extensión es la del
+      // nombre sugerido; reescribir el original es cosa de la File System Access
+      // API, no de este camino.
       const name = suggestedSaveName(fileName);
       downloadCade(text, name);
       setFileName(name);
-      setState((s) => (s ? markSaved(s) : s));
+      setState((s) => (s && s.text === text ? markSaved(s) : s));
     },
     [state, fileName, flash, writeDocument],
   );
