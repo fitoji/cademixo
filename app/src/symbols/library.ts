@@ -49,6 +49,27 @@ export interface SymbolPin {
   side: 'left' | 'right' | 'top' | 'bottom';
 }
 
+/**
+ * Pose en la que la hoja móvil está girada.
+ *
+ * Por defecto la decide el signo de `deg`, que es la convención de todos los
+ * contactos: positivo cierra la hoja dibujada abierta (NA) y negativo abre la
+ * dibujada apoyada (NC). `active` gira la hoja cuando el aparato está accionado
+ * — apretado a mano o cerrado por el circuito — y es lo que necesita el
+ * pulsador conmutado (8003), cuya pose sigue al accionamiento.
+ */
+export type BladeWhen = 'closed' | 'open' | 'active';
+
+export interface Blade {
+  /** pivote del giro, en unidades del símbolo */
+  px: number;
+  py: number;
+  /** giro que lleva la hoja a la otra pose, en grados con signo */
+  deg: number;
+  /** pose que gira la hoja; sin dato la decide el signo de `deg` */
+  when?: BladeWhen;
+}
+
 export interface Shape {
   d: string;
   fill?: boolean;
@@ -61,11 +82,8 @@ export interface Shape {
    * el registro lo trae. Sin color queda con la tinta normal del dibujo.
    */
   lamp?: boolean;
-  /**
-   * Hoja móvil de un contacto: gira sobre su pivote cuando el contacto cierra.
-   * `deg` es el giro a aplicar en estado cerrado (el dibujo es el estado abierto).
-   */
-  blade?: { px: number; py: number; deg: number };
+  /** Hoja móvil de un contacto: gira sobre su pivote al cambiar de pose. */
+  blade?: Blade;
 }
 
 export interface Label {
@@ -817,6 +835,16 @@ const lamp: SymbolDef = {
 };
 
 /**
+ * Metadata de la paleta móvil del contacto del térmico (8017).
+ *
+ * La paleta se dibuja con varios trazos medidos; los catorce llevan esta misma
+ * metadata, así que giran como una sola pieza. El pivote está en el extremo de
+ * la barra fija: al abrir, la punta se separa del conductor (x = −5,75) y la
+ * paleta se ve levantada (S4).
+ */
+const PALETA_TERMICO: Blade = { px: -3.25, py: -8.25, deg: -30 };
+
+/**
  * Contacto del térmico (8017), anclado al origen.
  * Medido sobre `docs/03/componentes02.png` (S=4, OX=-2, OY=-60), en (138,117).
  */
@@ -846,22 +874,26 @@ const thermalContact: SymbolDef = {
       { d: line(-4.25, -1.75, -4.25, -1.75) },
       { d: line(-3, -2, -3, -2) },
       { d: line(-4.25, -1, -3, -1) },
-      // Contacto NC (paleta)
+      // Barra fija del contacto (no se mueve).
       { d: line(-5.75, -8.5, -2.5, -8.5) },
-      { d: line(-2.75, -9, -2.75, -9) },
-      { d: line(-3, -8.75, -3, -8.75) },
-      { d: line(-3.25, -8.25, -3.25, -8) },
-      { d: line(-3.5, -7.75, -3.5, -7.25) },
-      { d: line(-3.75, -7.25, -3.75, -6.75) },
-      { d: line(-4, -6.75, -4, -6.25) },
-      { d: line(-4.25, -6.25, -4.25, -5.75) },
-      { d: line(-4.5, -5.75, -4.5, -5.25) },
-      { d: line(-4.75, -5.25, -4.75, -4.75) },
-      { d: line(-5, -4.75, -5, -4.25) },
-      { d: line(-5.25, -4.25, -5.25, -3.75) },
-      { d: line(-5.5, -3.75, -5.5, -3.25) },
-      { d: line(-5.75, -3.25, -5.75, -3.25) },
-      { d: line(-5.75, -3, -5.75, -3) },
+      // Paleta móvil del contacto NC: los catorce trazos medidos, uno por uno,
+      // con su `d` y su peso original. La tinta es la del dibujo calibrado (no
+      // se altera), y el movimiento no lo da la forma sino la metadata `blade`
+      // que llevan todos: así la paleta entera gira sobre el mismo pivote (S4).
+      { d: line(-2.75, -9, -2.75, -9), blade: PALETA_TERMICO },
+      { d: line(-3, -8.75, -3, -8.75), blade: PALETA_TERMICO },
+      { d: line(-3.25, -8.25, -3.25, -8), blade: PALETA_TERMICO },
+      { d: line(-3.5, -7.75, -3.5, -7.25), blade: PALETA_TERMICO },
+      { d: line(-3.75, -7.25, -3.75, -6.75), blade: PALETA_TERMICO },
+      { d: line(-4, -6.75, -4, -6.25), blade: PALETA_TERMICO },
+      { d: line(-4.25, -6.25, -4.25, -5.75), blade: PALETA_TERMICO },
+      { d: line(-4.5, -5.75, -4.5, -5.25), blade: PALETA_TERMICO },
+      { d: line(-4.75, -5.25, -4.75, -4.75), blade: PALETA_TERMICO },
+      { d: line(-5, -4.75, -5, -4.25), blade: PALETA_TERMICO },
+      { d: line(-5.25, -4.25, -5.25, -3.75), blade: PALETA_TERMICO },
+      { d: line(-5.5, -3.75, -5.5, -3.25), blade: PALETA_TERMICO },
+      { d: line(-5.75, -3.25, -5.75, -3.25), blade: PALETA_TERMICO },
+      { d: line(-5.75, -3, -5.75, -3), blade: PALETA_TERMICO },
       // Elemento térmico
       { d: line(-2, -8, -2, -7) },
       { d: line(-2, -7, -0.75, -7) },
@@ -1477,9 +1509,12 @@ const pushChangeover: SymbolDef = {
       { d: line(-6, 1.25, -5, 1.25), thin: true },
       { d: line(-6, -1.5, -6, 1.25), thin: true },
       { d: line(-6, 0, -4.25, 0), thin: true },
-      // Común y cuchilla apoyada en el tiro NC.
+      // Común y cuchilla apoyada en el tiro NC. La cuchilla es móvil: pivota en
+      // el común y, al accionar el pulsador, gira -45,24° (el espejo del tiro
+      // NC respecto del común) hasta apoyar la punta en el tiro NO (S3). Como es
+      // un conmutado, la pose sigue al aparato accionado (`when: 'active'`).
       { d: line(3, -6, 3, -3) },
-      { d: line(3, -3, 0.5, 3) },
+      { d: line(3, -3, 0.5, 3), blade: { px: 3, py: -3, deg: -45.24, when: 'active' } },
       // Tiro NC.
       { d: line(0, 2.33, 0, 5.75) },
       { d: line(0, 2.33, 1.2, 2.33) },

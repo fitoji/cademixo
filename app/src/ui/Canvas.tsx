@@ -14,6 +14,7 @@ import { WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { conductorToneOf, type ConductorTone } from '../editor/conductor.ts';
 import { SymbolGlyph } from './SymbolGlyph.tsx';
 import { attachPinRadius, getSettings, pinStroke, subscribeSettings } from './settings.ts';
+import { isProtection } from '../model/component-spec.ts';
 import type { VisualState } from '../sim/visual.ts';
 
 export interface View {
@@ -626,6 +627,9 @@ function Component({
   const y = rec.geometry[GEOMETRY.y] ?? 0;
   const label = rec.designator;
   const sym = resolveSymbol(rec.code, rec.pins);
+  // Protección y auxiliares térmicos: la única tinta que se atenúa al abrirse
+  // (S7). Un pulsador en reposo también está `open`, pero no lo es.
+  const protection = isProtection(rec.code);
 
   // El símbolo se dibuja con su caja apoyada en el ORIGEN del registro, que es
   // donde CADeSimu pone el primer borne: la grilla de conexión de 6 unidades
@@ -648,7 +652,14 @@ function Component({
     : { x: 0, y: 0, w: box.width, h: box.height };
 
   return (
-    <g data-id={rec.id} data-state={state} data-bad={bad || undefined} transform={`translate(${x} ${y})`} style={{ cursor: 'move' }}>
+    <g
+      data-id={rec.id}
+      data-state={state}
+      data-protection={protection ? '' : undefined}
+      data-bad={bad || undefined}
+      transform={`translate(${x} ${y})`}
+      style={{ cursor: 'move' }}
+    >
       <rect className="hitbox" x={0} y={0} width={box.width} height={box.height} />
       {anchored ? (
         <SymbolGlyph
@@ -660,11 +671,12 @@ function Component({
           rotation={rotation}
           selected={selected}
           closed={closed}
+          pressed={state === 'pressed'}
           lampColor={rec.lampColor}
           live={live}
         />
       ) : (
-        <SymbolGlyph code={rec.code} pinNames={rec.pins} w={iw} h={ih} rotation={rotation} selected={selected} closed={closed} lampColor={rec.lampColor} live={live} />
+        <SymbolGlyph code={rec.code} pinNames={rec.pins} w={iw} h={ih} rotation={rotation} selected={selected} closed={closed} pressed={state === 'pressed'} lampColor={rec.lampColor} live={live} />
       )}
 
       {pins.map((p, i) => (

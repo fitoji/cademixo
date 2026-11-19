@@ -1,8 +1,8 @@
 import type { CSSProperties, JSX } from 'react';
 import { useSyncExternalStore } from 'react';
 import { LAMP_COLORS, type LampColor } from '../model/project.ts';
-import { resolveSymbol } from '../symbols/library.ts';
-import { shapesBounds } from '../symbols/draw.ts';
+import { resolveSymbol, type Shape } from '../symbols/library.ts';
+import { bladeTransform, shapesBounds, type BladeState } from '../symbols/draw.ts';
 import { getSettings, pinRadius, pinStroke, subscribeSettings } from './settings.ts';
 
 interface Props {
@@ -14,6 +14,8 @@ interface Props {
   selected?: boolean;
   /** Estado del contacto durante la simulación: cerrado o abierto. */
   closed?: boolean;
+  /** Durante la simulación, un pulsador ya está apretado. */
+  pressed?: boolean;
   /** Color guardado de la lámpara (códigos 9008/9009). `null` = tinta normal. */
   lampColor?: LampColor | null;
   /** Componente energizado por la simulación (pinta el rotor del motor). */
@@ -31,23 +33,20 @@ interface Props {
 }
 
 /**
- * Estilo de una hoja móvil: gira sobre su pivote cuando el contacto cambia de
- * estado. El NC se dibuja apoyado, así que su giro (`deg` negativo) se aplica
- * cuando está abierto; el NA al revés.
+ * Estilo de una hoja móvil: gira sobre su pivote cuando cambia de pose.
+ *
+ * La pose la decide `bladeTransform` (pura, en `draw.ts`, S9): el NC se dibuja
+ * apoyado, así que su giro (`deg` negativo) se aplica cuando está abierto; el
+ * NA al revés. El pivote va en porcentaje de la caja de tinta del trazo para
+ * que `fill-box` lo tome tal cual, también en los trazos de varios tramos.
  */
-function bladeStyle(d: string, blade: { px: number; py: number; deg: number }, closed: boolean): CSSProperties | undefined {
-  const m = /M(-?[\d.]+) (-?[\d.]+)L(-?[\d.]+) (-?[\d.]+)/.exec(d);
-  if (!m) return undefined;
-  const [x1, y1, x2, y2] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
-  const minX = Math.min(x1, x2);
-  const minY = Math.min(y1, y2);
-  const spanX = Math.abs(x2 - x1) || 1;
-  const spanY = Math.abs(y2 - y1) || 1;
-  const active = blade.deg > 0 ? closed : !closed;
+function bladeStyle(shape: Shape, state: BladeState): CSSProperties | undefined {
+  const rot = bladeTransform(shape, state);
+  if (!rot) return undefined;
   return {
     transformBox: 'fill-box',
-    transformOrigin: `${((blade.px - minX) / spanX) * 100}% ${((blade.py - minY) / spanY) * 100}%`,
-    transform: active ? `rotate(${blade.deg}deg)` : 'none',
+    transformOrigin: `${rot.originX}% ${rot.originY}%`,
+    transform: rot.angle === 0 ? 'none' : `rotate(${rot.angle}deg)`,
     transition: 'transform 140ms cubic-bezier(0.2, 0.7, 0.3, 1)',
   };
 }
@@ -61,6 +60,7 @@ export function SymbolGlyph({
   rotation = 0,
   selected = false,
   closed = false,
+  pressed = false,
   lampColor = null,
   live = false,
   place = 'center',
@@ -73,6 +73,8 @@ export function SymbolGlyph({
   const cx = w / 2;
   const cy = h / 2;
   const rotor = live && sym.group === 'motor';
+  // Pose de las hojas móviles: el contacto que conduce y el aparato accionado.
+  const bladeState: BladeState = { closed, pressed };
   const r = Math.min(w, h) * 0.42;
   const arrow = `M ${cx - r * 0.55} ${cy - r * 1.12} A ${r * 0.92} ${r * 0.92} 0 0 1 ${cx + r * 0.55} ${cy - r * 1.12}`;
   const head = `M ${cx + r * 0.55} ${cy - r * 1.12} l ${-r * 0.22} ${-r * 0.14} M ${cx + r * 0.55} ${cy - r * 1.12} l ${-r * 0.02} ${r * 0.28}`;
@@ -103,7 +105,7 @@ export function SymbolGlyph({
           key={`s${i}`}
           d={s.d}
           className={[s.fill ? 'fill' : '', s.thin ? 'thin' : '', s.dashed ? 'dashed' : '', s.lamp ? 'lamp' : ''].filter(Boolean).join(' ') || undefined}
-          style={s.blade ? bladeStyle(s.d, s.blade, closed) : undefined}
+          style={s.blade ? bladeStyle(s, bladeState) : undefined}
         />
       ))}
       {rotor && (

@@ -3,7 +3,7 @@
  * generadas. Viven aparte para que `library.ts` y `families.ts` no se importen
  * entre sí: acá sólo hay funciones puras de geometría.
  */
-import type { Shape, SymbolPin } from './library.ts';
+import type { Blade, BladeWhen, Shape, SymbolPin } from './library.ts';
 
 export const round = (n: number): number => Math.round(n * 100) / 100;
 
@@ -141,6 +141,66 @@ export function contact(w: number, y: number, nc: boolean): Shape[] {
     shapes.push({ d: line(mx - gap, y, mx + gap, y - dy), thin: true, blade: { px: mx - gap, py: y, deg } });
   }
   return shapes;
+}
+
+/** Estado mínimo que decide la pose de una hoja móvil. */
+export interface BladeState {
+  /** el contacto conduce en el estado simulado */
+  closed: boolean;
+  /** el aparato está accionado a mano: pulsadores y selectores */
+  pressed?: boolean;
+}
+
+/**
+ * Ángulo que hay que girar la hoja para la pose del estado.
+ *
+ * `deg` lleva signo y es a la vez la convención de disparo de los contactos:
+ * positivo cierra la hoja dibujada abierta (NA) y negativo abre la dibujada
+ * apoyada (NC). `when` la sobreescribe cuando la pose no sigue al contacto sino
+ * al aparato accionado: el pulsador conmutado (8003) gira al apretarlo o al
+ * cerrarse, no sólo al cerrarse.
+ *
+ * Devuelve 0 cuando la hoja se queda como está dibujada, así el lienzo no la
+ * mueve en reposo.
+ */
+export function bladeAngle(blade: Pick<Blade, 'deg' | 'when'>, state: BladeState): number {
+  const when: BladeWhen = blade.when ?? (blade.deg > 0 ? 'closed' : 'open');
+  const moved =
+    when === 'active'
+      ? state.closed || state.pressed === true
+      : when === 'closed'
+        ? state.closed
+        : !state.closed;
+  return moved ? blade.deg : 0;
+}
+
+/** Pivote y giro de una hoja móvil, listos para el lienzo. */
+export interface BladeRotation {
+  /** pivote en porcentaje de la caja de tinta del trazo (0..100) */
+  originX: number;
+  originY: number;
+  /** giro en grados; 0 deja la hoja como está dibujada */
+  angle: number;
+}
+
+/**
+ * Rotación de una hoja móvil para un estado, o `null` si la forma no es móvil.
+ *
+ * El pivote va en porcentaje de la caja de tinta del trazo porque es lo que
+ * necesita `transform-origin: fill-box` en el lienzo: así la cuchilla gira
+ * sobre su punto de apoyo y no sobre el centro de su envolvente. Función pura,
+ * para poder probar la pose sin DOM (S9).
+ */
+export function bladeTransform(shape: Shape, state: BladeState): BladeRotation | null {
+  if (!shape.blade) return null;
+  const box = shapesBounds([shape]);
+  const spanX = box.maxX - box.minX || 1;
+  const spanY = box.maxY - box.minY || 1;
+  return {
+    originX: ((shape.blade.px - box.minX) / spanX) * 100,
+    originY: ((shape.blade.py - box.minY) / spanY) * 100,
+    angle: bladeAngle(shape.blade, state),
+  };
 }
 
 /** Tres polos de potencia verticales (contactor / interruptor). */
