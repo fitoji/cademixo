@@ -125,6 +125,19 @@ export function attachPinRadius(size: PinSize): number {
   return 0.9;
 }
 
+/**
+ * Ancho del aro de los puntos de borne.
+ *
+ * Proporcional al radio (misma razón para el glifo y el lienzo): con un ancho
+ * fijo el punto chico se lee como un aro pesado. Normal conserva el 0,42 de
+ * siempre, que es el valor del fallback de `.pin` en `diagram.css`.
+ */
+export function pinStroke(size: PinSize): number {
+  if (size === 'chico') return 0.33;
+  if (size === 'grande') return 0.57;
+  return 0.42;
+}
+
 /** Ancho de trazo de todos los conductores del lienzo. */
 export function wireStroke(width: WireWidth): number {
   if (width === 'fino') return 0.12;

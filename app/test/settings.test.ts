@@ -4,11 +4,13 @@ import { strict as assert } from 'node:assert';
 
 import {
   DEFAULT_SETTINGS,
+  SETTINGS_KEY,
   attachPinRadius,
   getSettings,
   nextOpenCats,
   parseSettings,
   pinRadius,
+  pinStroke,
   serializeSettings,
   setSettings,
   subscribeSettings,
@@ -64,6 +66,11 @@ test('un tipo equivocado cae sólo al default de su campo', () => {
   });
 });
 
+test('un objeto o un número en lugar del valor cae al default del campo', () => {
+  assert.deepEqual(parseSettings('{"wireWidth":{"v":"fino"}}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"autoCierre":1}'), DEFAULT_SETTINGS);
+});
+
 test('serializar y volver a parsear devuelve los mismos ajustes', () => {
   const values = [
     DEFAULT_SETTINGS,
@@ -97,6 +104,11 @@ test('tocar el panel abierto lo cierra en los dos modos', () => {
   assert.deepEqual(nextOpenCats(['motores', 'alimentacion'], 'alimentacion', false), ['motores']);
 });
 
+test('sin auto cierre el panel que queda conserva el orden de los que sobreviven', () => {
+  const prev = ['alimentacion', 'motores', 'fav'];
+  assert.deepEqual(nextOpenCats(prev, 'motores', false), ['alimentacion', 'fav']);
+});
+
 test('el reducer no modifica el arreglo que recibe', () => {
   const prev = ['alimentacion'];
   nextOpenCats(prev, 'motores', false);
@@ -128,6 +140,20 @@ test('el tamaño y el grosor crecen en los dos sentidos', () => {
   assert.equal(wireStroke('grueso'), 0.24);
 });
 
+test('el trazo del borne crece con el radio y en Normal conserva 0,42', () => {
+  assert.equal(pinStroke('normal'), 0.42);
+  assert.equal(pinStroke('chico'), 0.33);
+  assert.equal(pinStroke('grande'), 0.57);
+  assert.ok(pinStroke('chico') < pinStroke('normal'));
+  assert.ok(pinStroke('normal') < pinStroke('grande'));
+});
+
+test('el ancho duplicado de tensión y selección sale del ancho normal', () => {
+  assert.equal(wireStroke('normal') * 2, 0.34);
+  assert.equal(wireStroke('fino') * 2, 0.24);
+  assert.equal(wireStroke('grueso') * 2, 0.48);
+});
+
 // --- Store ---------------------------------------------------------------
 
 test('sin storage el store arranca en los defaults y avisa sólo al cambiar', () => {
@@ -152,5 +178,77 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
   unsubscribe();
   setSettings(DEFAULT_SETTINGS);
   assert.equal(avisos, 2);
+  assert.deepEqual(getSettings(), DEFAULT_SETTINGS);
+});
+
+test('setSettings persiste el objeto mezclado bajo la clave y no escribe si nada cambia', () => {
+  const store = new Map<string, string>();
+  let escrituras = 0;
+  const fake = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      escrituras += 1;
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => store.clear(),
+    key: () => null,
+    length: 0,
+  };
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  try {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: fake,
+      configurable: true,
+      writable: true,
+    });
+
+    setSettings({ pinSize: 'grande', wireWidth: 'fino', autoCierre: true });
+    assert.equal(escrituras, 1);
+    assert.deepEqual(getSettings(), { pinSize: 'grande', wireWidth: 'fino', autoCierre: true });
+    assert.equal(store.get(SETTINGS_KEY), serializeSettings(getSettings()));
+
+    setSettings({ pinSize: 'grande' });
+    assert.equal(escrituras, 1);
+    assert.equal(store.get(SETTINGS_KEY), serializeSettings(getSettings()));
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'localStorage', original);
+    else delete (globalThis as { localStorage?: unknown }).localStorage;
+    setSettings(DEFAULT_SETTINGS);
+  }
+  assert.deepEqual(getSettings(), DEFAULT_SETTINGS);
+});
+
+test('un storage que tira no rompe el store ni la elección en memoria', () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  try {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: {
+        getItem: () => {
+          throw new Error('sin acceso de lectura');
+        },
+        setItem: () => {
+          throw new Error('sin acceso de escritura');
+        },
+      },
+      configurable: true,
+      writable: true,
+    });
+
+    const actual = getSettings();
+    assert.deepEqual(actual, DEFAULT_SETTINGS);
+    assert.equal(typeof actual.pinSize, 'string');
+    assert.equal(typeof actual.wireWidth, 'string');
+    assert.equal(typeof actual.autoCierre, 'boolean');
+
+    assert.doesNotThrow(() => setSettings({ wireWidth: 'grueso' }));
+    assert.deepEqual(getSettings(), { ...DEFAULT_SETTINGS, wireWidth: 'grueso' });
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'localStorage', original);
+    else delete (globalThis as { localStorage?: unknown }).localStorage;
+    setSettings(DEFAULT_SETTINGS);
+  }
   assert.deepEqual(getSettings(), DEFAULT_SETTINGS);
 });

@@ -13,7 +13,7 @@ import { hitContext, hitTest, segmentAttachedTo } from '../editor/wiring/hitTest
 import { WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { conductorToneOf, type ConductorTone } from '../editor/conductor.ts';
 import { SymbolGlyph } from './SymbolGlyph.tsx';
-import { attachPinRadius, getSettings, subscribeSettings } from './settings.ts';
+import { attachPinRadius, getSettings, pinStroke, subscribeSettings } from './settings.ts';
 import type { VisualState } from '../sim/visual.ts';
 
 export interface View {
@@ -668,7 +668,7 @@ function Component({
       )}
 
       {pins.map((p, i) => (
-        <circle key={`pin-${i}`} className={selected ? 'pin sel' : 'pin'} cx={p.x - x} cy={p.y - y} r={attachPinRadius(pinSize)} />
+        <circle key={`pin-${i}`} className={selected ? 'pin sel' : 'pin'} cx={p.x - x} cy={p.y - y} r={attachPinRadius(pinSize)} strokeWidth={pinStroke(pinSize)} />
       ))}
 
       {/* Rótulo del borne: a la derecha del punto de conexión, como en CADeSimu. */}

@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { LAMP_COLORS, type LampColor } from '../model/project.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
-import { getSettings, pinRadius, subscribeSettings } from './settings.ts';
+import { getSettings, pinRadius, pinStroke, subscribeSettings } from './settings.ts';
 
 interface Props {
   code: number;
@@ -114,12 +114,26 @@ export function SymbolGlyph({
       )}
       {anchored
         ? (sym.originPins ?? []).map((p) => (
-            <circle key={`op-${p.name}`} className="pin" cx={p.x} cy={p.y} r={pinRadius(pinSize)}>
+            <circle
+              key={`op-${p.name}`}
+              className="pin"
+              cx={p.x}
+              cy={p.y}
+              r={pinRadius(pinSize)}
+              strokeWidth={pinStroke(pinSize)}
+            >
               <title>{p.name}</title>
             </circle>
           ))
         : sym.pins.map((p) => (
-            <circle key={`p-${p.name}`} className="pin" cx={p.nx * w} cy={p.ny * h} r={pinRadius(pinSize)}>
+            <circle
+              key={`p-${p.name}`}
+              className="pin"
+              cx={p.nx * w}
+              cy={p.ny * h}
+              r={pinRadius(pinSize)}
+              strokeWidth={pinStroke(pinSize)}
+            >
               <title>{p.name}</title>
             </circle>
           ))}
