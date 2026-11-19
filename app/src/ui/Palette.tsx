@@ -4,6 +4,7 @@ import { BoxesIcon, ChevronDownIcon, StarIcon } from 'lucide-react';
 import { lineList, symbolList, type SymbolDef, type SymbolGroup } from '../symbols/library.ts';
 import { CATALOG } from '../symbols/catalog.ts';
 import { getScope, subscribeScope } from '../symbols/scope.ts';
+import { getSettings, nextOpenCats, subscribeSettings } from './settings.ts';
 import { SymbolGlyph } from './SymbolGlyph.tsx';
 import { PanelHead } from './PanelHead.tsx';
 import type { Sheet } from '../model/project.ts';
@@ -67,6 +68,7 @@ interface Props {
 
 export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props): JSX.Element {
   const scope = useSyncExternalStore(subscribeScope, getScope, getScope);
+  const { autoCierre } = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const horizontal = true;
   const available = [...symbolList(), ...lineList()].filter(
     (sym) => scope === 'all' || CATALOG[sym.code] !== undefined,
@@ -107,7 +109,9 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
   ];
 
   const toggleCategory = (key: string): void => {
-    setOpenCats((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    // Con «Auto cierre» prendido queda abierto sólo el último panel elegido; apagado,
+    // se abren varios a la vez como siempre.
+    setOpenCats((prev) => nextOpenCats(prev, key, autoCierre));
   };
 
   // Estilo CADe_SIMU: una categoría por ícono; se despliega al hacer clic.
