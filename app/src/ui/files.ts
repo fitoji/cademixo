@@ -92,6 +92,20 @@ export function suggestedSaveName(current: string): string {
   return cadFileName(current);
 }
 
+/**
+ * Nombre que el usuario escribió en el diálogo de «Guardar como…» cuando el
+ * navegador no puede abrir su propio selector. `null` si no escribió nada (ni
+ * espacios): un documento sin nombre no se guarda, se vuelve a preguntar.
+ *
+ * El `.cad` sale de `cadFileName`, igual que el nombre sugerido y la descarga:
+ * una sola regla de extensión para todos los caminos.
+ */
+export function normalizeSaveName(input: string): string | null {
+  const trimmed = input.trim();
+  if (trimmed === '') return null;
+  return cadFileName(trimmed);
+}
+
 export type SaveShortcut = 'save' | 'save-as';
 
 /**

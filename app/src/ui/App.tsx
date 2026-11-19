@@ -58,6 +58,7 @@ import { Inspector } from './Inspector.tsx';
 import { SAMPLES, loadSample, loadFile, downloadCade } from './samples.ts';
 import {
   hasFileSystemAccess,
+  normalizeSaveName,
   pickOpenHandle,
   pickSaveHandle,
   planSaveAction,
@@ -97,6 +98,7 @@ import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { Toaster } from '@/components/ui/sonner';
 import { SettingsDialog } from './SettingsDialog.tsx';
+import { SaveAsDialog } from './SaveAsDialog.tsx';
 import { getScope, setScope, subscribeScope } from '../symbols/scope.ts';
 import { getSettings, subscribeSettings, wireStroke } from './settings.ts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -141,6 +143,11 @@ export function App(): JSX.Element {
   const scope = useSyncExternalStore(subscribeScope, getScope, getScope);
   const settings = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /**
+   * «Guardar como…» sin File System Access API: el navegador no tiene selector
+   * donde pedir el nombre, así que se pide acá antes de descargar.
+   */
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
   /** Primer clic de un cable: origen. El segundo clic lo cierra. */
   const [wireStart, setWireStart] = useState<{ x: number; y: number } | null>(null);
   const [running, setRunning] = useState(false);
@@ -317,16 +324,52 @@ export function App(): JSX.Element {
         await writeDocument(picked, text);
         return;
       }
-      // Sin selectores: se descarga como siempre, con el `.cad` normalizado como
-      // nombre. El archivo abierto no se toca, así que la extensión es la del
-      // nombre sugerido; reescribir el original es cosa de la File System Access
-      // API, no de este camino.
+      // Sin selectores: se descarga, con el `.cad` normalizado como nombre. La
+      // diferencia entre «Guardar» y «Guardar como…» es el nombre: «Guardar» usa
+      // el del documento y «Guardar como…» lo pregunta en un diálogo, porque acá
+      // el navegador no tiene selector propio al que pedírselo. El archivo
+      // abierto no se toca, así que la extensión es la del nombre sugerido;
+      // reescribir el original es cosa de la File System Access API, no de este
+      // camino.
+      if (mode === 'save-as') {
+        setSaveAsOpen(true);
+        return;
+      }
       const name = suggestedSaveName(fileName);
       downloadCade(text, name);
       setFileName(name);
       setState((s) => (s && s.text === text ? markSaved(s) : s));
     },
     [state, fileName, flash, writeDocument],
+  );
+
+  /**
+   * El nombre ya elegido en el diálogo: se descarga con ése y se adopta como
+   * nombre del documento.
+   *
+   * La validación se repite acá y no se delega en `saveDocument`: el diálogo
+   * puede haber quedado abierto mientras el documento cambiaba, y escribir sin
+   * validar es irreversible. Tampoco se vuelve a llamar a `saveDocument` con
+   * `'save-as'`, que reabriría el diálogo en un bucle. Limpio sólo si el texto
+   * en pantalla sigue siendo el que se descargó.
+   */
+  const saveAsConfirmed = useCallback(
+    (chosen: string): void => {
+      setSaveAsOpen(false);
+      if (!state) return;
+      if (!roundTrips(state.text)) {
+        flash('no se guardó: el documento no re-parsea igual');
+        return;
+      }
+      const name = normalizeSaveName(chosen);
+      if (name === null) return;
+      const text = state.text;
+      downloadCade(text, name);
+      setFileName(name);
+      setState((s) => (s && s.text === text ? markSaved(s) : s));
+      flash(`guardado como ${name}`);
+    },
+    [state, flash],
   );
 
   useEffect(() => {
@@ -1113,6 +1156,13 @@ export function App(): JSX.Element {
       </div>
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+      <SaveAsDialog
+        open={saveAsOpen}
+        initialName={fileName}
+        onCancel={() => setSaveAsOpen(false)}
+        onConfirm={saveAsConfirmed}
+      />
 
       <Toaster theme={mode} position="top-center" />
     </TooltipProvider>

@@ -16,6 +16,7 @@ import {
   PickerError,
   encodeLatin1,
   hasFileSystemAccess,
+  normalizeSaveName,
   pickOpenHandle,
   pickSaveHandle,
   planSaveAction,
@@ -100,6 +101,24 @@ test('el nombre sugerido es el nombre de guardado normalizado', () => {
   assert.equal(suggestedSaveName('x.cade'), 'x.cad');
   assert.equal(suggestedSaveName('x.cad'), 'x.cad');
   assert.equal(suggestedSaveName('x.txt'), 'x.txt.cad');
+});
+
+// «Guardar como…» sin selectores pide el nombre en un diálogo: lo que el
+// usuario escribe se normaliza con la misma regla que el nombre sugerido, y un
+// nombre vacío (o sólo espacios) no es un nombre, así que no se puede guardar.
+test('un nombre vacío no es un nombre de guardado', () => {
+  assert.equal(normalizeSaveName(''), null);
+  assert.equal(normalizeSaveName('   '), null);
+});
+
+test('el nombre escrito se normaliza a la extensión .cad', () => {
+  assert.equal(normalizeSaveName('nota'), 'nota.cad');
+  assert.equal(normalizeSaveName('nota.cade'), 'nota.cad');
+  assert.equal(normalizeSaveName('nota.cad'), 'nota.cad');
+});
+
+test('los espacios de los costados no llegan al nombre del archivo', () => {
+  assert.equal(normalizeSaveName('  mi plano  '), 'mi plano.cad');
 });
 
 test('⌘S guarda y ⇧⌘S guarda como', () => {

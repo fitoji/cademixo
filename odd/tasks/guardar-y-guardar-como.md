@@ -14,11 +14,13 @@ inventa un destino. Branch: `main` local. Test runner: `pnpm test` desde `app/`.
   escritura, se reescribe ese archivo sin diálogo. Si no lo tiene, se comporta
   como «Guardar como…»: no se escribe en ningún destino inventado.
 - S4 (Guardar como…): pide destino y nombre cuando el navegador lo permite y
-  guarda ahí; si el navegador no lo permite, descarga el archivo como hoy. La
-  cabecera muestra el nombre del archivo realmente escrito (`handle.name`), no
-  el sugerido: si el usuario eligió otro nombre o extensión, mostrarlo distinto
-  sería mentir sobre dónde quedó el archivo. El `.cad` normalizado se sigue
-  usando como nombre sugerido del selector y como nombre de la descarga.
+  guarda ahí; si el navegador no lo permite, pide el nombre en un diálogo
+  («Guardar como») y descarga con ese nombre, porque ahí no hay selector del
+  sistema al que pedírselo. La cabecera muestra el nombre del archivo realmente
+  escrito (`handle.name`), no el sugerido: si el usuario eligió otro nombre o
+  extensión, mostrarlo distinto sería mentir sobre dónde quedó el archivo. El
+  `.cad` normalizado se sigue usando como nombre sugerido del selector, como
+  valor inicial del diálogo y como nombre de la descarga.
 - S5 (Abrir): cuando el navegador permite elegir archivo con handle, al abrir
   se conserva el handle para poder reescribir después ese mismo archivo; si no,
   el camino actual (input oculto) queda exactamente igual.
@@ -102,3 +104,24 @@ inventa un destino. Branch: `main` local. Test runner: `pnpm test` desde `app/`.
   (f) `test/files.test.ts` suma los sondeos durables de la verificación: bytes de
   los fixtures, truncado fuera de latin1, los dos casos de `planSaveAction`,
   atajos, y los envoltorios con selectores y streams falsos. De 11 a 26 tests.
+- L7: bug del usuario, verbatim: "guardar funciona, pero guardar como hace lo
+  mismo que guardar, deberia de abri un dialog para poder escribir nombre ,
+  etc". Diagnóstico: en un navegador sin la File System Access API,
+  `planSaveAction` devuelve `'download'` tanto para «Guardar» como para
+  «Guardar como…», así que los dos caminos colapsaban en la misma descarga con
+  el nombre actual y «Guardar como…» nunca preguntaba nada (S4 no se cumplía en
+  ese navegador). Cambios: `normalizeSaveName` en `ui/files.ts` (trim, `null` si
+  queda vacío, y `cadFileName` para que la regla del `.cad` siga en un solo
+  lugar); `ui/SaveAsDialog.tsx` nuevo con los primitivos de la casa (título
+  «Guardar como», descripción de que el navegador descarga con ese nombre,
+  `Input` prellenado y seleccionado, aviso de la extensión, «Cancelar» y
+  «Guardar»; envía con Enter y «Guardar» queda deshabilitado mientras el nombre
+  normalizado es `null`; Esc, fondo y Cancelar no guardan); `App.tsx` abre ese
+  diálogo sólo cuando «Guardar como…» habría descargado, y al confirmar repite
+  `roundTrips`, descarga con el nombre elegido, lo adopta como nombre del
+  documento y lo marca limpio sólo si el texto sigue siendo el descargado. No se
+  vuelve a llamar a `saveDocument('save-as')` al confirmar, así que no hay bucle;
+  «Guardar» no cambió en ninguna rama. Tests: `normalizeSaveName` con `''`,
+  `'   '`, `'nota'`, `'nota.cade'`, `'nota.cad'` y `'  mi plano  '` (26 → 29).
+  Queda sin probar en navegador real: el diálogo es de React y este repo no tiene
+  test de UI (S8).
