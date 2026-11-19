@@ -298,6 +298,16 @@
   filter: drop-shadow(0 0 1.1px var(--warn));
 }
 
+/*
+ * Protección abierta: la tinta se atenúa para que la segunda pose se lea de un
+ * vistazo, y una cerrada conserva la tinta plena (S7). El atributo lo pone el
+ * lienzo sólo en protecciones y auxiliares térmicos, así que un pulsador
+ * momentáneo en reposo —que también está `open`— no se ve apagado.
+ */
+[data-protection][data-state='open'] .sym {
+  opacity: 0.45;
+}
+
 [data-state='pressed'] .sym {
   opacity: 0.7;
 }

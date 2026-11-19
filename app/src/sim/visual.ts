@@ -73,6 +73,10 @@ export function visualStateOf(
   if (spec.kind === 'contact') return ctx.closed.has(id) ? 'closed' : 'open';
   // Conmutador de dos posiciones: cerrado cuando su salida activa toca el común.
   if (spec.kind === 'changeover') return ctx.closed.has(id) ? 'closed' : 'open';
+  // Protecciones y auxiliares térmicos: el circuito manda si conducen o no.
+  // Hasta acá caían al fallback, así que su `data-state` era el mismo abiertas o
+  // cerradas y ninguna regla del lienzo podía distinguirlas (S6).
+  if (spec.protection) return ctx.closed.has(id) ? 'closed' : 'open';
   return ctx.live.has(id) ? 'active' : 'idle';
 }
 

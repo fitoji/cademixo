@@ -58,6 +58,26 @@ test('protección disparada', () => {
   assert.equal(visualStateOf(rec(1, 6007), c), 'tripped');
 });
 
+test('las protecciones reportan cerrado u abierto según el circuito (S6)', () => {
+  // Antes caían al fallback (`live ? active : idle`), así que su `data-state`
+  // era el mismo abiertas o cerradas y ninguna regla CSS podía distinguirlas.
+  const c = ctx({ closed: new Set([1, 3]) });
+  assert.equal(visualStateOf(rec(1, 6007), c), 'closed', 'el guardamotor cerrado');
+  assert.equal(visualStateOf(rec(2, 6001), c), 'open', 'el automático abierto');
+  assert.equal(visualStateOf(rec(3, 6003), c), 'closed', 'el automático tripolar cerrado');
+});
+
+test('el auxiliar NC del térmico (8017) reporta cerrado u abierto (S6)', () => {
+  assert.equal(visualStateOf(rec(1, 8017), ctx({ closed: new Set([1]) })), 'closed');
+  assert.equal(visualStateOf(rec(2, 8017), ctx()), 'open');
+});
+
+test('la protección disparada gana sobre cerrada y sobre abierta (S6/S7)', () => {
+  const c = ctx({ closed: new Set([1]), tripped: new Set([1, 2]) });
+  assert.equal(visualStateOf(rec(1, 6007), c), 'tripped');
+  assert.equal(visualStateOf(rec(2, 8017), c), 'tripped');
+});
+
 test('todo presionable reporta pressed, esté o no en el viejo PUSHER (S2/S3)', () => {
   // 8005, 8100 y 8014 no estaban en el PUSHER de visual: la simulación los
   // presionaba y el lienzo los dibujaba en reposo.
