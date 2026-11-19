@@ -1,6 +1,6 @@
 # Iconos de Electro-Simulador
 
-Inventario de todo lo que dibuja iconografía en la interfaz: qué ícono se usa, dónde vive y para qué está. Son **29 íconos distintos** en 8 archivos, todos de la misma librería.
+Inventario de todo lo que dibuja iconografía en la interfaz: qué ícono se usa, dónde vive y para qué está. Son **30 íconos distintos** en 8 archivos, todos de la misma librería.
 
 ## Fuente y reglas
 
@@ -30,7 +30,8 @@ Inventario de todo lo que dibuja iconografía en la interfaz: qué ícono se usa
 | `FilePlusIcon` | Nuevo | Empezar un documento en blanco válido (una hoja con bloque de título), previa confirmación si hay cambios sin guardar. |
 | `FolderOpenIcon` | Abrir… | Disparar el selector de archivos `.cade`/`.cad` del sistema. |
 | `BookOpenIcon` | Ejemplos | Marcar el submenú que lista los samples incluidos; el abierto se marca con "actual" a la derecha. |
-| `SaveIcon` | Guardar | Reescribe el archivo abierto si el navegador lo permite; si no, lo descarga. Es el único botón primario de la aplicación. |
+| `SaveIcon` | Guardar | Guardar el documento (⌘S), con tres casos según el navegador y el documento: reescribe el archivo abierto sin diálogo (File System Access API, con handle y permiso), pide destino y nombre cuando no hay archivo asociado pero el navegador sabe elegir, o descarga el archivo como respaldo cuando no sabe. Es el único botón primario de la aplicación. |
+| `SaveAllIcon` | Guardar como… | Pedir destino y nombre (⇧⌘S) aunque haya un archivo abierto; si el navegador no sabe elegir, descarga. Guardar varios en uno: el ícono dice «copiar a otro lado», no «guardar todo». |
 
 ## Menubar · Editar
 
@@ -137,6 +138,7 @@ Tampoco cuentan los tonos por familia de la paleta (`--tone-*`): son puntos de c
 | `PlayIcon` | `ui/App.tsx` | Simular. |
 | `Redo2Icon` | `ui/App.tsx` | Rehacer (⇧⌘Z). |
 | `RotateCwIcon` | `ui/App.tsx`, `ui/Inspector.tsx` | Rotar 90° (R). |
+| `SaveAllIcon` | `ui/App.tsx` | Guardar como… (⇧⌘S). |
 | `SaveIcon` | `ui/App.tsx` | Guardar. |
 | `SquareIcon` | `ui/App.tsx` | Detener simulación. |
 | `StarIcon` | `ui/Palette.tsx` | Favoritos. |

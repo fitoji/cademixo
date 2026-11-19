@@ -82,3 +82,23 @@ inventa un destino. Branch: `main` local. Test runner: `pnpm test` desde `app/`.
   vuelve a suscribir en cada edición (correcto, pero un `useRef` sería más
   prolijo). (b) `openDocument` no captura un fallo de lectura del archivo
   elegido; el camino del input oculto tampoco lo hacía antes.
+- L6: cierre de la verificación independiente de `8010d29` + `68a05d8` (sin
+  hallazgos bloqueantes, seis puntos). El reparto cancelación/fallo y la guarda
+  «el texto sigue siendo el que se escribió» salieron de ahí.
+  (a) UX: `pickOpenHandle` pasa el mismo filtro que el `accept` del input oculto
+  (`OPEN_TYPES`: `.cade`/`.cad`) y sigue con `multiple: false`, así el diálogo
+  del sistema ya no ofrece cualquier archivo (S5).
+  (b) Cancelar ≠ fallar: las dos firmas devuelven `null` sólo con `AbortError` y
+  lanzan `PickerError` en cualquier otro fallo; `App.tsx` avisa «no se pudo abrir
+  el selector» en vez de «no se eligió destino». `planSaveAction` no cambió (S3, S4).
+  (c) `markSaved` sólo corre si `s.text === text`, tanto al reescribir como al
+  descargar: una edición tipeada durante la escritura se queda sucia (S7).
+  (d) `writeHandle` envuelve también `close()`: aborta el stream como mejor
+  esfuerzo (un abort que falla no tapa nada) y repropaga el error original (S6).
+  (e) Docs: `docs/cade-format.md` y `README.md` dejan de decir que guardar
+  siempre deja `.cad` (con handles se reescribe tal cual; el `.cad` normalizado
+  es nombre sugerido y descarga), y `docs/iconos.md` documenta los tres casos de
+  «Guardar» y suma `SaveAllIcon` (30 íconos).
+  (f) `test/files.test.ts` suma los sondeos durables de la verificación: bytes de
+  los fixtures, truncado fuera de latin1, los dos casos de `planSaveAction`,
+  atajos, y los envoltorios con selectores y streams falsos. De 11 a 26 tests.

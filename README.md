@@ -32,7 +32,7 @@ abrir/guardar   ver/dibujar  editar      simular      producto
 
 | Hito | Significa | Estado |
 |---|---|---|
-| **M1** | Abrir un `.cade` y guardarlo idéntico, ya como `.cad` | ✅ |
+| **M1** | Abrir un `.cade` y guardarlo idéntico, sin perder un byte | ✅ |
 | **M2** | Verlo dibujado y poder mover componentes | ✅ |
 | **M3** | Editar cables con ruteo moderno | ✅ |
 | **M4** | Simular el circuito | ⬜ |
