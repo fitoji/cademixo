@@ -82,6 +82,12 @@
   --ring: #2f6fd0;
 
   --wire: #0f9d63;
+  /*
+   * Grosor de los conductores: el preset "Normal" de Configuración →
+   * Apariencia. La raíz de la app actualiza esta variable cuando se elige
+   * Fino (0,12) o Grueso (0,24); el lienzo sólo la consume.
+   */
+  --wire-w: 0.17;
   --warn: #b97d05;
   --select: #2f6fd0;
 
@@ -316,5 +322,5 @@
 }
 
 [data-pack='cadesimu'] .wire {
-  stroke-width: 0.17;
+  stroke-width: var(--wire-w);
 }

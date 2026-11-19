@@ -174,11 +174,12 @@
  *
  * El grosor es el de CADeSimu: un pelo de un píxel sobre la captura real
  * (`data/samples/tests01/test01.png`, 6 px por unidad del archivo) son 0,17
- * unidades de plano. Antes se dibujaba con 0,34, el doble.
+ * unidades de plano. Antes se dibujaba con 0,34, el doble. El valor sale de la
+ * preferencia de Apariencia a través de `--wire-w`, cuyo default es 0,17.
  */
 .wire {
   stroke: var(--wire);
-  stroke-width: 0.17;
+  stroke-width: var(--wire-w);
   stroke-linecap: round;
   fill: none;
 }
@@ -209,7 +210,7 @@
  */
 .wire.live {
   stroke: var(--warn);
-  stroke-width: 0.34;
+  stroke-width: calc(var(--wire-w) * 2);
   stroke-dasharray: 1.8 1.6;
   animation: wire-flow 0.8s linear infinite;
 }
@@ -247,7 +248,7 @@
 
 .wire.sel {
   stroke: var(--select);
-  stroke-width: 0.34;
+  stroke-width: calc(var(--wire-w) * 2);
 }
 
 .junction {

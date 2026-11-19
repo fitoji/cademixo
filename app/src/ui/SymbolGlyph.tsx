@@ -1,7 +1,9 @@
 import type { CSSProperties, JSX } from 'react';
+import { useSyncExternalStore } from 'react';
 import { LAMP_COLORS, type LampColor } from '../model/project.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
+import { getSettings, pinRadius, subscribeSettings } from './settings.ts';
 
 interface Props {
   code: number;
@@ -63,6 +65,8 @@ export function SymbolGlyph({
   live = false,
   place = 'center',
 }: Props): JSX.Element {
+  // Tamaño de borne elegido en Configuración → Apariencia; sin preferencia, 1,4.
+  const { pinSize } = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const sym = resolveSymbol(code, pinNames);
   const shapes = sym.shapes(w, h);
   const labels = sym.labels?.(w, h) ?? [];
@@ -110,12 +114,12 @@ export function SymbolGlyph({
       )}
       {anchored
         ? (sym.originPins ?? []).map((p) => (
-            <circle key={`op-${p.name}`} className="pin" cx={p.x} cy={p.y} r={1.4}>
+            <circle key={`op-${p.name}`} className="pin" cx={p.x} cy={p.y} r={pinRadius(pinSize)}>
               <title>{p.name}</title>
             </circle>
           ))
         : sym.pins.map((p) => (
-            <circle key={`p-${p.name}`} className="pin" cx={p.nx * w} cy={p.ny * h} r={1.4}>
+            <circle key={`p-${p.name}`} className="pin" cx={p.nx * w} cy={p.ny * h} r={pinRadius(pinSize)}>
               <title>{p.name}</title>
             </circle>
           ))}

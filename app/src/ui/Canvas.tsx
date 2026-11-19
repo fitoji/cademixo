@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
 import { GEOMETRY, boxOf, boundsOf, wirePoints, type CadeRecordModel } from '../model/project.ts';
 import { resolveSymbol } from '../symbols/library.ts';
@@ -13,6 +13,7 @@ import { hitContext, hitTest, segmentAttachedTo } from '../editor/wiring/hitTest
 import { WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { conductorToneOf, type ConductorTone } from '../editor/conductor.ts';
 import { SymbolGlyph } from './SymbolGlyph.tsx';
+import { attachPinRadius, getSettings, subscribeSettings } from './settings.ts';
 import type { VisualState } from '../sim/visual.ts';
 
 export interface View {
@@ -617,6 +618,8 @@ function Component({
   rotation: Rotation;
   pins: Point[];
 }): JSX.Element | null {
+  // Tamaño de borne elegido en Configuración → Apariencia; sin preferencia, 0,9.
+  const { pinSize } = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const box = boxOf(rec);
   if (!box) return null;
   const x = rec.geometry[GEOMETRY.x] ?? 0;
@@ -665,7 +668,7 @@ function Component({
       )}
 
       {pins.map((p, i) => (
-        <circle key={`pin-${i}`} className={selected ? 'pin sel' : 'pin'} cx={p.x - x} cy={p.y - y} r={0.9} />
+        <circle key={`pin-${i}`} className={selected ? 'pin sel' : 'pin'} cx={p.x - x} cy={p.y - y} r={attachPinRadius(pinSize)} />
       ))}
 
       {/* Rótulo del borne: a la derecha del punto de conexión, como en CADeSimu. */}
