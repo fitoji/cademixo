@@ -73,8 +73,9 @@ paneles de la paleta. Branch: `main` local. Test runner: `pnpm test` desde `app/
   local `openCats` (array, varios abiertos a la vez) y el toggle en
   `toggleCategory`; los puntos de borne son literales JSX `r={1.4}`
   (`SymbolGlyph.tsx:113,118`) y `r={0.9}` (`Canvas.tsx:668`); el grosor de
-  cable es CSS (`.wire` 0,17, `.wire.live`/`.wire.sel` 0,34 y un duplicado de
-  mayor especificidad en `index.css:318`); la persistencia de preferencias ya
+  cable es CSS (`.wire` 0,17, `.wire.live`/`.wire.sel` 0,34 y una segunda regla
+  con la misma especificidad en `index.css:318` que gana por orden de
+  aparición); la persistencia de preferencias ya
   tiene el molde de `symbols/scope.ts` (localStorage + `useSyncExternalStore`).
 - L3: defaults elegidos para no cambiar nada sin preferencia guardada: bornes
   Normal = 1,4 / 0,9 y cables Normal = 0,17 (S4, S5, S9). Auto cierre apagado
@@ -83,8 +84,10 @@ paneles de la paleta. Branch: `main` local. Test runner: `pnpm test` desde `app/
   (codec por campo, round-trip, `nextOpenCats` en los dos modos, derivaciones
   con Normal exacto); suite 398/398; `npx tsc --noEmit` limpio; `vite build`
   OK; los únicos `stroke-width` de `.wire*` que quedan son `var(--wire-w)` y
-  `calc(var(--wire-w) * 2)`, y el duplicado de especificidad
-  `[data-pack='cadesimu'] .wire` ahora resuelve por la variable. Diferencial de
+  `calc(var(--wire-w) * 2)`, y el duplicado `[data-pack='cadesimu'] .wire`
+  tiene la **misma** especificidad (0,2,0) que `.wire.live` y se resuelve por
+  orden de fuente; como las dos reglas usan la misma variable, la geometría
+  sale idéntica. Diferencial de
   defaults medido en node: `parseSettings(null)` → `normal/normal/false` con
   radios 1,4 / 0,9 y ancho 0,17 (0,34 duplicado). No se agregaron dependencias:
   `Dialog` y `Checkbox` salen del `radix-ui` que ya estaba en `package.json`.
@@ -92,3 +95,20 @@ paneles de la paleta. Branch: `main` local. Test runner: `pnpm test` desde `app/
   renderer), así que el diálogo y el render se verifican por tipos (`tsc`) y
   por los reducers/derivaciones ya testeados. La verificación visual del
   diálogo y de los tres presets queda como paso manual.
+- L6: follow-up de la verificación independiente (S4, S5, S7, S8). El aro del
+  borne era fijo en `.pin` (`stroke-width: 0.42`) mientras el radio escalaba,
+  así que en el preset Chico el punto se leía como un aro pesado; ahora la
+  derivación `pinStroke(size)` en `src/ui/settings.ts` acompaña al radio —
+  chico 0,33, **normal 0,42 (el valor de hoy, sin cambio visual)**, grande
+  0,57 — y se pasa como `strokeWidth` en los mismos tres `<circle>` que ya
+  tomaban `pinRadius` / `attachPinRadius` (`SymbolGlyph.tsx` ×2, `Canvas.tsx`
+  ×1); `.pin` en `diagram.css` queda igual como fallback y no se tocaron
+  uniones, marcas de snap, handles ni fantasmas. Tests durables nuevos en
+  `app/test/settings.test.ts` (los 6 que antes sólo probaba un sondeo
+  descartable): trazo del borne con Normal exacto, ancho duplicado de tensión /
+  selección (0,34) con fino 0,24 y grueso 0,48, fallback por campo con objeto o
+  número, orden de los paneles que sobreviven al auto cierre, `setSettings`
+  persistiendo el objeto mezclado bajo `simuelectro:ajustes` sin escribir en un
+  no-op (stub de `localStorage` restaurado en `finally`) y un storage que tira
+  sin romper el store. El render por defecto sigue reproduciendo 1,4 / 0,9 /
+  0,17 / 0,42.
