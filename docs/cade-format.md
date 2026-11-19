@@ -10,7 +10,7 @@ Estado: **parcial**. Todo lo marcado ✅ está verificado sobre `data/CADe_SIMU 
 
 ✅ `.cad` y `.cade` son **el mismo formato de texto**: la extensión no cambia un byte del contenido. La app abre las dos.
 
-Con la File System Access API, «Guardar» **reescribe el archivo abierto tal como está**: un `.cade` abierto se vuelve a guardar como `.cade`. El `.cad` normalizado sólo se usa en dos lados: como nombre sugerido del selector de destino («Guardar como…») y como nombre de la descarga de respaldo en los navegadores sin esa API.
+Con la File System Access API, «Guardar» **reescribe el archivo abierto tal como está**: un `.cade` abierto se vuelve a guardar como `.cade`. El `.cad` normalizado sólo se usa en dos lados: como nombre sugerido del selector de destino («Guardar como…») y como nombre de la descarga de respaldo en los navegadores sin esa API, donde «Guardar como…» abre un diálogo para escribir el nombre y descarga con él.
 
 Regla del nombre sugerido, implementada en `app/src/format/filename.ts` (`cadFileName`): una extensión final `.cade`/`.cad` se reemplaza por `.cad`, y un nombre sin extensión la recibe. Esa regla es del nombre, no del archivo: el contenido que se escribe es el texto canónico del editor, con los mismos bytes se guarde donde se guarde.
 
