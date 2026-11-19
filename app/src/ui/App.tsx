@@ -15,6 +15,7 @@ import {
   SquareIcon,
   Redo2Icon,
   RotateCwIcon,
+  SaveAllIcon,
   SaveIcon,
   SunIcon,
   Trash2Icon,
@@ -42,6 +43,7 @@ import {
   applyDrag,
   undo,
   redo,
+  markSaved,
   type DragOp,
   type EditorState,
 } from '../editor/state.ts';
@@ -54,6 +56,15 @@ import { Canvas } from './Canvas.tsx';
 import { Palette } from './Palette.tsx';
 import { Inspector } from './Inspector.tsx';
 import { SAMPLES, loadSample, loadFile, downloadCade } from './samples.ts';
+import {
+  hasFileSystemAccess,
+  pickOpenHandle,
+  pickSaveHandle,
+  planSaveAction,
+  saveShortcutOf,
+  suggestedSaveName,
+  writeHandle,
+} from './files.ts';
 import { JUNCTION_TEMPLATE, WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { templateForPlacement } from '../symbols/place.ts';
 import { blankDocument } from '../format/blank.ts';
@@ -170,6 +181,12 @@ export function App(): JSX.Element {
   /** Estado retenido: un contactor no olvida entre pasos (enclavamientos). */
   const lastEnergized = useRef<Set<string>>(new Set());
   const fileInput = useRef<HTMLInputElement | null>(null);
+  /**
+   * Archivo abierto, si el navegador permite elegir archivo con handle. Es lo
+   * que permite que «Guardar» reescriba ese mismo archivo en vez de pedir un
+   * destino nuevo. Ni «Nuevo» ni un ejemplo tienen archivo detrás.
+   */
+  const fileHandle = useRef<FileSystemFileHandle | null>(null);
 
   // El grosor de cable es una variable CSS: el lienzo la consume en `diagram.css`.
   useEffect(() => {
@@ -189,9 +206,12 @@ export function App(): JSX.Element {
     toast(message, { duration: 2200 });
   }, []);
 
-  const openText = useCallback((text: string, name: string) => {
+  const openText = useCallback((text: string, name: string, handle: FileSystemFileHandle | null = null) => {
     setState(createEditor(text));
     setFileName(name);
+    // El handle se reemplaza siempre: el documento que entra manda. Se pasa
+    // sólo al abrir un archivo; Nuevo y los ejemplos lo dejan en `null`.
+    fileHandle.current = handle;
     setActiveSheet(0);
     setPlacing(null);
     setPreview(null);
@@ -206,19 +226,86 @@ export function App(): JSX.Element {
     toast('proyecto nuevo');
   }, [state, openText]);
 
-  /** Guardar: si el documento no re-parsea igual, no se escribe nada. */
-  const saveDocument = useCallback(() => {
-    if (!state) return;
-    if (!roundTrips(state.text)) {
-      flash('no se guardó: el documento no re-parsea igual');
+  /**
+   * Abrir: con selectores se conserva el handle para poder reescribir después
+   * ese mismo archivo. Sin soporte queda el input oculto de siempre.
+   */
+  const openDocument = useCallback(async (): Promise<void> => {
+    if (!hasFileSystemAccess()) {
+      fileInput.current?.click();
       return;
     }
-    // Se guarda siempre `.cad`: abrir un `.cade` y guardarlo lo deja con la
-    // extensión del CAD. El nombre en pantalla acompaña al archivo escrito.
-    const name = cadFileName(fileName);
-    downloadCade(state.text, name);
-    setFileName(name);
-  }, [state, fileName, flash]);
+    const picked = await pickOpenHandle();
+    if (!picked) return;
+    const { text, name } = await loadFile(picked.file);
+    openText(text, name, picked.handle);
+  }, [openText]);
+
+  /**
+   * Escribe `text` en `handle` y deja la aplicación conforme: ese archivo pasa a
+   * ser el actual, la cabecera muestra su nombre y el documento queda limpio.
+   * Si la escritura falla no se adopta nada: el documento sigue sucio.
+   */
+  const writeDocument = useCallback(
+    async (handle: FileSystemFileHandle, text: string): Promise<void> => {
+      try {
+        await writeHandle(handle, text);
+      } catch {
+        flash('no se guardó: no se pudo escribir el archivo');
+        return;
+      }
+      fileHandle.current = handle;
+      setFileName(handle.name);
+      setState((s) => (s ? markSaved(s) : s));
+    },
+    [flash],
+  );
+
+  /**
+   * «Guardar» y «Guardar como…».
+   *
+   * `'save'` puede reescribir el archivo abierto; `'save-as'` siempre pide
+   * destino (o descarga). La validación va primero: escribir sobre el archivo
+   * del usuario es irreversible, así que un documento que no re-parsea igual no
+   * se escribe por ningún camino.
+   */
+  const saveDocument = useCallback(
+    async (mode: 'save' | 'save-as'): Promise<void> => {
+      if (!state) return;
+      if (!roundTrips(state.text)) {
+        flash('no se guardó: el documento no re-parsea igual');
+        return;
+      }
+      const text = state.text;
+      const openHandle = mode === 'save' ? fileHandle.current : null;
+      const action = planSaveAction({
+        hasHandle: openHandle !== null,
+        browserSupportsPickers: hasFileSystemAccess(),
+      });
+      if (action === 'write-in-place' && openHandle) {
+        await writeDocument(openHandle, text);
+        return;
+      }
+      if (action === 'pick-location') {
+        // Se sugiere el `.cad` normalizado; el nombre que queda en pantalla es
+        // el del archivo que el usuario eligió.
+        const picked = await pickSaveHandle(suggestedSaveName(fileName));
+        if (!picked) {
+          flash('no se guardó: no se eligió destino');
+          return;
+        }
+        await writeDocument(picked, text);
+        return;
+      }
+      // Sin selectores: se descarga como siempre. Se guarda siempre `.cad`:
+      // abrir un `.cade` y guardarlo lo deja con la extensión del CAD.
+      const name = suggestedSaveName(fileName);
+      downloadCade(text, name);
+      setFileName(name);
+      setState((s) => (s ? markSaved(s) : s));
+    },
+    [state, fileName, flash, writeDocument],
+  );
 
   useEffect(() => {
     void loadSample(SAMPLES[0]!).then((text) => openText(text, SAMPLES[0]!.name));
@@ -576,6 +663,14 @@ export function App(): JSX.Element {
         return;
       }
       if (typing) return;
+      // Guardar se permite también con la simulación en marcha: escribir el
+      // archivo no edita el documento.
+      const shortcut = saveShortcutOf(e);
+      if (shortcut) {
+        e.preventDefault();
+        void saveDocument(shortcut);
+        return;
+      }
       // Durante la simulación el circuito es de solo lectura: nada de
       // deshacer, pegar, borrar ni rotar.
       if (running) return;
@@ -616,7 +711,7 @@ export function App(): JSX.Element {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [flash, cancel, running]);
+  }, [flash, cancel, running, saveDocument]);
 
   if (!state || !project) {
     return (
@@ -667,7 +762,7 @@ export function App(): JSX.Element {
                     <FilePlusIcon />
                     Nuevo
                   </MenubarItem>
-                  <MenubarItem onSelect={() => fileInput.current?.click()}>
+                  <MenubarItem onSelect={() => void openDocument()}>
                     <FolderOpenIcon />
                     Abrir…
                   </MenubarItem>
@@ -695,9 +790,15 @@ export function App(): JSX.Element {
                 </MenubarGroup>
                 <MenubarSeparator />
                 <MenubarGroup>
-                  <MenubarItem onSelect={saveDocument}>
+                  <MenubarItem onSelect={() => void saveDocument('save')}>
                     <SaveIcon />
-                    Guardar .cad
+                    Guardar
+                    <MenubarShortcut>⌘S</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem onSelect={() => void saveDocument('save-as')}>
+                    <SaveAllIcon />
+                    Guardar como…
+                    <MenubarShortcut>⇧⌘S</MenubarShortcut>
                   </MenubarItem>
                 </MenubarGroup>
               </MenubarContent>
@@ -900,9 +1001,9 @@ export function App(): JSX.Element {
 
           <Separator orientation="vertical" className="mx-0.5 h-5" />
 
-          <Button size="sm" onClick={saveDocument}>
+          <Button size="sm" onClick={() => void saveDocument('save')}>
             <SaveIcon data-icon="inline-start" />
-            Guardar .cad
+            Guardar
           </Button>
         </header>
 

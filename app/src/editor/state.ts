@@ -54,6 +54,17 @@ export interface EditorState {
   dirty: boolean;
 }
 
+/**
+ * El documento quedó guardado: deja de figurar como sucio.
+ *
+ * No toca el texto, la selección ni el historial: guardar no edita nada. Es
+ * sólo la marca que apaga el punto del pie, y la pone el guardado confirmado,
+ * nunca un intento fallido.
+ */
+export function markSaved(state: EditorState): EditorState {
+  return state.dirty ? { ...state, dirty: false } : state;
+}
+
 const HISTORY_LIMIT = 100;
 
 export function createEditor(text: string): EditorState {

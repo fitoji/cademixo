@@ -4,6 +4,10 @@
  * Detalle importante: se decodifica como latin1 (un byte = un carácter) en vez
  * de UTF-8. El formato es texto de un byte por carácter y decodificarlo como
  * UTF-8 corrompería los acentos y rompería el round-trip.
+ *
+ * La codificación de vuelta a bytes vive en `ui/files.ts` (`encodeLatin1`),
+ * junto a la escritura del archivo del usuario: un solo lugar decide los bytes
+ * que se guardan, se descargue o se reescriba el archivo abierto.
  */
 
 import arranqueUrl from '../../test/fixtures/arranque-paro-motor-3f.cad?url';
@@ -11,6 +15,7 @@ import ej0defUrl from '../../test/fixtures/ej0def.cad?url';
 import inversionUrl from '../../test/fixtures/inversion-giro-cej.cade?url';
 import pr1Url from '../../test/fixtures/pr1-rodolfo-giusti.cad?url';
 import demoUrl from '../../test/fixtures/luz-con-interruptor.cade?url';
+import { encodeLatin1 } from './files.ts';
 
 export interface Sample {
   name: string;
@@ -37,13 +42,6 @@ export async function loadSample(sample: Sample): Promise<string> {
 export async function loadFile(file: File): Promise<{ text: string; name: string }> {
   const buf = await file.arrayBuffer();
   return { text: decoder.decode(buf), name: file.name };
-}
-
-/** Codifica de vuelta a bytes: un carácter por byte, sin tocar nada. */
-export function encodeLatin1(text: string): Uint8Array {
-  const out = new Uint8Array(text.length);
-  for (let i = 0; i < text.length; i++) out[i] = text.charCodeAt(i) & 0xff;
-  return out;
 }
 
 export function downloadCade(text: string, name: string): void {
