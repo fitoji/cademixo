@@ -47,6 +47,11 @@ export function linkedProtection(
  * Un conmutador con una protección del mismo designador sigue al disyuntor: es
  * su contacto auxiliar. Los demás conservan la posición que el usuario les haya
  * dado con el clic.
+ *
+ * Los conmutados de TRES bornes (`11`/`12`/`14`) no están acá: no tienen
+ * posición que elegir, porque sus dos tiros los resuelve el solver con la misma
+ * regla de un contacto NA/NC — el `12` en reposo y el `14` cuando el aparato se
+ * acciona o su bobina se energiza (`circuit.simKindsOf`).
  */
 export function changeoverPositions(
   records: CadeRecordModel[],

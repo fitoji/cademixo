@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { resolveSymbol } from '../src/symbols/library.ts';
+import { parse } from '../src/format/cade.ts';
+import { buildProject } from '../src/model/project.ts';
+import { circuitFrom } from '../src/sim/circuit.ts';
+import { simulate } from '../src/sim/solver.ts';
+import { visualStateOf } from '../src/sim/visual.ts';
 
 /**
  * Conmutador de dos posiciones (el 8018).
@@ -70,4 +78,76 @@ test('cada cuchilla pivota en la fila inferior del contacto y abre hacia un lado
   const [nc, na] = tips;
   assert.ok(nc!.tip[0] > nc!.pivot[0], 'la de 95-96 abre a la derecha');
   assert.ok(na!.tip[0] < na!.pivot[0], 'la de 97-98 abre a la izquierda');
+});
+
+/**
+ * Conmutado de tres bornes (`11` común, `12` NC, `14` NO).
+ *
+ * Hasta acá ningún archivo del repo cableaba uno: `pairPins` emparejaba por
+ * mitad y el tercer borne desaparecía del modelo. El fixture
+ * `conmutado-tercer-borne.cade` cablea fase -> 11, los dos tiros -> una lámpara
+ * cada uno, y las dos lámparas -> neutro. Así se puede medir qué tiro conduce.
+ */
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
+const CONMUTADO = buildProject(
+  parse(readFileSync(join(FIXTURES, 'conmutado-tercer-borne.cade'), 'latin1')),
+).records;
+
+/** Circuito y lámparas del fixture, armados una vez. */
+function conmutadoCableado() {
+  const built = circuitFrom(CONMUTADO);
+  assert.ok(built, 'el fixture cablea fase, neutro y los tres bornes del pulsador');
+  const throws = built.circuit.devices.filter((d) => d.part === 'S1');
+  const h1 = built.circuit.devices.find((d) => d.part === 'H1');
+  const h2 = built.circuit.devices.find((d) => d.part === 'H2');
+  assert.ok(h1 && h2, 'faltan las lámparas del fixture');
+  return { built, throws, h1, h2 };
+}
+
+test('el conmutado de tres bornes cableado conduce el 12 en reposo y el 14 al accionar', () => {
+  const { built, throws, h1, h2 } = conmutadoCableado();
+  assert.deepEqual(
+    throws.map((d) => d.kind),
+    ['buttonNC', 'buttonNO'],
+    'el 12 es el tiro NC y el 14 el NO',
+  );
+
+  const reposo = simulate(built.circuit);
+  assert.equal(reposo.stable, true);
+  assert.equal(reposo.loads.has(h1.id), true, 'en reposo enciende la lámpara del 12');
+  assert.equal(reposo.loads.has(h2.id), false, 'el tiro 14 no conduce todavía');
+
+  // El clic de simulación aprieta el REGISTRO: al solver le llegan sus dos tiros.
+  const accionado = simulate(built.circuit, { pressed: new Set(throws.map((d) => d.id)) });
+  assert.equal(accionado.stable, true);
+  assert.equal(accionado.loads.has(h1.id), false, 'accionar abre el 12');
+  assert.equal(accionado.loads.has(h2.id), true, 'y conduce el 14');
+});
+
+test('el registro conmutado resuelve a un solo estado visual y sigue reportando pressed', () => {
+  const { built, throws } = conmutadoCableado();
+  const rec = CONMUTADO.find((r) => r.code === 8003)!;
+  const pressed = new Set(throws.map((d) => d.id));
+
+  // `App.tsx` arma `closedContacts` con el id de REGISTRO de cada dispositivo que
+  // conduce, pero para un conmutado de tres bornes la pose sigue al tiro que
+  // gira (0-2): en reposo conduce el 12 y el símbolo se dibuja sin accionar.
+  const cerrados = (accionado: boolean): Set<number> => {
+    const state = simulate(built.circuit, { pressed: accionado ? pressed : new Set<string>() });
+    return new Set(
+      [...state.closed].filter((id) => id.endsWith(':0-2')).map((id) => Number(id.split(':')[0])),
+    );
+  };
+  assert.deepEqual([...cerrados(false)], [], 'en reposo conduce el 12, pero el símbolo no se acciona');
+  assert.deepEqual([...cerrados(true)], [rec.id], 'accionado conduce el 14 y el registro cuenta una sola vez');
+
+  const ctx = { simulating: true, live: new Set<number>(), closed: cerrados(false), pressed: new Set<number>() };
+  // `visualStateOf` recibe ids de REGISTRO en `pressed`, igual que `App.tsx`.
+  assert.equal(
+    visualStateOf(rec, { ...ctx, closed: cerrados(true), pressed: new Set([rec.id]) }),
+    'pressed',
+    'apretarlo se sigue viendo',
+  );
+  // El dibujo no cambia (S6): en reposo manda la polaridad de la tabla, no el tiro.
+  assert.equal(visualStateOf(rec, ctx), 'open');
 });

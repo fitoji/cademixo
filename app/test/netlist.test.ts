@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '../src/format/cade.ts';
 import { buildProject } from '../src/model/project.ts';
-import { buildNetlist, partKey, kindOf, isProtectionCode } from '../src/sim/netlist.ts';
+import { buildNetlist, isTwoThrow, partKey, kindOf, isProtectionCode, polesOf } from '../src/sim/netlist.ts';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -76,6 +76,47 @@ test('en el arranque, el contacto auxiliar queda en paralelo con STAR y la bobin
   assert.notDeepEqual([...coil.nets], [...star.nets], 'la bobina no está en paralelo con STAR');
   const shared = coil.nets.filter((n) => star.nets.includes(n));
   assert.equal(shared.length, 1, 'la bobina sale de una de las dos redes del pulsador');
+});
+
+test('polesOf: los aparatos de 2, 4 y 6 bornes se emparejan por mitad, como hasta ahora', () => {
+  // S6: la derivación de polos nueva no toca estos conteos. 8018 y el motor de
+  // seis puntas siguen saliendo por mitad.
+  assert.deepEqual(polesOf(['A1', 'A2']), [[0, 1]]);
+  assert.deepEqual(polesOf(['95', '97', '96', '98']), [[0, 2], [1, 3]]);
+  assert.deepEqual(polesOf(['1', '3', '5', '2', '4', '6']), [[0, 3], [1, 4], [2, 5]]);
+  assert.deepEqual(polesOf(['U']), []);
+  assert.deepEqual(polesOf([]), []);
+});
+
+test('polesOf: un conmutado de tres bornes tiene dos tiros que comparten el común', () => {
+  // S2/S4: el 12 (NC) es el primer tiro y el 14 (NO) el segundo, sobre los
+  // índices de `attachPoints` — as\u00ed `flow.ts` indexa `network.pins`.
+  assert.deepEqual(polesOf(['11', '12', '14']), [[0, 1], [0, 2]]);
+});
+
+test('polesOf: el tiro sigue al rótulo aunque el dibujo los cablee en otro orden', () => {
+  assert.deepEqual(polesOf(['11', '14', '12']), [[0, 2], [0, 1]], 'el NC siempre es el primer polo');
+  assert.equal(isTwoThrow(['11', '12', '14']), true);
+  assert.equal(isTwoThrow(['11', '12']), false);
+  assert.equal(isTwoThrow(['U', 'V', 'W']), false, 'tres bornes cualesquiera no son un conmutado');
+});
+
+test('polesOf: los polos nunca se salen de los bornes cableados', () => {
+  // Una caja donde sólo dos de los tres bornes tienen punto de conexión se
+  // queda con un polo, como antes. La bornera no declara rótulos: manda el
+  // conteo de `attachPoints`.
+  assert.deepEqual(polesOf(['11', '12', '14'], 2), [[0, 1]]);
+  assert.deepEqual(polesOf([], 4), [[0, 2], [1, 3]]);
+  assert.deepEqual(polesOf([], 3), [[0, 1]], 'tres puntos sin rótulos se emparejan por mitad');
+});
+
+test('el conmutado de tres bornes conserva los tres bornes como dos polos', () => {
+  const nl = buildNetlist(load('conmutado-tercer-borne.cade').records);
+  const s1 = nl.devices.find((d) => d.code === 8003);
+  assert.ok(s1, 'falta el pulsador conmutado del fixture');
+  assert.deepEqual(s1.pinNames, ['11', '12', '14']);
+  assert.equal(new Set(s1.nets).size, 3, 'los tres bornes caen en redes distintas');
+  assert.deepEqual(s1.poles, [[0, 1], [0, 2]], 'el 14 ya no se descarta');
 });
 
 test('normalización de designador: el guion inicial no cambia el aparato', () => {

@@ -45,7 +45,11 @@ export interface Device {
   pinNames: string[];
   /** net de cada borne; -1 si el borne no está conectado */
   nets: number[];
-  /** pares de bornes que forman polos: [a, b] sobre índices de `nets` */
+  /**
+   * Pares de bornes que forman polos: [a, b] sobre índices de `nets`. Un
+   * conmutado de tres bornes (`11`/`12`/`14`) tiene dos, con el común repetido
+   * (`polesOf`).
+   */
   poles: [number, number][];
   /** Temporizado: modo y si el contacto base es NC. */
   timer?: 'on' | 'off' | 'both';
@@ -89,6 +93,52 @@ function pairPins(count: number): [number, number][] {
   const pairs: [number, number][] = [];
   for (let i = 0; i < half; i++) pairs.push([i, i + half]);
   return pairs;
+}
+
+/** Rótulos de un conmutado de tres bornes: común, NC y NO (IEC 60617). */
+const THROW_PINS = ['11', '12', '14'] as const;
+
+/**
+ * Índices del común y de los dos tiros de un aparato de tres bornes.
+ *
+ * Se busca por RÓTULO y no por posición: `attachPoints` ordena de arriba abajo
+ * y de izquierda a derecha, así que en el dibujo medido (`11` arriba, `12` a la
+ * izquierda, `14` a la derecha) los índices son 0, 1 y 2; si un plano los cablea
+ * en otro orden, el tiro sigue siendo el que dice el rótulo.
+ */
+function throwIndices(pinNames: readonly string[]): { common: number; nc: number; no: number } | null {
+  if (pinNames.length !== 3) return null;
+  if (!THROW_PINS.every((pin) => pinNames.includes(pin))) return null;
+  return { common: pinNames.indexOf('11'), nc: pinNames.indexOf('12'), no: pinNames.indexOf('14') };
+}
+
+/** Aparato de tres bornes con común y dos tiros (`11`/`12`/`14`). */
+export function isTwoThrow(pinNames: readonly string[]): boolean {
+  return throwIndices(pinNames) !== null;
+}
+
+/**
+ * Polos de un aparato, sobre los índices de sus bornes.
+ *
+ * Un aparato de bornes `11` (común), `12` (NC) y `14` (NO) tiene DOS tiros que
+ * comparten el común. Antes se emparejaba siempre por mitad, y con tres bornes
+ * `floor(3/2) = 1` dejaba un solo par: el `14` desaparecía del modelo aunque el
+ * símbolo lo dibujara. El primer polo es siempre el NC (conduce en reposo) y el
+ * segundo el NO (conduce cuando el aparato se acciona o su bobina se energiza).
+ *
+ * `count` es la cantidad de bornes CON PUNTO DE CONEXIÓN, que no siempre es la
+ * de rótulos: una bornera no declara rótulos y una caja puede recibir además un
+ * empalme (`attachPoints` es quien la mide). Los polos nunca se salen de ese
+ * rango: si sólo hay dos puntos cableados queda un polo, como antes.
+ */
+export function polesOf(pinNames: readonly string[], count = pinNames.length): [number, number][] {
+  const throws = throwIndices(pinNames);
+  if (!throws) return pairPins(count);
+  const poles: [number, number][] = [
+    [throws.common, throws.nc],
+    [throws.common, throws.no],
+  ];
+  return poles.filter(([a, b]) => a < count && b < count);
 }
 
 class UnionFind {
@@ -201,7 +251,7 @@ export function buildNetlist(records: CadeRecordModel[]): Netlist {
       kind: spec.kind,
       pinNames: rec.pins,
       nets,
-      poles: pairPins(nets.length),
+      poles: polesOf(rec.pins, nets.length),
       timer: spec.timer,
       timerNC: spec.timer !== undefined && spec.rest === 'closed',
       latching: spec.latching ?? false,

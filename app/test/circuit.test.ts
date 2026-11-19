@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '../src/format/cade.ts';
 import { buildProject } from '../src/model/project.ts';
-import { circuitFrom, cableTypeOf, simKindOf } from '../src/sim/circuit.ts';
+import { circuitFrom, cableTypeOf, simKindOf, simKindsOf } from '../src/sim/circuit.ts';
 import { type Device } from '../src/sim/netlist.ts';
 import { simulate } from '../src/sim/solver.ts';
 
@@ -14,6 +14,9 @@ const ARRANQUE = buildProject(parse(readFileSync(join(FIXTURES, 'arranque-paro-m
 const INVERSION = buildProject(parse(readFileSync(join(FIXTURES, 'inversion-giro-cej.cade'), 'latin1')));
 const INVERSION_MINI = buildProject(parse(readFileSync(join(FIXTURES, 'inversion-giro-mini.cade'), 'latin1')));
 const PR1 = buildProject(parse(readFileSync(join(FIXTURES, 'pr1-rodolfo-giusti.cad'), 'latin1')));
+const CONMUTADO = buildProject(
+  parse(readFileSync(join(FIXTURES, 'conmutado-tercer-borne.cade'), 'latin1')),
+).records;
 
 test('los tipos de cable son códigos distintos, no colores', () => {
   assert.equal(cableTypeOf(4000), 'phase');
@@ -62,6 +65,50 @@ const LUZ = readFileSync(join(FIXTURES, 'luz-con-interruptor.cade'), 'latin1');
 const luzWith = (from: string, to: string) => buildProject(parse(LUZ.replace(from, to))).records;
 const built = (b: NonNullable<ReturnType<typeof circuitFrom>>, part: string) =>
   b.circuit.devices.find((d) => d.part === part)!;
+
+test('un conmutado de tres bornes arma dos tiros: el 12 NC y el 14 NA', () => {
+  const built = circuitFrom(CONMUTADO);
+  assert.ok(built, 'el fixture cablea fase, neutro y los tres bornes del pulsador');
+
+  const poles = built.circuit.devices.filter((d) => d.part === 'S1');
+  assert.equal(poles.length, 2, 'el tercer borne agrega el segundo tiro');
+  assert.deepEqual(
+    poles.map((d) => d.kind),
+    ['buttonNC', 'buttonNO'],
+    'en reposo conduce el 12 y accionado el 14: es la polaridad NA/NC que el solver ya trata',
+  );
+  assert.equal(poles[0]!.a, poles[1]!.a, 'los dos tiros comparten el común (11)');
+  assert.notEqual(poles[0]!.b, poles[1]!.b, 'cada tiro va a su propio borne');
+  assert.equal(poles.some((d) => d.changeover !== undefined), false, 'no es el conmutador de dos posiciones');
+});
+
+test('simKindsOf: el par NA/NC del tercer borne no toca a los demás aparatos', () => {
+  const fake = (
+    code: number,
+    kind: Device['kind'],
+    pinNames: string[],
+    nets: number[],
+    poles: [number, number][],
+  ): Device => ({ recordId: 1, code, designator: 'X', part: 'X', kind, pinNames, nets, poles });
+
+  assert.deepEqual(simKindsOf(fake(8015, 'selector', ['11', '12', '14'], [0, 1, 2], [[0, 1], [0, 2]])), [
+    'buttonNC',
+    'buttonNO',
+  ]);
+  assert.deepEqual(simKindsOf(fake(7007, 'contact', ['11', '12', '14'], [0, 1, 2], [[0, 1], [0, 2]])), [
+    'contactNC',
+    'contactNO',
+  ]);
+  // S6: 8018 sigue siendo un conmutador de dos posiciones, un kind para sus polos.
+  assert.deepEqual(
+    simKindsOf(fake(8018, 'changeover', ['95', '97', '96', '98'], [0, 1, 2, 3], [[0, 2], [1, 3]])),
+    ['changeover', 'changeover'],
+  );
+  // Un aparato de dos bornes conserva su único kind.
+  assert.deepEqual(simKindsOf(fake(8000, 'pushbutton', ['13', '14'], [0, 1], [[0, 1]])), ['buttonNO']);
+  // Lo que el solver no simula sigue sin armar dispositivo.
+  assert.deepEqual(simKindsOf(fake(12345, 'unknown', [], [], [])), []);
+});
 
 test('la bobina temporizada 9004 llega al circuito con su modo', () => {
   const built = circuitFrom(luzWith('8016#-H1', '9004#-KT1'));

@@ -29,7 +29,7 @@
 
 import type { CadeRecordModel } from '../model/project.ts';
 import { specOf } from '../model/component-spec.ts';
-import { buildNetlist, type Device, type Netlist } from './netlist.ts';
+import { buildNetlist, isTwoThrow, type Device, type Netlist } from './netlist.ts';
 import type { Circuit, DeviceKind, SimDevice } from './solver.ts';
 
 export type CableType = 'phase' | 'neutral' | 'control' | 'junction' | 'unknown';
@@ -78,6 +78,36 @@ export function simKindOf(device: Device): SimDevice['kind'] | null {
       return spec.rest === 'closed' ? 'buttonNC' : 'buttonNO';
     default:
       return null;
+  }
+}
+
+/**
+ * Kind de simulación de CADA polo, en el orden de `device.poles`.
+ *
+ * Un aparato de bornes `11`/`12`/`14` tiene dos tiros y el solver ya sabe de
+ * contactos NA/NC: el polo del `12` es NC y el del `14` es NA, así que en
+ * reposo conduce sólo el `12` y accionado conduce sólo el `14`. Es la MISMA
+ * regla que ya usan `contactNC`/`contactNO` (bobina del mismo designador) y
+ * `buttonNC`/`buttonNO` (pulsador apretado, incluido el temporizado, que lleva
+ * el modo en el propio dispositivo): no hace falta una posición nueva ni un
+ * control más en la pantalla. Los demás aparatos tienen un solo kind para todos
+ * sus polos, como siempre.
+ */
+export function simKindsOf(device: Device): (SimDevice['kind'] | null)[] {
+  const kind = simKindOf(device);
+  if (kind === null || !isTwoThrow(device.pinNames) || device.poles.length !== 2) {
+    return device.poles.map(() => kind);
+  }
+  switch (specOf(device.code).kind) {
+    case 'pushbutton':
+    case 'selector':
+      return ['buttonNC', 'buttonNO'];
+    case 'contact':
+      return ['contactNC', 'contactNO'];
+    default:
+      // Un aparato de tres bornes que no es contacto ni pulsador se queda con su
+      // kind: el tercer borne le agrega un camino, no una función nueva.
+      return device.poles.map(() => kind);
   }
 }
 
@@ -165,11 +195,12 @@ export function circuitFrom(records: CadeRecordModel[], options: CircuitOptions 
 
   const devices: SimDevice[] = [];
   for (const device of netlist.devices) {
-    const kind = simKindOf(device);
-    if (!kind) continue;
     // Una protección abierta/disparada no conduce: se saca del circuito.
     if (options.openRecords?.has(device.recordId)) continue;
+    const kinds = simKindsOf(device);
     device.poles.forEach(([a, b], index) => {
+      const kind = kinds[index];
+      if (!kind) return;
       devices.push({
         id: `${device.recordId}:${a}-${b}`,
         kind,

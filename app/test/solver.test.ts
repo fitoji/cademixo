@@ -181,6 +181,55 @@ test('detecta la oscilación en vez de colgarse', () => {
   assert.ok(s.iterations <= 20);
 });
 
+test('conmutado de tres bornes: conduce el tiro de su posición, nunca los dos', () => {
+  // Es lo que arma `circuit.ts` para un aparato de bornes 11/12/14: dos tiros
+  // que comparten el común, el 12 NC y el 14 NA.
+  const circuit: Circuit = {
+    supply: [FASE, NEUTRO],
+    devices: [
+      { id: 's1:12', kind: 'buttonNC', a: FASE, b: 2, part: 'S1' },
+      { id: 's1:14', kind: 'buttonNO', a: FASE, b: 3, part: 'S1' },
+      { id: 'h1', kind: 'lamp', a: 2, b: NEUTRO, part: 'H1' },
+      { id: 'h2', kind: 'lamp', a: 3, b: NEUTRO, part: 'H2' },
+    ],
+  };
+
+  const reposo = simulate(circuit);
+  assert.equal(reposo.closed.has('s1:12'), true, 'en reposo conduce el 12');
+  assert.equal(reposo.closed.has('s1:14'), false, 'el 14 todavía no');
+  assert.equal(reposo.loads.has('h1'), true);
+  assert.equal(reposo.loads.has('h2'), false);
+
+  const accionado = simulate(circuit, { pressed: new Set(['s1:12', 's1:14']) });
+  assert.equal(accionado.closed.has('s1:12'), false, 'accionar abre el 12');
+  assert.equal(accionado.closed.has('s1:14'), true, 'y conduce el 14');
+  assert.equal(accionado.loads.has('h1'), false);
+  assert.equal(accionado.loads.has('h2'), true);
+});
+
+test('conmutado de tres bornes por bobina: el 14 conduce con el aparato energizado', () => {
+  const circuit: Circuit = {
+    supply: [FASE, NEUTRO],
+    devices: [
+      { id: 'btn', kind: 'buttonNO', a: FASE, b: 4, part: 'S1' },
+      { id: 'coil', kind: 'coil', a: 4, b: NEUTRO, part: 'K1' },
+      { id: 'k1:12', kind: 'contactNC', a: FASE, b: 2, part: 'K1' },
+      { id: 'k1:14', kind: 'contactNO', a: FASE, b: 3, part: 'K1' },
+      { id: 'h12', kind: 'lamp', a: 2, b: NEUTRO, part: 'H12' },
+      { id: 'h14', kind: 'lamp', a: 3, b: NEUTRO, part: 'H14' },
+    ],
+  };
+
+  const reposo = simulate(circuit);
+  assert.equal(reposo.loads.has('h12'), true, 'sin bobina energizada conduce el 12');
+  assert.equal(reposo.loads.has('h14'), false);
+
+  const energizado = simulate(circuit, { pressed: new Set(['btn']) });
+  assert.equal(energizado.energized.has('K1'), true);
+  assert.equal(energizado.loads.has('h12'), false, 'con la bobina energizada el 12 se abre');
+  assert.equal(energizado.loads.has('h14'), true, 'y conduce el 14');
+});
+
 test('inversión de giro: dos bobinas enclavadas no pueden estar activas a la vez', () => {
   // KM1 y KM2 con contacto NC cruzado: la rama de cada uno pasa por el NC del otro.
   const circuit: Circuit = {
