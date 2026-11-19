@@ -18,7 +18,18 @@
  * oscila; el solver lo detecta en vez de colgarse.
  */
 
-export type DeviceKind =
+/**
+ * Kind de un dispositivo YA armado para el solver.
+ *
+ * No es el kind del registro (`DeviceKind` de `netlist.ts`, derivado del
+ * ComponentSpec): el armado lo traduce en `circuit.ts` separando contactos y
+ * pulsadores por su polaridad de reposo (`contactNO`/`contactNC`,
+ * `buttonNO`/`buttonNC`) y descartando lo que no conduce. Por eso las dos
+ * uniones no son intercambiables y ésta se llama distinto: antes había dos
+ * tipos con el mismo nombre en dos módulos y un `'switch'` que ningún armado
+ * produce. El alias `DeviceKind` queda para las rutas de import que ya existen.
+ */
+export type SimDeviceKind =
   | 'coil'
   | 'lamp'
   | 'motor'
@@ -28,14 +39,15 @@ export type DeviceKind =
   | 'buttonNC'
   | 'fuse'
   | 'thermal'
-  | 'switch'
   /** una de las dos salidas de un conmutador de dos posiciones */
   | 'changeover';
+
+export type { SimDeviceKind as DeviceKind };
 
 export interface SimDevice {
   /** identificador estable dentro del circuito */
   id: string;
-  kind: DeviceKind;
+  kind: SimDeviceKind;
   /** nets de los dos bornes */
   a: number;
   b: number;
@@ -76,7 +88,7 @@ export interface SimState {
 }
 
 const MAX_ITERATIONS = 40;
-const CONDUCTIVE_CONTACT: ReadonlySet<DeviceKind> = new Set<DeviceKind>([
+const CONDUCTIVE_CONTACT: ReadonlySet<SimDeviceKind> = new Set<SimDeviceKind>([
   'contactNO',
   'contactNC',
   'buttonNO',
@@ -84,10 +96,9 @@ const CONDUCTIVE_CONTACT: ReadonlySet<DeviceKind> = new Set<DeviceKind>([
   'changeover',
   'fuse',
   'thermal',
-  'switch',
 ]);
 
-const LOAD_KINDS: ReadonlySet<DeviceKind> = new Set<DeviceKind>(['coil', 'lamp', 'motor']);
+const LOAD_KINDS: ReadonlySet<SimDeviceKind> = new Set<SimDeviceKind>(['coil', 'lamp', 'motor']);
 
 export interface SimOptions {
   /** ids de pulsadores presionados */
@@ -185,7 +196,6 @@ export function simulate(circuit: Circuit, options: SimOptions = {}): SimState {
           break;
         case 'fuse':
         case 'thermal':
-        case 'switch':
           closed.add(device.id);
           break;
         case 'changeover': {

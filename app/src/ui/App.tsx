@@ -113,6 +113,9 @@ function protectionStateOf(code: number, state?: 'closed' | 'open'): 'closed' | 
   return state ?? (startsOpen(code) ? 'open' : 'closed');
 }
 
+/** Conjunto vacío de identidad estable: sin paso de simulación nadie cumple el retardo. */
+const NO_TIMER_READY: ReadonlySet<number> = new Set<number>();
+
 export function App(): JSX.Element {
   const [state, setState] = useState<EditorState | null>(null);
   const [fileName, setFileName] = useState('');
@@ -130,6 +133,8 @@ export function App(): JSX.Element {
   /** Primer clic de un cable: origen. El segundo clic lo cierra. */
   const [wireStart, setWireStart] = useState<{ x: number; y: number } | null>(null);
   const [running, setRunning] = useState(false);
+  /** El aviso de arranque espera al primer paso calculado (ver el efecto). */
+  const [startPending, setStartPending] = useState(false);
   /** Pulsadores apretados durante la simulación (ids de registro). */
   const [pressedRecords, setPressedRecords] = useState<number[]>([]);
   /**
@@ -149,7 +154,6 @@ export function App(): JSX.Element {
   const [tick, setTick] = useState(0);
   const timerStartRef = useRef(new Map<string, number>());
   const timerDeStartRef = useRef(new Map<string, number>());
-  const timerReadyRef = useRef(new Set<number>());
 
   useEffect(() => {
     if (!running) {
@@ -277,7 +281,17 @@ export function App(): JSX.Element {
     return out;
   }, [built, pressedRecords]);
 
-  const simulation = useMemo(() => {
+  /**
+   * Un paso de simulación: el estado del solver más los temporizadores que ya
+   * cumplieron el retardo. Ese segundo dato vivía en un ref que se escribía en
+   * pleno render y sólo lo leía `visualStates`; ahora viaja con el paso, así el
+   * render no muta nada y el lienzo no se queda un paso atrás.
+   *
+   * Las dependencias son exactamente lo que el callback lee: `running`, `built`,
+   * `pressed`, `positions` y `tick`. Sin `positions`, accionar un conmutador (o
+   * el auxiliar de una protección) no llegaba al solver hasta el tick siguiente.
+   */
+  const step = useMemo(() => {
     if (!running || !built) return null;
 
     // Temporizadores: se acumula el tiempo mientras el coil está energizado.
@@ -300,11 +314,10 @@ export function App(): JSX.Element {
       }
     }
 
-    const timerReadyIds = new Set<number>();
+    const timerReady = new Set<number>();
     for (const d of built.circuit.devices) {
-      if (d.timer && timers.get(d.part)?.onReady) timerReadyIds.add(Number(d.id.split(':')[0]));
+      if (d.timer && timers.get(d.part)?.onReady) timerReady.add(Number(d.id.split(':')[0]));
     }
-    timerReadyRef.current = timerReadyIds;
 
     const state = simulate(built.circuit, {
       pressed,
@@ -313,9 +326,42 @@ export function App(): JSX.Element {
       latched: lastEnergized.current,
       changeovers: new Map(Object.entries(positions)),
     });
-    lastEnergized.current = state.energized;
-    return state;
-  }, [running, built, pressed, tick]);
+    return { state, timerReady };
+  }, [running, built, pressed, positions, tick]);
+
+  const simulation = step === null ? null : step.state;
+  const timerReady = step === null ? NO_TIMER_READY : step.timerReady;
+
+  /**
+   * Estado retenido del paso anterior: se avanza en un efecto, no durante el
+   * render, para que un doble render (StrictMode) no lo adelante dos pasos.
+   * El solver igual lee el paso ANTERIOR: el efecto se aplica después del commit
+   * y React vacía los efectos pendientes antes del próximo render, así que la
+   * secuencia de conjuntos energizados es la misma que antes.
+   *
+   * El reinicio también vive acá (`step === null` cuando se detiene): así el
+   * último efecto del último commit es siempre el que deja el valor, y un efecto
+   * pendiente del tick anterior no puede reponer el estado de una corrida vieja.
+   */
+  useEffect(() => {
+    lastEnergized.current = step ? step.state.energized : new Set();
+  }, [step]);
+
+  /**
+   * Aviso de arranque: usa el MISMO resultado que el badge (este `step`), no un
+   * `simulate()` aparte que no veía `pressed`, `timers`, `changeovers` ni
+   * `latched` y podía contradecirlo. Por eso espera al primer paso calculado.
+   */
+  useEffect(() => {
+    if (!startPending || !simulation) return;
+    setStartPending(false);
+    const count = simulation.energized.size;
+    flash(
+      simulation.stable
+        ? `simulando · ${count} aparato${count === 1 ? '' : 's'} energizado${count === 1 ? '' : 's'}`
+        : 'la maniobra no converge: revisá los enclavamientos',
+    );
+  }, [startPending, simulation, flash]);
 
   /** Registros cuyo aparato quedó energizado: bobina, lámpara o motor. */
   const live = useMemo(() => {
@@ -390,14 +436,15 @@ export function App(): JSX.Element {
         closed: closedContacts,
         pressed: new Set(pressedRecords),
         tripped: new Set(trippedProtections),
-        timerReady: timerReadyRef.current,
+        timerReady,
       }),
-    [project, running, live, closedContacts, pressedRecords, trippedProtections, tick],
+    [project, running, live, closedContacts, pressedRecords, trippedProtections, timerReady],
   );
 
   const toggleSimulation = (): void => {
     if (running) {
       setRunning(false);
+      setStartPending(false);
       setPressedRecords([]);
       setProtectionStates({});
       setTrippedProtections([]);
@@ -410,12 +457,9 @@ export function App(): JSX.Element {
       return;
     }
     setRunning(true);
-    const first = simulate(built.circuit);
-    flash(
-      first.stable
-        ? `simulando · ${first.energized.size} aparato${first.energized.size === 1 ? '' : 's'} energizado${first.energized.size === 1 ? '' : 's'}`
-        : 'la maniobra no converge: revisá los enclavamientos',
-    );
+    // El aviso lo da el efecto, con el primer paso del `useMemo`: el mismo
+    // resultado que muestra el badge del pie.
+    setStartPending(true);
   };
 
   const selectedRecords = useMemo(() => {
