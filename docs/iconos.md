@@ -7,7 +7,7 @@ Inventario de todo lo que dibuja iconografía en la interfaz: qué ícono se usa
 - **Única librería:** `lucide-react` (~1.65.0), trazo de 2px sobre viewBox 24×24. No hay icon fonts, ni SVG propios de interfaz, ni emoji usado como ícono.
 - **Color:** siempre `currentColor`. Ningún ícono se pinta con un color propio salvo la estrella de favoritos (tono de señalización) y los avisos, que heredan el color de su alerta.
 - **En botones con etiqueta** el ícono va con `data-icon="inline-start"`; el tamaño lo pone el componente según su `size`, así que nunca se le pasa `size-*` a mano. Los botones de sólo ícono no usan `data-icon` (no hay etiqueta a la que ajustarse). En los ítems de menú el tamaño lo fija la clase `[&_svg]:size-4` del propio ítem.
-- **Siempre con etiqueta.** En los menús cada ícono acompaña texto ("Nuevo", "Guardar .cade"); no existe un ítem sólo-icono. La barra de la derecha sí tiene botones de sólo ícono, pero todos llevan `aria-label`, tooltip y atajo equivalente en el menú.
+- **Siempre con etiqueta.** En los menús cada ícono acompaña texto ("Nuevo", "Guardar"); no existe un ítem sólo-icono. La barra de la derecha sí tiene botones de sólo ícono, pero todos llevan `aria-label`, tooltip y atajo equivalente en el menú.
 
 ### Tamaños por contexto
 
@@ -30,7 +30,7 @@ Inventario de todo lo que dibuja iconografía en la interfaz: qué ícono se usa
 | `FilePlusIcon` | Nuevo | Empezar un documento en blanco válido (una hoja con bloque de título), previa confirmación si hay cambios sin guardar. |
 | `FolderOpenIcon` | Abrir… | Disparar el selector de archivos `.cade`/`.cad` del sistema. |
 | `BookOpenIcon` | Ejemplos | Marcar el submenú que lista los samples incluidos; el abierto se marca con "actual" a la derecha. |
-| `SaveIcon` | Guardar .cade | Descargar el archivo. Es el único botón primario de la aplicación. |
+| `SaveIcon` | Guardar | Reescribe el archivo abierto si el navegador lo permite; si no, lo descarga. Es el único botón primario de la aplicación. |
 
 ## Menubar · Editar
 
@@ -68,7 +68,7 @@ Inventario de todo lo que dibuja iconografía en la interfaz: qué ícono se usa
 | `Redo2Icon` | Rehacer (icon-sm) | Ídem. |
 | `PlayIcon` / `SquareIcon` | Simular / Detener | Único botón de la barra con etiqueta visible; cambia de ícono y de variante según el estado. |
 | `SunIcon` / `MoonIcon` | Tema (icon-sm) | Muestra el modo **al que vas**, no en el que estás: en noche se ve sol, en día se ve luna. |
-| `SaveIcon` | Guardar .cade (primario) | Remite al mismo comando que el menú. |
+| `SaveIcon` | Guardar (primario) | Remite al mismo comando que el menú (⌘S). «Guardar como…» vive en el menú con ⇧⌘S. |
 
 ## Inspector (panel derecho)
 
@@ -137,7 +137,7 @@ Tampoco cuentan los tonos por familia de la paleta (`--tone-*`): son puntos de c
 | `PlayIcon` | `ui/App.tsx` | Simular. |
 | `Redo2Icon` | `ui/App.tsx` | Rehacer (⇧⌘Z). |
 | `RotateCwIcon` | `ui/App.tsx`, `ui/Inspector.tsx` | Rotar 90° (R). |
-| `SaveIcon` | `ui/App.tsx` | Guardar .cade. |
+| `SaveIcon` | `ui/App.tsx` | Guardar. |
 | `SquareIcon` | `ui/App.tsx` | Detener simulación. |
 | `StarIcon` | `ui/Palette.tsx` | Favoritos. |
 | `SunIcon` | `ui/App.tsx` | Modo día. |
