@@ -1020,6 +1020,13 @@ export function App(): JSX.Element {
                   </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />
+                <MenubarGroup>
+                  <MenubarItem onSelect={() => setSettingsOpen(true)}>
+                    <PaletteIcon />
+                    Apariencia…
+                  </MenubarItem>
+                </MenubarGroup>
+                <MenubarSeparator />
                 <MenubarLabel>Tema</MenubarLabel>
                 <MenubarRadioGroup value={mode} onValueChange={(value) => setMode(value as Mode)}>
                   <MenubarRadioItem value="light">
@@ -1038,18 +1045,6 @@ export function App(): JSX.Element {
                 >
                   Solo componentes CADe_SIMU
                 </MenubarCheckboxItem>
-              </MenubarContent>
-            </MenubarMenu>
-
-            <MenubarMenu>
-              <MenubarTrigger>Configuración</MenubarTrigger>
-              <MenubarContent>
-                <MenubarGroup>
-                  <MenubarItem onSelect={() => setSettingsOpen(true)}>
-                    <PaletteIcon />
-                    Apariencia
-                  </MenubarItem>
-                </MenubarGroup>
               </MenubarContent>
             </MenubarMenu>
 

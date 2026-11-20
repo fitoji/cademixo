@@ -11,9 +11,11 @@ paneles de la paleta. Branch: `main` local. Test runner: `pnpm test` desde `app/
   dialog poder cambiar el tamaño de los bornes y el grosor de los cables, en
   apariencia un checkbox que sea ¨auto cierre¨que sea que los paneles por
   ejemplo si abro alimentacion y luego abro motores se cierre aliementacion".
-- S2 (menú): nueva entrada de primer nivel «Configuración» en la barra, con el
-  ítem «Apariencia»; elegirlo abre el diálogo de S3. Las entradas existentes
-  (Archivo, Editar, Ver, Simulación) no cambian.
+- S2 (menú, reubicado por el pedido de L8): el ítem «Apariencia…» vive en el
+  menú **Ver**, después de «Encuadrar» y antes del bloque de tema, y abre el
+  diálogo de S3. No hay entrada de primer nivel «Configuración»: se quitó a
+  pedido del usuario. Las demás entradas de Ver (Grilla, Snap, Encuadrar, Tema,
+  Solo componentes CADe_SIMU) no cambian.
 - S3 (diálogo): se abre como modal con título «Configuración» y la sección
   «Apariencia»; adentro, el tamaño de bornes, el grosor de cables y el check de
   auto cierre. Se cierra con el botón «Listo», con Esc y con clic en el fondo.
@@ -112,3 +114,9 @@ paneles de la paleta. Branch: `main` local. Test runner: `pnpm test` desde `app/
   no-op (stub de `localStorage` restaurado en `finally`) y un storage que tira
   sin romper el store. El render por defecto sigue reproduciendo 1,4 / 0,9 /
   0,17 / 0,42.
+- L8: pedido verbatim: "mover menu apariencia dentro de configuracion a menu
+  ver". El ítem pasó de Configuración → Apariencia a **Ver → Apariencia…**, se
+  eliminó la entrada de primer nivel «Configuración» (quedaba con un solo ítem),
+  y el diálogo se retituló a «Apariencia» para no abrir un «Configuración» desde
+  un ítem que ya dice Apariencia; la leyenda interna que repetía el título se
+  quitó. Sin cambios en el store, las preferencias ni los controles.

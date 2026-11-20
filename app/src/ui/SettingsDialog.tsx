@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
+import { Field, FieldContent, FieldDescription, FieldLabel, FieldSet } from '@/components/ui/field';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
@@ -23,7 +23,7 @@ import {
 } from './settings.ts';
 
 /**
- * Diálogo «Configuración → Apariencia».
+ * Diálogo «Ver → Apariencia…».
  *
  * Lee y escribe las preferencias con el store de `settings.ts`, así el lienzo y
  * la paleta ven el cambio en el acto.
@@ -41,15 +41,13 @@ export function SettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Configuración</DialogTitle>
+          <DialogTitle>Apariencia</DialogTitle>
           <DialogDescription>Cómo se dibuja el plano y cómo se comportan los paneles.</DialogDescription>
         </DialogHeader>
 
         <Separator />
 
         <FieldSet>
-          <FieldLegend variant="label">Apariencia</FieldLegend>
-
           <Field>
             <FieldLabel>Tamaño de bornes</FieldLabel>
             <ToggleGroup
