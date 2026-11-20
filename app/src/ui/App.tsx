@@ -7,11 +7,13 @@ import {
   FolderOpenIcon,
   FilePlusIcon,
   Grid3x3Icon,
+  LayersIcon,
   MagnetIcon,
   Maximize2Icon,
   MoonIcon,
   PaletteIcon,
   PlayIcon,
+  SparklesIcon,
   SquareIcon,
   Redo2Icon,
   RotateCwIcon,
@@ -114,12 +116,20 @@ import { SaveAsDialog } from './SaveAsDialog.tsx';
 import { getScope, setScope, subscribeScope } from '../symbols/scope.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { getSettings, setSettings, subscribeSettings, wireStroke } from './settings.ts';
+import {
+  applyAppearance,
+  panelesForStyle,
+  persistMode,
+  persistStyle,
+  readMode,
+  readStyle,
+  type Mode,
+  type StyleMode,
+} from './appearance.ts';
 import { armAudio, cue, unlockAudio, type SoundEvent } from './sound.ts';
 import { setMotorHum } from './motor-hum.ts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-
-const MODE_KEY = 'simuelectro:mode';
 
 /**
  * Layout de la paleta y el Inspector.
@@ -132,17 +142,6 @@ const MODE_KEY = 'simuelectro:mode';
  */
 const LAYOUT_AUTOSAVE_ID = 'paneles';
 const LAYOUT_STORAGE = layoutStorage();
-
-type Mode = 'dark' | 'light';
-
-/** El tema vive fuera de React: la clase en <html> es la que manda. */
-function readMode(): Mode {
-  try {
-    return localStorage.getItem(MODE_KEY) === 'light' ? 'light' : 'dark';
-  } catch {
-    return 'dark';
-  }
-}
 
 /**
  * Estado de una protección: `'closed'` conduce, `'open'` corta. Sin acción del
@@ -167,6 +166,7 @@ export function App(): JSX.Element {
   const [fitToken, setFitToken] = useState(0);
   const [zoom, setZoom] = useState(4);
   const [mode, setMode] = useState<Mode>(readMode);
+  const [styleMode, setStyleMode] = useState<StyleMode>(readStyle);
   const scope = useSyncExternalStore(subscribeScope, getScope, getScope);
   const settings = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -296,13 +296,17 @@ export function App(): JSX.Element {
   }, [settings.wireWidth]);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', mode === 'dark');
-    try {
-      localStorage.setItem(MODE_KEY, mode);
-    } catch {
-      // Modo privado o storage bloqueado: el tema vale sólo para esta sesión.
-    }
-  }, [mode]);
+    applyAppearance(mode, styleMode);
+    persistMode(mode);
+    persistStyle(styleMode);
+  }, [mode, styleMode]);
+
+  // Cada estilo carga la paleta en su orientación natural. Se aplica al entrar
+  // y al cambiar de estilo; el ajuste manual de Configuración manda hasta el
+  // próximo cambio de estilo.
+  useEffect(() => {
+    setSettings({ paneles: panelesForStyle(styleMode) });
+  }, [styleMode]);
 
   /**
    * Aviso al pie, con el cue opcional de S3: el mensaje de error, el rechazo y
@@ -1210,6 +1214,21 @@ export function App(): JSX.Element {
                   </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />
+                <MenubarLabel>Estilo</MenubarLabel>
+                <MenubarRadioGroup
+                  value={styleMode}
+                  onValueChange={(value) => setStyleMode(value as StyleMode)}
+                >
+                  <MenubarRadioItem value="clasico">
+                    <LayersIcon />
+                    Clásico
+                  </MenubarRadioItem>
+                  <MenubarRadioItem value="moderno">
+                    <SparklesIcon />
+                    Moderno
+                  </MenubarRadioItem>
+                </MenubarRadioGroup>
+                <MenubarSeparator />
                 <MenubarLabel>Tema</MenubarLabel>
                 <MenubarRadioGroup value={mode} onValueChange={(value) => setMode(value as Mode)}>
                   <MenubarRadioItem value="light">
@@ -1235,7 +1254,14 @@ export function App(): JSX.Element {
               <MenubarTrigger>Simulación</MenubarTrigger>
               <MenubarContent>
                 <MenubarGroup>
-                  <MenubarItem onSelect={toggleSimulation}>
+                  <MenubarItem
+                    onSelect={toggleSimulation}
+                    className={cn(
+                      running
+                        ? 'text-red-600 focus:text-red-700 dark:text-red-400 dark:focus:text-red-300'
+                        : 'text-green-600 focus:text-green-700 dark:text-green-400 dark:focus:text-green-300'
+                    )}
+                  >
                     {running ? <SquareIcon /> : <PlayIcon />}
                     {running ? 'Detener simulación' : 'Simular'}
                   </MenubarItem>
@@ -1299,8 +1325,13 @@ export function App(): JSX.Element {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant={running ? 'secondary' : 'ghost'}
+                variant="ghost"
                 size="sm"
+                className={cn(
+                  running
+                    ? 'bg-red-500/15 text-red-700 hover:bg-red-500/25 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300'
+                    : 'bg-green-500/15 text-green-700 hover:bg-green-500/25 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300'
+                )}
                 aria-pressed={running}
                 aria-label={running ? 'Detener simulación' : 'Simular'}
                 onClick={toggleSimulation}
@@ -1331,6 +1362,23 @@ export function App(): JSX.Element {
               </Button>
             </TooltipTrigger>
             <TooltipContent>{settings.silenciado ? 'Activar sonido' : 'Silenciar'}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={
+                  styleMode === 'clasico' ? 'Activar estilo moderno' : 'Activar estilo clásico'
+                }
+                aria-pressed={styleMode === 'moderno'}
+                onClick={() => setStyleMode(styleMode === 'clasico' ? 'moderno' : 'clasico')}
+              >
+                {styleMode === 'clasico' ? <SparklesIcon /> : <LayersIcon />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{styleMode === 'clasico' ? 'Estilo moderno' : 'Estilo clásico'}</TooltipContent>
           </Tooltip>
 
           <Tooltip>

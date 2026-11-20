@@ -2,12 +2,19 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  /*
+   * Las utilidades `font-sans` / `font-mono` apuntan a variables indirectas para
+   * que el estilo moderno cambie la familia sin reescribir cada componente.
+   */
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-data);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -59,6 +66,9 @@
  */
 :root {
   color-scheme: light;
+
+  --font-ui: 'Geist Variable', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-data: ui-monospace, SFMono-Regular, Menlo, 'Cascadia Code', 'Consolas', monospace;
 
   --radius: 0.4375rem;
 
@@ -204,6 +214,95 @@
   --elev-left: -1px 0 2px rgb(0 0 0 / 0.5), -4px 0 12px rgb(0 0 0 / 0.35);
 }
 
+/*
+ * Estilo "moderno": un segundo mundo de chrome que convive con el plano de
+ * obra. Cambia familia tipográfica, radios y elevación; NO redefine la tinta
+ * del dibujo (--wire, --warn, --ink, --grid-*), que sigue viniendo de :root o
+ * de .dark. Así el esquema significa lo mismo con cualquier estilo de interfaz.
+ *
+ * Los cuatro looks son la combinación de estos dos bloques con :root / .dark.
+ */
+:root.moderno {
+  --font-ui: 'Space Grotesk Variable', 'Avenir Next', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-data: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+
+  /* Radios un paso más blandos: la herramienta sigue siendo instrumento, no tarjeta. */
+  --radius: 0.75rem;
+
+  --background: #f4f4f5;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2ff;
+  --secondary-foreground: #3730a3;
+  --muted: #f4f4f5;
+  --muted-foreground: #52525b;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #dc2626;
+  --border: #e4e4e7;
+  --input: #d4d4d8;
+  --ring: #6366f1;
+
+  /* Misma dirección y mismo blur corto; sólo baja la opacidad y sube el alcance. */
+  --elev-down: 0 1px 2px rgb(24 24 27 / 0.05), 0 6px 16px rgb(24 24 27 / 0.05);
+  --elev-up: 0 -1px 2px rgb(24 24 27 / 0.05), 0 -6px 16px rgb(24 24 27 / 0.05);
+  --elev-right: 2px 0 3px rgb(24 24 27 / 0.04), 8px 0 18px rgb(24 24 27 / 0.05);
+  --elev-left: -2px 0 3px rgb(24 24 27 / 0.04), -8px 0 18px rgb(24 24 27 / 0.05);
+}
+
+.dark.moderno {
+  color-scheme: dark;
+
+  --background: #18181b;
+  --foreground: #fafafa;
+  --card: #232326;
+  --card-foreground: #fafafa;
+  --popover: #27272a;
+  --popover-foreground: #fafafa;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #3f3f46;
+  --secondary-foreground: #e0e7ff;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #3f3f46;
+  --accent-foreground: #fafafa;
+  --destructive: #fb7185;
+  --border: #3f3f46;
+  --input: #52525b;
+  --ring: #818cf8;
+
+  --elev-down: 0 1px 3px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.3);
+  --elev-up: 0 -1px 3px rgb(0 0 0 / 0.4), 0 -6px 18px rgb(0 0 0 / 0.3);
+  --elev-right: 2px 0 3px rgb(0 0 0 / 0.4), 8px 0 18px rgb(0 0 0 / 0.3);
+  --elev-left: -2px 0 3px rgb(0 0 0 / 0.4), -8px 0 18px rgb(0 0 0 / 0.3);
+}
+
+/*
+ * El cambio de familia por sí solo no se veía: Geist y Manrope son ambas sans
+ * geométricas casi idénticas a 13px. Space Grotesk tiene formas propias y acá
+ * se refuerza con cuerpo más grande, tracking cerrado y pesos más altos, para
+ * que el estilo moderno se lea de un vistazo sin tocar la tinta del dibujo.
+ */
+:root.moderno body {
+  font-size: 14px;
+  letter-spacing: -0.012em;
+}
+
+:root.moderno :is(button, [data-slot='menubar-trigger'], [data-slot='menubar-item'], [data-slot='toggle-group-item']) {
+  font-weight: 550;
+  letter-spacing: -0.015em;
+}
+
+:root.moderno :is([data-slot='badge'], .font-mono) {
+  font-variant-numeric: tabular-nums;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -282,8 +381,13 @@
  * Paquete de dibujos "CADe_SIMU (clásico)": no cambia el símbolo, cambia la
  * tinta del lienzo para acercarse al original: negro técnico, papel blanco,
  * selección azul y energía roja.
+ *
+ * Sólo aplica en modo día: en modo noche estos tokens de papel se heredan de
+ * `.dark`, que ya define la paleta oscura equivalente para toda la app. Si se
+ * aplicaran también en dark, el div raíz (que lleva data-pack) fijaría colores
+ * claros y ganaría sobre `.dark` por orden de aparición, dejando la UI clara.
  */
-[data-pack='cadesimu'] {
+:root:not(.dark) [data-pack='cadesimu'] {
   --wire: #141414;
   /* Rojo puro de la captura (`app/test_simu/PR1_Rodolfo_Giusti_03_simu_play_02.png`):
      es el color de los conductores con tensión y de los aparatos energizados. */
@@ -309,7 +413,13 @@
   --grid-minor: #e8e8e4;
   --grid-major: #cfcfc8;
   --handle-hover: #dce9ff;
+}
 
+/*
+ * El papel de CADe_SIMU tiñe también el chrome, pero sólo en el estilo clásico:
+ * en moderno el lienzo conserva su tinta de archivo y el marco conserva la suya.
+ */
+:root:not(.dark):not(.moderno) [data-pack='cadesimu'] {
   --background: #f2f2ee;
   --card: #e9e9e4;
   --border: #b9b9b2;
