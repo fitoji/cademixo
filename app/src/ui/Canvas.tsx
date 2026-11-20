@@ -73,6 +73,13 @@ const MAX_K = 24;
 const PIN_SNAP_PX = 11;
 
 /**
+ * Cuánto puede moverse el puntero entre apretar y soltar para que un clic siga
+ * siendo un clic. Por debajo, el botón central centra el proyecto en vez de
+ * desplazarlo.
+ */
+const PAN_CLICK_PX = 3;
+
+/**
  * Radio del anillo de foco del cursor de bornes, en píxeles de pantalla.
  *
  * Va en pantalla y no en unidades de plano a propósito: es un indicador de foco,
@@ -120,6 +127,8 @@ export function Canvas(props: Props): JSX.Element {
   } = props;
 
   const svgRef = useRef<SVGSVGElement | null>(null);
+  /** Botón con el que arrancó el paneo: el central soltado sin arrastre centra. */
+  const panButton = useRef<number | null>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 4 });
   // Un solo estado de gesto (máquina de wiring/controller.ts): paneo, marquee,
   // arrastre de selección, de vértice y de doblez. Escape y pointercancel
@@ -415,6 +424,9 @@ export function Canvas(props: Props): JSX.Element {
     // tabular a ciegas desde afuera.
     svgRef.current?.focus({ preventScroll: true });
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      // El botón central no abre el autoscroll del navegador: acá centra.
+      e.preventDefault();
+      panButton.current = e.button;
       setGesture(startPan({ x: e.clientX, y: e.clientY }, { x: view.x, y: view.y }));
       svgRef.current!.setPointerCapture(e.pointerId);
       return;
@@ -542,7 +554,16 @@ export function Canvas(props: Props): JSX.Element {
   const onPointerUp = (e: React.PointerEvent): void => {
     const world = toWorld(e.clientX, e.clientY);
     const client = { x: e.clientX, y: e.clientY };
+    // Botón central sin arrastre: un clic, no un paneo. Centra el proyecto
+    // (el mismo encuadre que el primer ajuste) en lugar de mover la vista unos
+    // píxeles a la nada.
+    const centering =
+      gesture.kind === 'panning' &&
+      panButton.current === 1 &&
+      dist({ x: gesture.startClient.x, y: gesture.startClient.y }, client) <= PAN_CLICK_PX;
+    panButton.current = null;
     dispatch(gesture, { type: 'up', world, client });
+    if (centering) fit();
   };
 
   /**
@@ -550,6 +571,7 @@ export function Canvas(props: Props): JSX.Element {
    * `onPointerUp` y confirmaba lo que la interrupción dejó a medio hacer).
    */
   const onGestureCancel = (): void => {
+    panButton.current = null;
     dispatch(gesture, { type: 'cancel' });
   };
 
