@@ -294,8 +294,18 @@
 }
 
 /* Estados de simulación: acá va el movimiento; el color vive en la tinta y los cables. */
-[data-state='active'] .sym {
+[data-state='active'] .sym:not([data-lamp]) {
   filter: drop-shadow(0 0 1.1px var(--warn));
+}
+
+/*
+ * Señalización óptica encendida: el halo de «activo» es rojo para la
+ * aparamenta (`--warn` en el pack CADe), y sobre una lámpara tapaba el color de
+ * su luz. La lámpara lleva el halo de SU color (`--lamp`, que fija
+ * `data-lamp`), así el tono de la señal es lo que se lee.
+ */
+[data-state='active'] .sym[data-lamp] {
+  filter: drop-shadow(0 0 1.8px var(--lamp));
 }
 
 /*

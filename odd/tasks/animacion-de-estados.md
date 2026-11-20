@@ -140,3 +140,12 @@ cuchilla al abrir y cerrar, y el pulsador 8000 muestra el accionar. Branch:
   pivote en porcentaje de la caja **de la propia forma** y funciona igual. Los
   tests ahora distinguen cuchillas (trazo) de cuadros (relleno) y verifican que
   cada cuadro gira con la cuchilla de su polo.
+- L7: reporte de señalización óptica: "las señalizaiones opticas tienen un
+  sombreado rojo y tapa el color de su luz". El halo de `[data-state='active']`
+  usa `--warn`, que en el pack CADe es rojo puro, y se aplicaba a todo símbolo
+  activo, incluida la lámpara cuyo color vive en el trazo (`--lamp` vía
+  `data-lamp`). Ahora el halo rojo excluye a las lámparas
+  (`:not([data-lamp])`) y la lámpara encendida lleva un halo de **su** color
+  (`var(--lamp)`), un poco más ancho para que el tono domine. Test nuevo
+  `test/state-cues.test.ts`, que lee `diagram.css` y verifica las dos reglas: no
+  hay forma de volver a tapar el color sin romperlo.
