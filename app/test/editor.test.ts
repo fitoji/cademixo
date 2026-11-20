@@ -195,14 +195,20 @@ test('addComponent: no repite el designador aunque la plantilla lo traiga usado'
   for (const d of added) assert.ok(!usados.has(d), `el designador ${d} ya existía`);
 });
 
-test('rotateSelection: rota 90 grados acumulativos sin tocar el texto', () => {
+test('rotateSelection: rota 90 grados acumulativos sin tocar el archivo', () => {
+  // Cambió con la feature de orientación: el archivo YA guarda la orientación en
+  // `geometry[17]` y la app la lee, pero escribir ese slot sigue bloqueado por
+  // S3. Por eso rotar sigue siendo una capa visual, y el registro conserva la
+  // orientación que traía (acá, ninguna).
   const motorId = idOf(1000);
   let s = select(createEditor(ARRANQUE), [motorId]);
   s = rotateSelection(s);
   assert.equal(s.rotation[motorId], 90);
   s = rotateSelection(s);
   assert.equal(s.rotation[motorId], 180);
-  assert.equal(s.text, ARRANQUE, 'la rotación es visual hasta confirmar el campo del formato');
+  assert.equal(s.text, ARRANQUE, 'girar escribió bytes: la escritura de geometry[17] está bloqueada (S3)');
+  const motor = projectOf(s).records.find((r) => r.id === motorId)!;
+  assert.deepEqual(motor.transform, { rotation: 0, mirror: false }, 'la capa visual no puede cambiar lo que dice el archivo');
 });
 
 test('setDesignator: cambia sólo el designador del registro indicado', () => {

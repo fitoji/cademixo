@@ -21,7 +21,9 @@
 import { parse } from '../format/cade.ts';
 import type { CadeDocument, CadeRecord } from '../format/cade.ts';
 import { hasColorSlot } from './component-spec.ts';
+import { transformFromSlot, transformBox, isIdentity, IDENTITY, type Transform } from './transform.ts';
 import { CATALOG } from '../symbols/catalog.ts';
+import { symbolFor } from '../symbols/library.ts';
 
 export type RecordKind = 'component' | 'connection' | 'text' | 'sheet-title' | 'config' | 'unknown';
 
@@ -35,6 +37,13 @@ export const GEOMETRY = {
   offsetY: 13,
   width: 14,
   height: 15,
+  /**
+   * Orientación del componente: bitfield `giro | espejo` (ver `transform.ts`).
+   * Es el campo 11 del registro y el número 18 del bloque. Sólo se LEE: escribir
+   * este slot está bloqueado por S3 mientras no se conozcan las métricas de
+   * `geometry[12..15]` que CADe_SIMU guarda por variante.
+   */
+  transform: 17,
 } as const;
 
 /**
@@ -63,6 +72,12 @@ export interface CadeRecordModel {
    * rango: preferimos no pintar antes que inventar un color.
    */
   lampColor: LampColor | null;
+  /**
+   * Orientación guardada en el registro (`geometry[17]`), ya interpretada.
+   * Se deriva del texto en `modelOfRecord`: nunca es un valor inventado por la
+   * app, y no se reescribe al modelar ni al serializar.
+   */
+  transform: Transform;
   /** 24 números de geometría; [] si el registro no tiene bloque de geometría */
   geometry: number[];
   /** texto libre de las etiquetas (código 8) */
@@ -129,6 +144,7 @@ export function modelOfRecord(rec: CadeRecord, sheet = 0): CadeRecordModel {
     designator: kind === 'text' ? '' : (fields[1] ?? ''),
     pins: [],
     lampColor: null,
+    transform: IDENTITY,
     geometry: [],
     text: '',
     raw: rec.raw,
@@ -178,6 +194,10 @@ export function modelOfRecord(rec: CadeRecord, sheet = 0): CadeRecordModel {
 
   base.pins = header;
   base.geometry = splitNumbers(fields[geoIdx].slice(fields[geoIdx].indexOf('*')));
+  // La orientación se lee del slot 17; si el bloque no llega hasta ahí, el
+  // registro no declara transformación y se dibuja como vino (S7).
+  const slot = base.geometry[GEOMETRY.transform];
+  if (slot !== undefined) base.transform = transformFromSlot(slot);
   return base;
 }
 
@@ -375,11 +395,52 @@ export function nextId(project: Project): number {
   return project.records.reduce((max, r) => Math.max(max, r.id), 0) + 1;
 }
 
-/** Caja ocupada por un componente en coordenadas de hoja. */
-export function boundsOf(rec: CadeRecordModel): { x: number; y: number; w: number; h: number } | null {
+/**
+ * Caja BASE del dibujo: el tamaño con el que se dibuja el símbolo ANTES de
+ * aplicarle la orientación del registro. Está anclada en el origen del registro
+ * (`geometry[8..9]`), que es donde CADe_SIMU pone el primer borne.
+ *
+ * Sin orientación la base es la caja declarada del registro: todo queda
+ * exactamente igual que antes (S7).
+ *
+ * Con orientación la base es el tamaño CANÓNICO del símbolo (`symbolFor(code).size`).
+ * Las métricas que el archivo guarda por variante (12×15 → 3×12 / 15×3 / 15×15)
+ * son de CADe_SIMU, no describen el dibujo: con ellas la pieza girada salía
+ * aplastada a 3 de ancho, mientras que la captura `samples/rotacion/
+ * automaticoin.png` muestra las cinco piezas del mismo tamaño y sólo la
+ * orientación distinta. El valor guardado en `geometry[12..15]` no se toca.
+ *
+ * Un código sin `size` declarado (símbolo genérico) no tiene tamaño canónico:
+ * cae a la caja del registro, que es lo que hacía antes.
+ */
+export function baseBoxOf(rec: CadeRecordModel): { x: number; y: number; w: number; h: number } | null {
+  const declared = declaredBoxOf(rec);
+  if (declared === null) return null;
+  if (isIdentity(rec.transform)) return declared;
+  const size = symbolFor(rec.code)?.size;
+  if (!size) return declared;
+  return { x: declared.x, y: declared.y, w: size.w, h: size.h };
+}
+
+/** Caja declarada del registro (`geometry[8..9]` + `geometry[14..15]`). */
+function declaredBoxOf(rec: CadeRecordModel): { x: number; y: number; w: number; h: number } | null {
   const box = boxOf(rec);
   if (!box) return null;
   return { x: rec.geometry[GEOMETRY.x]!, y: rec.geometry[GEOMETRY.y]!, w: box.width, h: box.height };
+}
+
+/**
+ * Caja que ocupa un componente en coordenadas de hoja, ya transformada.
+ *
+ * El dibujo sale de la caja base cuando el registro trae orientación, así que la
+ * caja que usan la selección, el encuadre y el enganche de cables es la del
+ * DIBUJO transformado, no la del registro. Sin transformación devuelve
+ * exactamente la caja declarada, que es lo que hacía antes (S7). El valor
+ * guardado en el archivo (`geometry[12..15]`) no se toca.
+ */
+export function boundsOf(rec: CadeRecordModel): { x: number; y: number; w: number; h: number } | null {
+  const base = baseBoxOf(rec);
+  return base === null ? null : transformBox(base, rec.transform);
 }
 
 /**

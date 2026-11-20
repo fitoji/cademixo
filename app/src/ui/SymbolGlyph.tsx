@@ -1,6 +1,16 @@
 import type { CSSProperties, JSX } from 'react';
 import { useSyncExternalStore } from 'react';
 import { LAMP_COLORS, type LampColor } from '../model/project.ts';
+import {
+  IDENTITY,
+  isIdentity,
+  multiply,
+  normalizeRotation,
+  rotationMatrix,
+  transformMatrix,
+  type Matrix,
+  type Transform,
+} from '../model/transform.ts';
 import { resolveSymbol, type Shape } from '../symbols/library.ts';
 import { bladeTransform, rotorArrow, shapesBounds, type BladeState } from '../symbols/draw.ts';
 import { getSettings, pinRadius, pinStroke, subscribeSettings } from './settings.ts';
@@ -10,7 +20,16 @@ interface Props {
   pinNames: string[];
   w: number;
   h: number;
+  /**
+   * Capa visual del editor (tecla `R`): gira ENCIMA de la orientación del
+   * archivo. No se guarda — escribir `geometry[17]` sigue pendiente (S3).
+   */
   rotation?: number;
+  /**
+   * Orientación leída del registro (`geometry[17]`): giro y espejo. El archivo
+   * manda (S6), así que es la base sobre la que se compone la capa visual.
+   */
+  transform?: Transform;
   selected?: boolean;
   /** Estado del contacto durante la simulación: cerrado o abierto. */
   closed?: boolean;
@@ -51,6 +70,12 @@ function bladeStyle(shape: Shape, state: BladeState): CSSProperties | undefined 
   };
 }
 
+/** Matriz afín en el atributo `transform`, sin la cola de decimales del float. */
+function matrixAttr(m: Matrix): string {
+  const n = (value: number): string => String(Math.round(value * 1000) / 1000);
+  return `matrix(${n(m.a)} ${n(m.b)} ${n(m.c)} ${n(m.d)} ${n(m.e)} ${n(m.f)})`;
+}
+
 /** Dibuja un símbolo en su caja local (0,0)–(w,h). */
 export function SymbolGlyph({
   code,
@@ -58,6 +83,7 @@ export function SymbolGlyph({
   w,
   h,
   rotation = 0,
+  transform = IDENTITY,
   selected = false,
   closed = false,
   pressed = false,
@@ -95,11 +121,18 @@ export function SymbolGlyph({
         : { x: 0, y: 0 };
   const pivot = anchored ? { x: inkCx + shift.x, y: inkCy + shift.y } : { x: cx, y: cy };
 
+  // Orientación del archivo primero y capa visual del editor después (S6). Las
+  // dos giran alrededor del mismo pivote, así que el símbolo no se corre.
+  const fileMatrix = transformMatrix(transform, pivot);
+  const composed = multiply(rotationMatrix(normalizeRotation(rotation), pivot), fileMatrix);
+  const placement = `translate(${shift.x} ${shift.y}) ${matrixAttr(composed)}`;
+
   return (
     <g
       className={selected ? 'sym sel' : 'sym'}
       data-lamp={lampColor === null ? undefined : LAMP_COLORS[lampColor]}
-      transform={`translate(${shift.x} ${shift.y}) rotate(${rotation} ${pivot.x} ${pivot.y})`}
+      data-orientation={isIdentity(transform) ? undefined : `${transform.rotation}${transform.mirror ? 'm' : ''}`}
+      transform={placement}
     >
       {shapes.map((s, i) => (
         <path

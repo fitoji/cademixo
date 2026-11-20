@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
-import { GEOMETRY, boxOf, boundsOf, wirePoints, type CadeRecordModel } from '../model/project.ts';
+import { GEOMETRY, baseBoxOf, boundsOf, boxOf, wirePoints, type CadeRecordModel } from '../model/project.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
@@ -804,8 +804,18 @@ function Component({
   // donde CADeSimu pone el primer borne: la grilla de conexión de 6 unidades
   // cuenta desde ahí, no desde un marco con margen. Antes se aplicaba un
   // `inset` y todos los símbolos quedaban corridos respecto de sus cables.
-  const iw = box.width;
-  const ih = box.height;
+  //
+  // El tamaño sale de `baseBoxOf`: la caja del registro sin orientación y el
+  // tamaño canónico del símbolo cuando el registro está girado o espejado. CADe
+  // guarda métricas por variante (3×12, 15×3, 15×15) que describen su caja de
+  // conexión, no el dibujo: escalar a ellas aplastaba la pieza girada.
+  const base = baseBoxOf(rec) ?? { x, y, w: box.width, h: box.height };
+  const iw = base.w;
+  const ih = base.h;
+  // Caja del DIBUJO: con orientación el símbolo sale de la caja base, así que el
+  // hitbox (y todo clic sobre el componente) sigue a la tinta transformada. Sin
+  // orientación es la misma caja de antes (S7).
+  const drawn = boundsOf(rec) ?? base;
 
   // Un símbolo anclado al origen trae su geometría en unidades del archivo y se
   // dibuja en el origen del registro, como en CADeSimu: la caja declarada es la
@@ -815,10 +825,10 @@ function Component({
   const anchored = sym.anchor === 'origin';
   // El designador va a la izquierda del dibujo: para los anclados el marco de
   // referencia es la caja de la tinta; para el resto, la caja declarada.
-  const ink = shapesBounds(sym.shapes(anchored ? box.width : iw, anchored ? box.height : ih));
+  const ink = shapesBounds(sym.shapes(iw, ih));
   const labelFrame = anchored
     ? { x: ink.minX, y: ink.minY, w: ink.maxX - ink.minX, h: ink.maxY - ink.minY }
-    : { x: 0, y: 0, w: box.width, h: box.height };
+    : { x: 0, y: 0, w: iw, h: ih };
 
   return (
     // `data-sel` marca el grupo entero como seleccionado: el designador y los
@@ -833,15 +843,16 @@ function Component({
       transform={`translate(${x} ${y})`}
       style={{ cursor: 'move' }}
     >
-      <rect className="hitbox" x={0} y={0} width={box.width} height={box.height} />
+      <rect className="hitbox" x={drawn.x - x} y={drawn.y - y} width={drawn.w} height={drawn.h} />
       {anchored ? (
         <SymbolGlyph
           code={rec.code}
           pinNames={rec.pins}
-          w={box.width}
-          h={box.height}
+          w={iw}
+          h={ih}
           place="origin"
           rotation={rotation}
+          transform={rec.transform}
           selected={selected}
           closed={closed}
           pressed={state === 'pressed'}
@@ -849,7 +860,7 @@ function Component({
           live={live}
         />
       ) : (
-        <SymbolGlyph code={rec.code} pinNames={rec.pins} w={iw} h={ih} rotation={rotation} selected={selected} closed={closed} pressed={state === 'pressed'} lampColor={rec.lampColor} live={live} />
+        <SymbolGlyph code={rec.code} pinNames={rec.pins} w={iw} h={ih} rotation={rotation} transform={rec.transform} selected={selected} closed={closed} pressed={state === 'pressed'} lampColor={rec.lampColor} live={live} />
       )}
 
       {pins.map((p, i) => (

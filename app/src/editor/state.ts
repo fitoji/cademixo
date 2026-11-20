@@ -11,8 +11,11 @@
  *  - ninguna edición puede "inventar" campos: sólo reescribe el registro que
  *    tocó.
  *
- * La rotación es la única excepción y está marcada como tal: es visual, no se
- * persiste, porque el formato todavía no expuso el campo de orientación.
+ * La rotación visual del editor (`rotation`, por id) es una capa ENCIMA de la
+ * orientación que trae el archivo: el archivo manda (S6) y lo que se gira acá
+ * todavía no se guarda. Escribir el slot `geometry[17]` está bloqueado por S3
+ * (faltan las métricas de `geometry[12..15]` que CADe_SIMU guarda por variante),
+ * así que girar sigue sin tocar el texto y el registro se preserva intacto.
  */
 
 import { parse } from '../format/cade.ts';
@@ -35,10 +38,11 @@ import {
   type Project,
 } from '../model/project.ts';
 import { hasColorSlot } from '../model/component-spec.ts';
+import type { Rotation } from '../model/transform.ts';
 import { CABLE_NUMBER_INDEX, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
 import type { Point } from './pins.ts';
 
-export type Rotation = 0 | 90 | 180 | 270;
+export type { Rotation };
 
 export interface EditorState {
   text: string;
@@ -46,7 +50,10 @@ export interface EditorState {
   future: string[];
   /** ids de registros seleccionados */
   selection: number[];
-  /** rotación visual por id (no persistida) */
+  /**
+   * Rotación visual por id, sumada a la del archivo. NO se guarda: escribir
+   * `geometry[17]` está pendiente (bloqueado por S3).
+   */
   rotation: Record<number, Rotation>;
   clipboard: string[];
   /** vértice enfocado para borrar, independiente de la selección de cables */
@@ -211,7 +218,10 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
     if (selected.has(rec.id) && rec.kind === 'component') {
       const b = boundsOf(rec);
       if (!b) continue;
-      edits.set(index, withPosition(rec, b.x + dx, b.y + dy));
+      // El ancla del registro es su `x,y`: con orientación, el origen de la caja
+      // dibujada no coincide con ella, así que mover toma la posición guardada y
+      // no la de `boundsOf`.
+      edits.set(index, withPosition(rec, rec.geometry[GEOMETRY.x]! + dx, rec.geometry[GEOMETRY.y]! + dy));
       continue;
     }
     if (rec.kind !== 'connection') continue;
@@ -239,6 +249,10 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
   return commit(state, serializeWith(project, edits));
 }
 
+/**
+ * Gira 90° la selección. Es visual: la capa se compone con la orientación que
+ * trae el archivo y NO se escribe en `geometry[17]` (bloqueado por S3).
+ */
 export function rotateSelection(state: EditorState): EditorState {
   if (state.selection.length === 0) return state;
   const rotation = { ...state.rotation };
@@ -294,8 +308,15 @@ export function paste(state: EditorState, dx = 8, dy = 8): EditorState {
     if (!template) continue;
     let next = withId(template, id);
     if (template.kind === 'component') {
+      // Igual que al mover: el desplazamiento se aplica sobre el ancla guardada.
       const b = boundsOf(template);
-      if (b) next = withPosition({ ...template, raw: next }, b.x + dx, b.y + dy);
+      if (b) {
+        next = withPosition(
+          { ...template, raw: next },
+          template.geometry[GEOMETRY.x]! + dx,
+          template.geometry[GEOMETRY.y]! + dy,
+        );
+      }
     } else {
       const pts = wirePoints(template);
       if (pts) {

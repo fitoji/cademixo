@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { JSX, ReactNode } from 'react';
 import { InfoIcon, MousePointerClickIcon, RotateCwIcon, StarIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import { GEOMETRY, boxOf, wirePoints, LAMP_COLORS, type CadeRecordModel, type LampColor } from '../model/project.ts';
+import { isIdentity, type Transform } from '../model/transform.ts';
 import { hasColorSlot } from '../model/component-spec.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import type { Rotation } from '../editor/state.ts';
@@ -21,6 +22,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 const DL = 'grid grid-cols-[88px_1fr] gap-x-2 gap-y-1 text-xs';
 const DT = 'text-muted-foreground';
 const DD = 'font-mono text-[11.5px] text-foreground/80 [overflow-wrap:anywhere]';
+
+/**
+ * Orientación leída del registro, en palabras: `0°`, `90° · espejo`, …
+ *
+ * Se muestra la del ARCHIVO (S6): es la que se ve al abrir el documento. Lo que
+ * se gira con la tecla `R` es una capa visual encima y todavía no se guarda.
+ */
+function orientationLabel(transform: Transform): string {
+  return isIdentity(transform) ? '0°' : `${transform.rotation}°${transform.mirror ? ' · espejo' : ''}`;
+}
 
 interface Props {
   selected: CadeRecordModel[];
@@ -308,6 +319,7 @@ function Single({
             <Row label="Código" value={rec.code} />
             <Row label="Posición" value={`${rec.geometry[GEOMETRY.x]}, ${rec.geometry[GEOMETRY.y]}`} />
             {box && <Row label="Tamaño" value={`${box.width} × ${box.height}`} />}
+            <Row label="Orientación" value={orientationLabel(rec.transform)} />
             <Row label="Registro" value={`#${rec.id}`} />
           </dl>
 
@@ -350,7 +362,8 @@ function Single({
 
           {deg > 0 && (
             <Note>
-              La rotación es visual y todavía no se guarda: el formato no expuso aún el campo de orientación.
+              El giro de acá es de pantalla y todavía no se guarda: escribir la orientación en el archivo está
+              pendiente. La orientación que muestra esta ficha es la que trae el archivo.
             </Note>
           )}
         </>

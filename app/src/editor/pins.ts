@@ -16,7 +16,7 @@
  * hay evidencia de dónde está el borne.
  */
 
-import { boundsOf, wirePoints, type CadeRecordModel } from '../model/project.ts';
+import { boundsOf, boxOf, GEOMETRY, wirePoints, type CadeRecordModel } from '../model/project.ts';
 
 export interface Point {
   x: number;
@@ -45,6 +45,30 @@ const insideBox = (b: Box, x: number, y: number): boolean =>
   x >= b.x - TOL && x <= b.x + b.w + TOL && y >= b.y - TOL && y <= b.y + b.h + TOL;
 
 /**
+ * Cajas de un componente donde puede caer un extremo de cable.
+ *
+ * Con orientación (giro/espejo en `geometry[17]`) el dibujo sale de la caja
+ * declarada, así que se aceptan las DOS: la declarada, que es donde CADe_SIMU
+ * engancha el cable y donde lo enganchaba esta app hasta ahora, y la del dibujo
+ * transformado. Sin orientación las dos coinciden y el comportamiento es el de
+ * siempre (S7): el enganche nunca se afloja por este cambio.
+ */
+function boxesOf(rec: CadeRecordModel): Box[] {
+  const out: Box[] = [];
+  const drawn = boundsOf(rec);
+  if (drawn) out.push({ id: rec.id, ...drawn });
+  const declared = boxOf(rec);
+  if (declared) {
+    const x = rec.geometry[GEOMETRY.x];
+    const y = rec.geometry[GEOMETRY.y];
+    if (x !== undefined && y !== undefined) {
+      out.push({ id: rec.id, x, y, w: declared.width, h: declared.height });
+    }
+  }
+  return out;
+}
+
+/**
  * Devuelve, por id de componente, los puntos donde sus cables lo tocan.
  *
  * Un extremo compartido por dos cajas se asigna a la más cercana, para que un
@@ -56,8 +80,7 @@ export function attachPoints(records: CadeRecordModel[]): Map<number, Point[]> {
 
   for (const rec of records) {
     if (rec.kind === 'component') {
-      const b = boundsOf(rec);
-      if (b) boxes.push({ id: rec.id, ...b });
+      boxes.push(...boxesOf(rec));
       continue;
     }
     const pts = wirePoints(rec);
