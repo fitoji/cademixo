@@ -857,24 +857,16 @@ const thermalContact: SymbolDef = {
       { d: line(-4.25, 11, -3, 11) },
       // Barra fija del contacto (no se mueve).
       { d: line(-5.75, 3.5, -2.5, 3.5) },
-      // Paleta móvil del contacto NC: los catorce trazos medidos, uno por uno,
-      // con su `d` y su peso original. La tinta es la del dibujo calibrado (no
-      // se altera), y el movimiento no lo da la forma sino la metadata `blade`
-      // que llevan todos: así la paleta entera gira sobre el mismo pivote (S4).
-      { d: line(-2.75, 3, -2.75, 3), blade: PALETA_TERMICO },
-      { d: line(-3, 3.25, -3, 3.25), blade: PALETA_TERMICO },
-      { d: line(-3.25, 3.75, -3.25, 4), blade: PALETA_TERMICO },
-      { d: line(-3.5, 4.25, -3.5, 4.75), blade: PALETA_TERMICO },
-      { d: line(-3.75, 4.75, -3.75, 5.25), blade: PALETA_TERMICO },
-      { d: line(-4, 5.25, -4, 5.75), blade: PALETA_TERMICO },
-      { d: line(-4.25, 5.75, -4.25, 6.25), blade: PALETA_TERMICO },
-      { d: line(-4.5, 6.25, -4.5, 6.75), blade: PALETA_TERMICO },
-      { d: line(-4.75, 6.75, -4.75, 7.25), blade: PALETA_TERMICO },
-      { d: line(-5, 7.25, -5, 7.75), blade: PALETA_TERMICO },
-      { d: line(-5.25, 7.75, -5.25, 8.25), blade: PALETA_TERMICO },
-      { d: line(-5.5, 8.25, -5.5, 8.75), blade: PALETA_TERMICO },
-      { d: line(-5.75, 8.75, -5.75, 8.75), blade: PALETA_TERMICO },
-      { d: line(-5.75, 9, -5.75, 9), blade: PALETA_TERMICO },
+      // Paleta móvil del contacto NC: la cuña maciza que dibuja CADe. Los
+      // catorce pares de puntos medidos sobre componentes02.png dan los dos
+      // bordes. Como un solo path relleno gira entero sobre el pivote de
+      // `blade` (S4), en vez de catorce puntos redondos que en el lienzo se
+      // veían punteados y casi desaparecían con el trazo de 0,26 unidades.
+      {
+        d: 'M-2.75 3L-3 3.25L-3.25 3.75L-3.5 4.25L-3.75 4.75L-4 5.25L-4.25 5.75L-4.5 6.25L-4.75 6.75L-5 7.25L-5.25 7.75L-5.5 8.25L-5.75 8.75L-5.75 9L-5.5 8.75L-5.25 8.25L-5 7.75L-4.75 7.25L-4.5 6.75L-4.25 6.25L-4 5.75L-3.75 5.25L-3.5 4.75L-3.25 4L-3 3.25L-2.75 3Z',
+        fill: true,
+        blade: PALETA_TERMICO,
+      },
       // Elemento térmico
       { d: line(-2, 4, -2, 5) },
       { d: line(-2, 5, -0.75, 5) },

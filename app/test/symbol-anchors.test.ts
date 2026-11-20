@@ -636,6 +636,22 @@ test('el contacto del térmico (8017) va anclado al origen', () => {
   assert.equal(ink.maxY, 12, 'la tinta termina en la fila del borne 96');
 });
 
+test('la paleta del térmico (8017) es una hoja maciza, no catorce puntos', () => {
+  const sym = resolveSymbol(8017, ['95', '96']);
+  const sh = sym.shapes(12, 15);
+  const blades = sh.filter((x) => x.blade);
+  assert.equal(blades.length, 1, 'una sola hoja móvil con un pivote compartido');
+  assert.equal(blades[0]!.fill, true, 'CADe dibuja la paleta como una cuña rellena');
+  assert.equal(
+    blades[0]!.d,
+    'M-2.75 3L-3 3.25L-3.25 3.75L-3.5 4.25L-3.75 4.75L-4 5.25L-4.25 5.75L-4.5 6.25L-4.75 6.75L-5 7.25L-5.25 7.75L-5.5 8.25L-5.75 8.75L-5.75 9L-5.5 8.75L-5.25 8.25L-5 7.75L-4.75 7.25L-4.5 6.75L-4.25 6.25L-4 5.75L-3.75 5.25L-3.5 4.75L-3.25 4L-3 3.25L-2.75 3Z'
+  );
+  assert.ok(!sh.some((x) => x.d === 'M-2.75 3L-2.75 3'), 'ya no hay trazos de un solo píxel');
+  const ink = shapesBounds(sh);
+  assert.equal(ink.minY, 0);
+  assert.equal(ink.maxY, 12);
+});
+
 test('el contacto auxiliar conmutado (7003) va anclado al origen', () => {
   const sym = resolveSymbol(7003, ['11', '12', '14']);
   assert.equal(sym.anchor, 'origin');

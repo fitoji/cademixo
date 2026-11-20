@@ -86,15 +86,13 @@ test('el pulsador conmutado (8003) lleva la punta del tiro NC al NO al accionarl
 test('el auxiliar NC del térmico (8017) abre su cuchilla al abrir el contacto', () => {
   const blades = bladesOf(8017, ['95', '96'], 12, 15);
 
-  // La paleta son los catorce trazos medidos, uno por uno: llevan todos la
-  // MISMA metadata (mismo pivote y mismo `deg`), así que giran como una sola
-  // pieza sobre el extremo de la barra fija.
-  assert.equal(blades.length, 14, 'la paleta móvil son catorce trazos');
+  // La paleta es una cuña rellena: CADe la dibuja maciza y un único path con
+  // metadata `blade` gira entero sobre el pivote (S4). Antes eran catorce
+  // segmentos de un píxel que en el lienzo se veían punteados.
+  assert.equal(blades.length, 1, 'la paleta móvil es una sola cuña');
   const [first] = blades;
-  for (const blade of blades) {
-    assert.deepEqual(blade.blade, first.blade, `la paleta no comparte pivote y giro: ${blade.d}`);
-  }
-  assert.ok(near(first.blade!.px, -3.25) && near(first.blade!.py, 3.75), 'el pivote va en el extremo de la barra fija');
+  assert.equal(first!.fill, true, 'la paleta conserva la tinta maciza');
+  assert.ok(near(first!.blade!.px, -3.25) && near(first!.blade!.py, 3.75), 'el pivote va en el extremo de la barra fija');
 
   assert.equal(bladeAngle(first.blade!, { closed: true }), 0, 'cerrado se dibuja como está');
   assert.ok(bladeAngle(first.blade!, { closed: false }) < -20, 'abierto gira y se separa del conductor');
@@ -102,25 +100,10 @@ test('el auxiliar NC del térmico (8017) abre su cuchilla al abrir el contacto',
   // La tinta es la del dibujo calibrado: los trazos conservan su peso (el
   // `path` fusionado los adelgazaba) y se emiten separados, en el orden medido.
   assert.equal(blades.filter((s) => s.thin).length, 0, 'la paleta conserva el peso calibrado');
-  assert.deepEqual(
-    blades.map((s) => s.d),
-    [
-      'M-2.75 3L-2.75 3',
-      'M-3 3.25L-3 3.25',
-      'M-3.25 3.75L-3.25 4',
-      'M-3.5 4.25L-3.5 4.75',
-      'M-3.75 4.75L-3.75 5.25',
-      'M-4 5.25L-4 5.75',
-      'M-4.25 5.75L-4.25 6.25',
-      'M-4.5 6.25L-4.5 6.75',
-      'M-4.75 6.75L-4.75 7.25',
-      'M-5 7.25L-5 7.75',
-      'M-5.25 7.75L-5.25 8.25',
-      'M-5.5 8.25L-5.5 8.75',
-      'M-5.75 8.75L-5.75 8.75',
-      'M-5.75 9L-5.75 9',
-    ],
-    'los tramos de la paleta no se funden en un solo `path`',
+  assert.equal(
+    first!.d,
+    'M-2.75 3L-3 3.25L-3.25 3.75L-3.5 4.25L-3.75 4.75L-4 5.25L-4.25 5.75L-4.5 6.25L-4.75 6.75L-5 7.25L-5.25 7.75L-5.5 8.25L-5.75 8.75L-5.75 9L-5.5 8.75L-5.25 8.25L-5 7.75L-4.75 7.25L-4.5 6.75L-4.25 6.25L-4 5.75L-3.75 5.25L-3.5 4.75L-3.25 4L-3 3.25L-2.75 3Z',
+    'la cuña sigue los catorce pares de puntos medidos',
   );
 
   // La barra fija no acompaña el giro: no lleva metadata.

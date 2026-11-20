@@ -79,7 +79,9 @@ test('el dibujo en reposo de los 227 códigos es el calibrado', () => {
   // cada código no cambió: sólo desaparecieron líneas repetidas del listado.
   assert.equal(
     hash,
-    '53a49a63b572a631d19f1e906c0718113727ad0607327b9f0ee8f4f568ef2a3c',
+    // Regenerada al pasar la paleta del 8017 de catorce puntos a una cuña
+    // rellena: la tinta en reposo es la misma cuña maciza que dibuja CADe.
+    '650c510c1d1690c301d69e5687c4b76330732a9070f56c1d90c59e20c215490b',
     `la tinta en reposo cambió (huella ${hash}): el dibujo sin simular ya no es el calibrado`,
   );
 });
