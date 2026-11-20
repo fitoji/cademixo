@@ -188,8 +188,9 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
     );
   }
 
+  // El ancho lo lleva el panel redimensionable del App; acá sólo se llena.
   return (
-    <aside className="relative z-10 flex min-h-0 w-[232px] shrink-0 flex-col border-r border-border bg-card shadow-chrome-right">
+    <aside className="relative z-10 flex min-h-0 w-full flex-1 flex-col bg-card shadow-chrome-right">
       <PanelHead>Insertar componente</PanelHead>
 
       {/*

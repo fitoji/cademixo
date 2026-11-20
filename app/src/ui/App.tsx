@@ -105,6 +105,7 @@ import {
 } from '@/components/ui/menubar';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
+import { Resizable, ResizableHandle, ResizablePanel, layoutStorage } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/sonner';
 import { SettingsDialog } from './SettingsDialog.tsx';
 import { SaveAsDialog } from './SaveAsDialog.tsx';
@@ -114,6 +115,18 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 
 const MODE_KEY = 'simuelectro:mode';
+
+/**
+ * Layout de la paleta y el Inspector.
+ *
+ * La librería guarda bajo `ui-sdk-resizable:<autoSaveId>`; el adaptador le pone
+ * delante el prefijo del proyecto (`simuelectro:`). El `autoSaveId` es uno solo
+ * para las dos orientaciones: la librería guarda un layout por conjunto de
+ * paneles, así que vertical (paleta, lienzo, inspector) y horizontal (lienzo,
+ * inspector) recuerdan su propio ancho por separado.
+ */
+const LAYOUT_AUTOSAVE_ID = 'paneles';
+const LAYOUT_STORAGE = layoutStorage();
 
 type Mode = 'dark' | 'light';
 
@@ -1153,52 +1166,73 @@ export function App(): JSX.Element {
           {/* La paleta va arriba en horizontal y a la izquierda del lienzo en
               vertical: es la misma pieza, cambia sólo dónde se monta. */}
           {settings.paneles === 'horizontal' && palette}
-          <div className="flex min-h-0 flex-1">
+          <Resizable
+            orientation="horizontal"
+            autoSaveId={LAYOUT_AUTOSAVE_ID}
+            storage={LAYOUT_STORAGE}
+            className="min-h-0 flex-1"
+          >
+            {/* En vertical la paleta es un panel más; en horizontal la barra de
+                arriba conserva su alto y el grupo empieza en la fila del lienzo. */}
+            {settings.paneles === 'vertical' && (
+              <>
+                <ResizablePanel id="paleta" defaultSize="232px" minSize="160px" maxSize="420px">
+                  {palette}
+                </ResizablePanel>
+                <ResizableHandle aria-label="Redimensionar paleta" />
+              </>
+            )}
 
-            {settings.paneles === 'vertical' && palette}
-            <Canvas
-            records={records}
-            selection={selection}
-            rotation={state.rotation}
-            showGrid={showGrid}
-            snap={snap}
-            placing={placing}
-            fitToken={fitToken}
-            onSelect={onSelect}
-            onDragPreview={onDragPreview}
-            onDragCommit={onDragCommit}
-            onPlace={onPlace}
-            wireStart={wireStart}
-            live={live}
-            states={visualStates}
-            liveWires={liveWires}
-            reversedWires={reversedWires}
-            closedContacts={closedContacts}
-            simulating={running}
-            highlight={highlight}
-            onZoom={setZoom}
-            onInsertVertex={onInsertVertex}
-            onVertexSelect={onVertexSelect}
-            onCancel={cancel}
-          />
+            {/* Sin `defaultSize`: el lienzo se queda con lo que dejan los otros dos. */}
+            <ResizablePanel id="lienzo">
+              <Canvas
+                records={records}
+                selection={selection}
+                rotation={state.rotation}
+                showGrid={showGrid}
+                snap={snap}
+                placing={placing}
+                fitToken={fitToken}
+                onSelect={onSelect}
+                onDragPreview={onDragPreview}
+                onDragCommit={onDragCommit}
+                onPlace={onPlace}
+                wireStart={wireStart}
+                live={live}
+                states={visualStates}
+                liveWires={liveWires}
+                reversedWires={reversedWires}
+                closedContacts={closedContacts}
+                simulating={running}
+                highlight={highlight}
+                onZoom={setZoom}
+                onInsertVertex={onInsertVertex}
+                onVertexSelect={onVertexSelect}
+                onCancel={cancel}
+              />
+            </ResizablePanel>
 
-          <Inspector
-            selected={selectedRecords}
-            rotation={state.rotation}
-            network={network}
-            findings={findings}
-            vertex={state.vertex}
-            onDeleteVertex={() => setState((s) => (s && s.vertex ? deleteVertex(s, s.vertex) : s))}
-            onDesignator={(id, value) => setState(setDesignator(state, id, value))}
-            onLampColor={(id, color) => setState(setLampColor(state, id, color))}
-            onRotate={() => setState(rotateSelection(state))}
-            onDelete={() => setState(deleteSelection(state))}
-            onCableNumber={(ids, n) => setState(setCableNumber(state, ids, n))}
-            readOnly={running}
-            onAddJunction={(x, y) => setState(addJunction(state, x, y, JUNCTION_TEMPLATE ?? undefined))}
-            onFocusFinding={(f) => setHighlight({ ids: f.ids, at: f.at ?? null })}
-          />
-          </div>
+            <ResizableHandle aria-label="Redimensionar inspector" />
+
+            <ResizablePanel id="inspector" defaultSize="268px" minSize="240px" maxSize="520px">
+              <Inspector
+                selected={selectedRecords}
+                rotation={state.rotation}
+                network={network}
+                findings={findings}
+                vertex={state.vertex}
+                onDeleteVertex={() => setState((s) => (s && s.vertex ? deleteVertex(s, s.vertex) : s))}
+                onDesignator={(id, value) => setState(setDesignator(state, id, value))}
+                onLampColor={(id, color) => setState(setLampColor(state, id, color))}
+                onRotate={() => setState(rotateSelection(state))}
+                onDelete={() => setState(deleteSelection(state))}
+                onCableNumber={(ids, n) => setState(setCableNumber(state, ids, n))}
+                readOnly={running}
+                onAddJunction={(x, y) => setState(addJunction(state, x, y, JUNCTION_TEMPLATE ?? undefined))}
+                onFocusFinding={(f) => setHighlight({ ids: f.ids, at: f.at ?? null })}
+              />
+            </ResizablePanel>
+          </Resizable>
         </div>
 
         <footer className="relative z-10 flex h-[26px] shrink-0 items-center gap-3.5 border-t border-border bg-card px-3 font-mono text-[11px] tabular-nums text-muted-foreground shadow-chrome-up">
