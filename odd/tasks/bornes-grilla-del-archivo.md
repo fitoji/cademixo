@@ -71,3 +71,19 @@ a la posición de los bornes.
   unidades más abajo de donde los dibuja CADe, a cambio de que los cables del
   archivo (que se guardan en las filas 0 y 12) encajen con los bornes. Es la
   decisión de S1, no un efecto accidental.
+- L6: extensión al 2001 (contactor de potencia) y a la familia de bobinas.
+  El usuario reportó el mismo defecto que en los pulsadores: el 2001 dibujaba
+  los ramales de −6 a +6 con bornes en 0/12, y el 9000 una conductora de −5,875
+  a +5,875 con el mismo par de bornes. Se aplicó la regla de S1: bornes donde
+  dice el archivo y tinta corrida +6 para llegar a ellos, con el ramal inferior
+  cerrando en `y = 12`. Como 7016 y 9003 comparten el def base `coil`, el
+  arreglo los cubrió de arrastre.
+- L7: barrido de control sobre los 232 símbolos con `anchor: 'origin'`: después
+  del cambio quedan **6** con algún borne fuera de la tinta, y no son todos el
+  mismo caso. 5000/5002: sólo el borne inferior queda 0,25 afuera (la tinta
+  termina en 11,75), es alargar el ramal. 5001/5003: la tinta va de −6 a −0,25,
+  o sea que los bornes de las filas 0 y 12 no tienen tinta cerca: falta medir y
+  dibujar los terminales inferiores (ya estaba anotado como refOnly en
+  `cadesimu-docs03-calibration`). 8017: la tinta va de −12 a −0,25 con bornes en
+  0/12. 9004: la tinta va de 3 a 13,8 con bornes en 0/12. Los cuatro casos que
+  quedan necesitan medición propia, no un corrimiento mecánico.

@@ -68,7 +68,7 @@ test('el dibujo en reposo de los 232 códigos es el calibrado', () => {
   // calibrada. El resto de los 226 códigos no cambia (S6).
   assert.equal(
     hash,
-    'd41a4673bb92f4bed92e0e2648ba297dee3a9e008fd320a9c73ade739ec74e06',
+    'ae16b51226446c46611c3155aa813518b1535494adeb9b4bb7a93f9ee2cab633',
     `la tinta en reposo cambió (huella ${hash}): el dibujo sin simular ya no es el calibrado`,
   );
 });

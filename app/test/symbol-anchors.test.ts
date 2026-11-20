@@ -245,15 +245,15 @@ test('la bobina (9000) va anclada al origen, con el cuerpo centrado en el conduc
   ]);
 
   // Medido sobre docs/cadesimu-svg/reference/PR1_Rodolfo_Giusti_03.png, K1M
-  // en (66,141): conductora continua de −5,875 a +5,875 (el tramo hasta el
-  // borne A2 lo dibuja el ruteador) y rectángulo de −4 a +4 por −2 a +2
-  // atravesado por el conductor, sin letra adentro.
+  // en (66,141) y desplazado +6 en `y` para que el conductor llegue a los dos
+  // bornes del archivo: conductora continua de 0 a 12 y rectángulo de −4 a +4
+  // por +4 a +8 atravesado por el conductor, sin letra adentro.
   const shapes = sym.shapes(9, 15);
   const ink = shapesBounds(shapes);
   assert.ok(near(ink.minX, -4) && near(ink.maxX, 4), `el cuerpo mide ${ink.minX}..${ink.maxX} de ancho`);
-  assert.ok(near(ink.minY, -5.875) && near(ink.maxY, 5.875), `la bobina mide ${ink.minY}..${ink.maxY} de alto`);
-  assert.ok(shapes.some((s) => s.d === 'M0 -5.87L0 5.88'), 'la conductora es continua y no llega hasta A2');
-  assert.ok(shapes.some((s) => s.d === 'M-4 -2H4V2H-4Z'), 'el cuerpo es el rectángulo medido');
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 12), `la bobina mide ${ink.minY}..${ink.maxY} de alto`);
+  assert.ok(shapes.some((s) => s.d === 'M0 0L0 12'), 'la conductora va del borne A1 al A2');
+  assert.ok(shapes.some((s) => s.d === 'M-4 4H4V8H-4Z'), 'el cuerpo es el rectángulo medido, corrido a la mitad del conductor');
   assert.equal(sym.labels?.(9, 15), undefined, 'el cuerpo va sin letra: los rótulos los pone el lienzo');
 });
 
@@ -316,26 +316,25 @@ test('el contactor de potencia (2001) va anclado al origen con la fila de bornes
   ]);
 
   // Medido sobre docs/cadesimu-svg/reference/PR1_Rodolfo_Giusti_03.png
-  // (4 px por unidad), K1M en (624,390), caja del registro 18x15. Por polo
-  // (columnas 0/6/12): stub superior (p,−6)→(p,−3) — 1 px negro alineado sobre
-  // el borde de la caja, donde el cable (gris de CADe) se apoya —, hoja
-  // (p−3,−3)→(p,+3) con pivote en (p,+3) y montante (p,+3)→(p,+6): de +6 a la
-  // fila inferior +12 el tramo lo dibuja el ruteador (en la captura queda bajo
-  // el relleno de la caja). El guion mecánico discontinuo en y=0 arranca en el
-  // cruce de la hoja 1 (−1,5) y termina en el de la hoja 3 (+10,5): tramos de
-  // 2u con paso 5u. Entre el stub y el borne la captura no muestra tinta.
+  // (4 px por unidad), K1M en (624,390), caja del registro 18x15, y desplazado
+  // +6 en `y` para que los ramales lleguen a las filas de bornes del archivo.
+  // Por polo (columnas 0/6/12): stub superior (p,0)→(p,3) —donde el cable (gris
+  // de CADe) se apoya—, hoja (p−3,3)→(p,+9) con pivote en (p,+9) y montante
+  // (p,+9)→(p,+12), que cierra en la fila inferior +12. El guion mecánico
+  // discontinuo queda en y=6: arranca en el cruce de la hoja 1 (−1,5) y termina
+  // en el de la hoja 3 (+10,5), tramos de 2u con paso 5u.
   const shapes = sym.shapes(18, 15);
   const ink = shapesBounds(shapes);
   assert.ok(near(ink.minX, -3) && near(ink.maxX, 12), `el contactor mide ${ink.minX}..${ink.maxX} de ancho`);
-  assert.ok(near(ink.minY, -6) && near(ink.maxY, 6), `el contactor mide ${ink.minY}..${ink.maxY} de alto`);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 12), `el contactor mide ${ink.minY}..${ink.maxY} de alto`);
   for (const p of [0, 6, 12]) {
-    assert.ok(shapes.some((s) => s.d === `M${p} -6L${p} -3`), `falta el stub del polo ${p}`);
-    assert.ok(shapes.some((s) => s.d === `M${p - 3} -3L${p} 3`), `falta la hoja del polo ${p}`);
-    assert.ok(shapes.some((s) => s.d === `M${p} 3L${p} 6`), `falta el montante del polo ${p}`);
+    assert.ok(shapes.some((s) => s.d === `M${p} 0L${p} 3`), `falta el stub del polo ${p}`);
+    assert.ok(shapes.some((s) => s.d === `M${p - 3} 3L${p} 9`), `falta la hoja del polo ${p}`);
+    assert.ok(shapes.some((s) => s.d === `M${p} 9L${p} 12`), `falta el montante del polo ${p}`);
   }
-  assert.ok(shapes.some((s) => s.d === 'M-1.5 0L0.5 0' && s.thin), 'falta el primer tramo del guion');
-  assert.ok(shapes.some((s) => s.d === 'M3.5 0L5.5 0' && s.thin), 'falta el segundo tramo del guion');
-  assert.ok(shapes.some((s) => s.d === 'M8.5 0L10.5 0' && s.thin), 'falta el tercer tramo del guion');
+  assert.ok(shapes.some((s) => s.d === 'M-1.5 6L0.5 6' && s.thin), 'falta el primer tramo del guion');
+  assert.ok(shapes.some((s) => s.d === 'M3.5 6L5.5 6' && s.thin), 'falta el segundo tramo del guion');
+  assert.ok(shapes.some((s) => s.d === 'M8.5 6L10.5 6' && s.thin), 'falta el tercer tramo del guion');
 });
 
 test('el contactor bipolar (2000) va anclado al origen con la hoja y el guion medidos en docs/03', () => {

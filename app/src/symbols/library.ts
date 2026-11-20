@@ -204,23 +204,22 @@ const powerContact: SymbolDef = {
     { name: '6', x: 12, y: 12 },
   ],
   size: { w: 18, h: 15 },
-  // Medido sobre la captura PR1 a 4 px por unidad: stub superior (p,−6)→(p,−3)
-  // —1 px negro alineado sobre el borde de la caja, donde el cable (gris de
-  // CADe) se apoya—, hoja (p−3,−3)→(p,+3) con pivote en (p,+3) y montante
-  // (p,+3)→(p,+6): de +6 a la fila inferior +12 el tramo lo dibuja el
-  // ruteador (queda bajo el relleno de la caja). El guion mecánico
-  // discontinuo en y=0 arranca en el cruce de la hoja 1 (−1,5) y termina en
-  // el de la hoja 3 (+10,5).
+  // Medido sobre la captura PR1 a 4 px por unidad y desplazado +6 en `y` para
+  // que los ramales lleguen a los bornes que declara el archivo: stub superior
+  // (p,0)→(p,3) —donde el cable (gris de CADe) se apoya—, hoja (p−3,3)→(p,9)
+  // con pivote en (p,9) y montante (p,9)→(p,12), que cierra en la fila inferior
+  // +12. El guion mecánico discontinuo queda en y=6, arrancando en el cruce de
+  // la hoja 1 (−1,5) y terminando en el de la hoja 3 (+10,5).
   shapes() {
     return [
       ...[0, 6, 12].flatMap((p) => [
-        { d: line(p, -6, p, -3) },
-        { d: line(p - 3, -3, p, 3) },
-        { d: line(p, 3, p, 6) },
+        { d: line(p, 0, p, 3) },
+        { d: line(p - 3, 3, p, 9) },
+        { d: line(p, 9, p, 12) },
       ]),
-      { d: line(-1.5, 0, 0.5, 0), thin: true },
-      { d: line(3.5, 0, 5.5, 0), thin: true },
-      { d: line(8.5, 0, 10.5, 0), thin: true },
+      { d: line(-1.5, 6, 0.5, 6), thin: true },
+      { d: line(3.5, 6, 5.5, 6), thin: true },
+      { d: line(8.5, 6, 10.5, 6), thin: true },
     ];
   },
 };
@@ -635,11 +634,11 @@ const breaker4: SymbolDef = {
 
 /**
  * Bobina monoestable (el 9000), anclada al origen, como la dibuja CADeSimu:
- * conductora continua de −5,875 a +5,875 atravesando un rectángulo de −4 a
- * +4 por −2 a +2, sin letra adentro. El tramo de conductor hasta el borne A2
- * (12 unidades abajo) lo dibuja el ruteador, no el símbolo. Geometría medida
- * sobre `docs/cadesimu-svg/reference/PR1_Rodolfo_Giusti_03.png` (K1M en
- * (66,141)).
+ * conductora continua que va del borne A1 al A2 (filas 0 y 12 del registro)
+ * atravesando un rectángulo de −4 a +4 por +4 a +8, sin letra adentro.
+ * Geometría medida sobre `docs/cadesimu-svg/reference/PR1_Rodolfo_Giusti_03.png`
+ * (K1M en (66,141)) y desplazada +6 en `y` para que el conductor llegue a los
+ * dos bornes que declara el archivo.
  */
 const coil: SymbolDef = {
   code: 9000,
@@ -653,7 +652,7 @@ const coil: SymbolDef = {
   ],
   size: { w: 9, h: 15 },
   shapes() {
-    return [{ d: line(0, -5.875, 0, 5.875) }, { d: rect(-4, -2, 8, 4) }];
+    return [{ d: line(0, 0, 0, 12) }, { d: rect(-4, 4, 8, 4) }];
   },
 };
 
