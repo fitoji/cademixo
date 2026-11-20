@@ -10,8 +10,9 @@ import { simulate } from '../src/sim/solver.ts';
 import { currentFlow } from '../src/sim/flow.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+// Copia idéntica al original de data/samples/tests01; el corpus es gitignored.
 const TERMOMAG = buildProject(
-  parse(readFileSync(join(HERE, '../../data/samples/tests01/test01_termomag_lampara.cad'), 'latin1')),
+  parse(readFileSync(join(HERE, 'fixtures/test01-termomag-lampara.cad'), 'latin1')),
 ).records;
 
 /**
