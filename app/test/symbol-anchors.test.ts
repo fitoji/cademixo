@@ -597,7 +597,8 @@ test('el fusible monofásico (5000) va anclado al origen', () => {
   ]);
   const sh = sym.shapes(6, 15);
   assert.ok(sh.some((x) => x.d === 'M-5.75 -6L-5.75 -0.25'), '5000 stem');
-  assert.ok(sh.some((x) => x.d === 'M-5.75 9L-5.75 11.75'), '5000 lower');
+  // El ramal baja hasta la fila del borne 2 (12).
+  assert.ok(sh.some((x) => x.d === 'M-5.75 9L-5.75 12'), '5000 lower');
 });
 
 test('el fusible II (5002) va anclado al origen', () => {
@@ -612,6 +613,9 @@ test('el fusible II (5002) va anclado al origen', () => {
   const sh = sym.shapes(12, 15);
   assert.ok(sh.some((x) => x.d === 'M-5.75 -6L-5.75 -0.25'), '5002 stem left');
   assert.ok(sh.some((x) => x.d === 'M0.25 -6L0.25 -0.25'), '5002 stem right');
+  // Los dos ramales bajan hasta la fila de los bornes 2 y 4 (12).
+  assert.ok(sh.some((x) => x.d === 'M-5.75 9L-5.75 12'), '5002 lower left');
+  assert.ok(sh.some((x) => x.d === 'M0.25 9L0.25 12'), '5002 lower right');
 });
 
 
@@ -623,8 +627,13 @@ test('el contacto del térmico (8017) va anclado al origen', () => {
     { name: '96', x: -5.75, y: 12 },
   ]);
   const sh = sym.shapes(12, 15);
-  assert.ok(sh.some((x) => x.d === 'M-5.75 -12L-5.75 -8.5'), 'upper stem');
-  assert.ok(sh.some((x) => x.d === 'M-5.75 -3.25L-5.75 -0.25'), 'lower stem');
+  // La tinta medida en la captura va corrida +12: los dos conductores llegan a
+  // las filas 0 y 12, que son los bornes del archivo.
+  assert.ok(sh.some((x) => x.d === 'M-5.75 0L-5.75 3.5'), 'upper stem');
+  assert.ok(sh.some((x) => x.d === 'M-5.75 8.75L-5.75 12'), 'lower stem');
+  const ink = shapesBounds(sh);
+  assert.equal(ink.minY, 0, 'la tinta arranca en la fila del borne 95');
+  assert.equal(ink.maxY, 12, 'la tinta termina en la fila del borne 96');
 });
 
 test('el contacto auxiliar conmutado (7003) va anclado al origen', () => {
@@ -696,14 +705,18 @@ test('los fusibles 5001 y 5003 van anclados al origen (comp02)', () => {
   assert.equal(f1.anchor, 'origin', '5001 anchor');
   assert.deepEqual(f1.originPins?.map((p) => [p.name, p.x, p.y]), [['1', -6, 0], ['3', 0, 0], ['2', -6, 12], ['4', 0, 12]]);
   const s1 = f1.shapes(12, 15);
-  assert.ok(s1.some((s) => s.d === 'M-5.75 -6L-5.75 -0.25'), '5001 stem left');
-  assert.ok(s1.some((s) => s.d === 'M0.25 -6L0.25 -0.25'), '5001 stem right');
+  assert.ok(s1.some((s) => s.d === 'M-5.75 0L-5.75 12'), '5001 stem left');
+  assert.ok(s1.some((s) => s.d === 'M0.25 0L0.25 12'), '5001 stem right');
+  assert.equal(shapesBounds(s1).minY, 0, '5001 arranca en la fila 0');
+  assert.equal(shapesBounds(s1).maxY, 12, '5001 termina en la fila 12');
 
   const f3 = resolveSymbol(5003, []);
   assert.equal(f3.anchor, 'origin', '5003 anchor');
   assert.deepEqual(f3.originPins?.map((p) => [p.name, p.x, p.y]), [['1', -6, 0], ['3', 0, 0], ['5', 6, 0], ['2', -6, 12], ['4', 0, 12], ['6', 6, 12]]);
   const s3 = f3.shapes(18, 15);
-  assert.ok(s3.some((s) => s.d === 'M-5.75 -6L-5.75 -0.25'), '5003 stem left');
-  assert.ok(s3.some((s) => s.d === 'M6.25 -6L6.25 -0.25'), '5003 stem right');
+  assert.ok(s3.some((s) => s.d === 'M-5.75 0L-5.75 12'), '5003 stem left');
+  assert.ok(s3.some((s) => s.d === 'M6.25 0L6.25 12'), '5003 stem right');
+  assert.equal(shapesBounds(s3).minY, 0, '5003 arranca en la fila 0');
+  assert.equal(shapesBounds(s3).maxY, 12, '5003 termina en la fila 12');
 });
 

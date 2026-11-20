@@ -94,7 +94,7 @@ test('el auxiliar NC del térmico (8017) abre su cuchilla al abrir el contacto',
   for (const blade of blades) {
     assert.deepEqual(blade.blade, first.blade, `la paleta no comparte pivote y giro: ${blade.d}`);
   }
-  assert.ok(near(first.blade!.px, -3.25) && near(first.blade!.py, -8.25), 'el pivote va en el extremo de la barra fija');
+  assert.ok(near(first.blade!.px, -3.25) && near(first.blade!.py, 3.75), 'el pivote va en el extremo de la barra fija');
 
   assert.equal(bladeAngle(first.blade!, { closed: true }), 0, 'cerrado se dibuja como está');
   assert.ok(bladeAngle(first.blade!, { closed: false }) < -20, 'abierto gira y se separa del conductor');
@@ -105,20 +105,20 @@ test('el auxiliar NC del térmico (8017) abre su cuchilla al abrir el contacto',
   assert.deepEqual(
     blades.map((s) => s.d),
     [
-      'M-2.75 -9L-2.75 -9',
-      'M-3 -8.75L-3 -8.75',
-      'M-3.25 -8.25L-3.25 -8',
-      'M-3.5 -7.75L-3.5 -7.25',
-      'M-3.75 -7.25L-3.75 -6.75',
-      'M-4 -6.75L-4 -6.25',
-      'M-4.25 -6.25L-4.25 -5.75',
-      'M-4.5 -5.75L-4.5 -5.25',
-      'M-4.75 -5.25L-4.75 -4.75',
-      'M-5 -4.75L-5 -4.25',
-      'M-5.25 -4.25L-5.25 -3.75',
-      'M-5.5 -3.75L-5.5 -3.25',
-      'M-5.75 -3.25L-5.75 -3.25',
-      'M-5.75 -3L-5.75 -3',
+      'M-2.75 3L-2.75 3',
+      'M-3 3.25L-3 3.25',
+      'M-3.25 3.75L-3.25 4',
+      'M-3.5 4.25L-3.5 4.75',
+      'M-3.75 4.75L-3.75 5.25',
+      'M-4 5.25L-4 5.75',
+      'M-4.25 5.75L-4.25 6.25',
+      'M-4.5 6.25L-4.5 6.75',
+      'M-4.75 6.75L-4.75 7.25',
+      'M-5 7.25L-5 7.75',
+      'M-5.25 7.75L-5.25 8.25',
+      'M-5.5 8.25L-5.5 8.75',
+      'M-5.75 8.75L-5.75 8.75',
+      'M-5.75 9L-5.75 9',
     ],
     'los tramos de la paleta no se funden en un solo `path`',
   );
@@ -126,7 +126,7 @@ test('el auxiliar NC del térmico (8017) abre su cuchilla al abrir el contacto',
   // La barra fija no acompaña el giro: no lleva metadata.
   const fixed = resolveSymbol(8017, ['95', '96']).shapes(12, 15).filter((s) => !s.blade);
   assert.ok(
-    fixed.some((s) => s.d === 'M-5.75 -8.5L-2.5 -8.5'),
+    fixed.some((s) => s.d === 'M-5.75 3.5L-2.5 3.5'),
     'la barra fija del contacto se queda quieta',
   );
 });

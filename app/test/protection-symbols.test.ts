@@ -133,5 +133,5 @@ test('el fusible se dibuja vertical, con el cuerpo alrededor del conductor', () 
   const ds = sym.shapes(w, h).map((s) => s.d);
   assert.ok(ds.includes('M-7.25 -6L-7.25 -3'), 'falta pata izquierda del cuerpo');
   assert.ok(ds.includes('M-5.75 -6L-5.75 -0.25'), 'falta conductor superior');
-  assert.ok(ds.includes('M-5.75 9L-5.75 11.75'), 'falta conductor inferior');
+  assert.ok(ds.includes('M-5.75 9L-5.75 12'), 'falta conductor inferior');
 });

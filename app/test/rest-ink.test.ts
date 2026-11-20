@@ -66,9 +66,15 @@ test('el dibujo en reposo de los 232 códigos es el calibrado', () => {
   // producto —sus bornes son las filas 0/12 del registro y la tinta se corrió
   // +6 en `y` para llegar a ellos—, así que su tinta en reposo ya no es la
   // calibrada. El resto de los 226 códigos no cambia (S6).
+  //
+  // Regenerada otra vez por el mismo feature (L8/L9): 5000 y 5002 estiran su
+  // ramal inferior 0,25 hasta la fila 12, y 5001, 5003 y 8017 corren la tinta
+  // +12 en `y` para que los bornes del archivo (filas 0 y 12) caigan sobre ella.
+  // El 9004 no entra: queda bloqueado, sin tocar. El resto de los 227 códigos
+  // conserva la huella anterior (diferencial de tinta: 5 de 232 códigos).
   assert.equal(
     hash,
-    'ae16b51226446c46611c3155aa813518b1535494adeb9b4bb7a93f9ee2cab633',
+    '5d1b1d68c92439b801a5cfcc19f6ffca289e60b548cc9db37ffd8b57f95d90ac',
     `la tinta en reposo cambió (huella ${hash}): el dibujo sin simular ya no es el calibrado`,
   );
 });

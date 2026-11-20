@@ -852,11 +852,18 @@ const lamp: SymbolDef = {
  * la barra fija: al abrir, la punta se separa del conductor (x = −5,75) y la
  * paleta se ve levantada (S4).
  */
-const PALETA_TERMICO: Blade = { px: -3.25, py: -8.25, deg: -30 };
+const PALETA_TERMICO: Blade = { px: -3.25, py: 3.75, deg: -30 };
 
 /**
  * Contacto del térmico (8017), anclado al origen.
  * Medido sobre `docs/03/componentes02.png` (S=4, OX=-2, OY=-60), en (138,117).
+ *
+ * La captura dibuja el símbolo entero en las 12 unidades POR ENCIMA de la fila
+ * del registro (banda −12..−0,25) y los bornes del archivo son las filas 0 y
+ * 12, así que la tinta medida va corrida +12 en `y` (formas y pivote de la
+ * paleta) y el conductor inferior se estira hasta la fila 12. La forma no
+ * cambia: el gate con `oy = 117 − 12 = 105` sigue dando `stray = 0`
+ * (`bornes-grilla-del-archivo`, L9).
  */
 const thermalContact: SymbolDef = {
   code: 8017,
@@ -872,49 +879,49 @@ const thermalContact: SymbolDef = {
   shapes() {
     return [
       // Conductor principal (superior e inferior)
-      { d: line(-5.75, -12, -5.75, -8.5) },
-      { d: line(-5.75, -6, -5.75, -6) },
-      { d: line(-5.75, -3.25, -5.75, -0.25) },
+      { d: line(-5.75, 0, -5.75, 3.5) },
+      { d: line(-5.75, 6, -5.75, 6) },
+      { d: line(-5.75, 8.75, -5.75, 12) },
       // Marcas superiores/inferiores
-      { d: line(-4.25, -11.5, -3, -11.5) },
-      { d: line(-4.25, -10.75, -4.25, -10.75) },
-      { d: line(-3, -11, -3, -11) },
-      { d: line(-4.25, -10, -3, -10) },
-      { d: line(-4.25, -2.5, -3, -2.5) },
-      { d: line(-4.25, -1.75, -4.25, -1.75) },
-      { d: line(-3, -2, -3, -2) },
-      { d: line(-4.25, -1, -3, -1) },
+      { d: line(-4.25, 0.5, -3, 0.5) },
+      { d: line(-4.25, 1.25, -4.25, 1.25) },
+      { d: line(-3, 1, -3, 1) },
+      { d: line(-4.25, 2, -3, 2) },
+      { d: line(-4.25, 9.5, -3, 9.5) },
+      { d: line(-4.25, 10.25, -4.25, 10.25) },
+      { d: line(-3, 10, -3, 10) },
+      { d: line(-4.25, 11, -3, 11) },
       // Barra fija del contacto (no se mueve).
-      { d: line(-5.75, -8.5, -2.5, -8.5) },
+      { d: line(-5.75, 3.5, -2.5, 3.5) },
       // Paleta móvil del contacto NC: los catorce trazos medidos, uno por uno,
       // con su `d` y su peso original. La tinta es la del dibujo calibrado (no
       // se altera), y el movimiento no lo da la forma sino la metadata `blade`
       // que llevan todos: así la paleta entera gira sobre el mismo pivote (S4).
-      { d: line(-2.75, -9, -2.75, -9), blade: PALETA_TERMICO },
-      { d: line(-3, -8.75, -3, -8.75), blade: PALETA_TERMICO },
-      { d: line(-3.25, -8.25, -3.25, -8), blade: PALETA_TERMICO },
-      { d: line(-3.5, -7.75, -3.5, -7.25), blade: PALETA_TERMICO },
-      { d: line(-3.75, -7.25, -3.75, -6.75), blade: PALETA_TERMICO },
-      { d: line(-4, -6.75, -4, -6.25), blade: PALETA_TERMICO },
-      { d: line(-4.25, -6.25, -4.25, -5.75), blade: PALETA_TERMICO },
-      { d: line(-4.5, -5.75, -4.5, -5.25), blade: PALETA_TERMICO },
-      { d: line(-4.75, -5.25, -4.75, -4.75), blade: PALETA_TERMICO },
-      { d: line(-5, -4.75, -5, -4.25), blade: PALETA_TERMICO },
-      { d: line(-5.25, -4.25, -5.25, -3.75), blade: PALETA_TERMICO },
-      { d: line(-5.5, -3.75, -5.5, -3.25), blade: PALETA_TERMICO },
-      { d: line(-5.75, -3.25, -5.75, -3.25), blade: PALETA_TERMICO },
-      { d: line(-5.75, -3, -5.75, -3), blade: PALETA_TERMICO },
+      { d: line(-2.75, 3, -2.75, 3), blade: PALETA_TERMICO },
+      { d: line(-3, 3.25, -3, 3.25), blade: PALETA_TERMICO },
+      { d: line(-3.25, 3.75, -3.25, 4), blade: PALETA_TERMICO },
+      { d: line(-3.5, 4.25, -3.5, 4.75), blade: PALETA_TERMICO },
+      { d: line(-3.75, 4.75, -3.75, 5.25), blade: PALETA_TERMICO },
+      { d: line(-4, 5.25, -4, 5.75), blade: PALETA_TERMICO },
+      { d: line(-4.25, 5.75, -4.25, 6.25), blade: PALETA_TERMICO },
+      { d: line(-4.5, 6.25, -4.5, 6.75), blade: PALETA_TERMICO },
+      { d: line(-4.75, 6.75, -4.75, 7.25), blade: PALETA_TERMICO },
+      { d: line(-5, 7.25, -5, 7.75), blade: PALETA_TERMICO },
+      { d: line(-5.25, 7.75, -5.25, 8.25), blade: PALETA_TERMICO },
+      { d: line(-5.5, 8.25, -5.5, 8.75), blade: PALETA_TERMICO },
+      { d: line(-5.75, 8.75, -5.75, 8.75), blade: PALETA_TERMICO },
+      { d: line(-5.75, 9, -5.75, 9), blade: PALETA_TERMICO },
       // Elemento térmico
-      { d: line(-2, -8, -2, -7) },
-      { d: line(-2, -7, -0.75, -7) },
-      { d: line(-0.75, -7, -0.75, -5) },
-      { d: line(-2, -5, -1, -5) },
-      { d: line(-2, -5, -2, -4.75) },
+      { d: line(-2, 4, -2, 5) },
+      { d: line(-2, 5, -0.75, 5) },
+      { d: line(-0.75, 5, -0.75, 7) },
+      { d: line(-2, 7, -1, 7) },
+      { d: line(-2, 7, -2, 7.25) },
       // Actuador izquierdo
-      { d: line(-11.75, -6, -11.75, -4.25) },
-      { d: line(-10.5, -5.75, -10.5, -4.25) },
-      { d: line(-10, -6, -7, -6) },
-      { d: line(-5.75, -6, -4.25, -6) },
+      { d: line(-11.75, 6, -11.75, 7.75) },
+      { d: line(-10.5, 6.25, -10.5, 7.75) },
+      { d: line(-10, 6, -7, 6) },
+      { d: line(-5.75, 6, -4.25, 6) },
     ];
   },
 };
@@ -951,8 +958,16 @@ const flashingLamp: SymbolDef = {
 /**
  * Fusibles 5001/5003 medidos sobre `docs/03/componentes02.cad` /
  * `docs/cadesimu-svg/reference/componentes02.png` (S=4, OX=-2, OY=-60).
- * Fusibles seccionadores multipolares: cuerpos arriba del origen y
- * prolongaciones inferiores hasta los bornes de salida.
+ * Fusibles seccionadores multipolares: el cuerpo de cada polo con los dos
+ * conductores que salen a los bornes.
+ *
+ * La captura dibuja TODO el símbolo en las 12 unidades que están POR ENCIMA de
+ * la fila del registro (banda −12..−0,25), pero los bornes del archivo son las
+ * filas 0 y 12. Por la regla de `bornes-grilla-del-archivo` (S1) mandan los
+ * bornes: la tinta medida va corrida +12 en `y`, los conductores se estiran
+ * hasta las dos filas (0 y 12) y la forma no cambia. Prueba de que sólo se
+ * desplazó: el gate raster con `oy = y_registro − 12` (5001 en 42, 5003 en 45)
+ * vuelve a dar `stray = 0`.
  */
 const fuse5001: SymbolDef = {
   code: 5001,
@@ -969,13 +984,17 @@ const fuse5001: SymbolDef = {
   size: { w: 12, h: 15 },
   shapes() {
     return [
-      // Cuerpos superiores (medidos en comp02; refOnly en terminales inferiores).
-      { d: line(-7.25, -6, -7.25, -3) },
-      { d: line(-5.75, -6, -5.75, -0.25) },
-      { d: line(-4.5, -6, -4.5, -3) },
-      { d: line(0.25, -6, 0.25, -0.25) },
-      { d: line(-7.25, -3, -4.75, -3) },
-      { d: line(-0.75, -3, 1, -3) },
+      // Conductores de los dos polos, de la fila 0 a la fila 12.
+      { d: line(-5.75, 0, -5.75, 12) },
+      { d: line(0.25, 0, 0.25, 12) },
+      // Cuerpo del polo izquierdo: rectángulo medido (barras en 3 y 9, corrido +12).
+      { d: line(-7.25, 3, -7.25, 9) },
+      { d: line(-4.5, 3, -4.5, 9) },
+      { d: line(-7.25, 3, -4.5, 3) },
+      { d: line(-7.25, 9, -4.5, 9) },
+      // Polo derecho: la captura lo dibuja con las dos barras y sin verticales.
+      { d: line(-0.75, 3, 1, 3) },
+      { d: line(-0.75, 9, 1, 9) },
     ];
   },
 };
@@ -997,11 +1016,13 @@ const fuse5003: SymbolDef = {
   size: { w: 18, h: 15 },
   shapes() {
     return [-6, 0, 6].flatMap((x) => [
-      // Cuerpos superiores (medidos en comp02; refOnly en mecanismo inferior).
-      { d: line(x - 1.25, -6, x - 1.25, -3) },
-      { d: line(x + 0.25, -6, x + 0.25, -0.25) },
-      { d: line(x + 1.5, -6, x + 1.5, -3) },
-      { d: line(x - 1.25, -3, x + 1.25, -3) },
+      // Conductor del polo, de la fila 0 a la fila 12.
+      { d: line(x + 0.25, 0, x + 0.25, 12) },
+      // Cuerpo del fusible: rectángulo medido (barras en 3 y 9, corrido +12).
+      { d: line(x - 1.25, 3, x - 1.25, 9) },
+      { d: line(x + 1.5, 3, x + 1.5, 9) },
+      { d: line(x - 1.25, 3, x + 1.5, 3) },
+      { d: line(x - 1.25, 9, x + 1.5, 9) },
     ]);
   },
 };
@@ -1009,6 +1030,13 @@ const fuse5003: SymbolDef = {
 /**
  * Fusible monofásico (5000), anclado al origen.
  * Medido sobre `docs/03/componentes02.png` (S=4, OX=-2, OY=-60), en (15,57).
+ *
+ * El ramal inferior cierra en `y = 12`, que es la fila del borne 2 del archivo
+ * (`bornes-grilla-del-archivo`, L8). Ojo: ese último tramo coincide con la
+ * tinta que la captura dibuja en la banda del registro vecino —6000 en (15,78),
+ * banda 66..77,75—, así que el `stray = 0` del gate NO prueba que el tramo sea
+ * del 5000; sólo dice que no hay tinta suelta. Se estira igual porque el borne
+ * está en la fila 12.
  */
 const fuse1: SymbolDef = {
   code: 5000,
@@ -1028,7 +1056,8 @@ const fuse1: SymbolDef = {
       { d: line(-5.75, -6, -5.75, -0.25) },
       { d: line(-4.5, -6, -4.5, -3) },
       { d: line(-7.25, -3, -4.75, -3) },
-      { d: line(-5.75, 9, -5.75, 11.75) },
+      // Ramal inferior hasta la fila 12 (borne 2), estirado 0,25 sobre la medición.
+      { d: line(-5.75, 9, -5.75, 12) },
     ];
   },
 };
@@ -1036,6 +1065,12 @@ const fuse1: SymbolDef = {
 /**
  * Fusible II (5002), anclado al origen.
  * Medido sobre `docs/03/componentes02.png` (S=4, OX=-2, OY=-60), en (54,57).
+ *
+ * Los dos ramales inferiores cierran en `y = 12`, la fila de los bornes 2 y 4
+ * (`bornes-grilla-del-archivo`, L8). Igual que en el 5000, ese tramo coincide
+ * con la tinta que la captura dibuja en la banda del registro vecino —6002 en
+ * (54,78)—, así que el `stray = 0` del gate no prueba que el tramo sea propio:
+ * el estiramiento se hace igual porque los bornes están en la fila 12.
  */
 const fuse2: SymbolDef = {
   code: 5002,
@@ -1061,8 +1096,9 @@ const fuse2: SymbolDef = {
       { d: line(1.5, -6, 1.5, -3) },
       { d: line(-7.25, -3, -4.75, -3) },
       { d: line(-1.25, -3, 1.25, -3) },
-      { d: line(-5.75, 9, -5.75, 11.75) },
-      { d: line(0.25, 9, 0.25, 11.75) },
+      // Ramales inferiores hasta la fila 12 (bornes 2 y 4), estirados 0,25.
+      { d: line(-5.75, 9, -5.75, 12) },
+      { d: line(0.25, 9, 0.25, 12) },
     ];
   },
 };

@@ -87,3 +87,45 @@ a la posición de los bornes.
   `cadesimu-docs03-calibration`). 8017: la tinta va de −12 a −0,25 con bornes en
   0/12. 9004: la tinta va de 3 a 13,8 con bornes en 0/12. Los cuatro casos que
   quedan necesitan medición propia, no un corrimiento mecánico.
+- L8: Grupo 1 (trivial) cerrado. 5000 y 5002 estiran su ramal inferior 0,25
+  —de 11,75 a 12— para que los bornes 2 (y 4) caigan sobre la tinta; nada más
+  cambia. Gate comp02 sin tocar el `oy`: 5000 (15,57) ref=133 sym=214 ov=73
+  refOnly=60 **stray=0**; 5002 (54,57) ref=266 sym=428 ov=146 refOnly=120
+  **stray=0** (sólo crece `sym`, 3 y 6 px, por el tramo agregado). Hallazgo
+  anotado también en el comentario del def: ese último tramo coincide con la
+  tinta que la captura dibuja en la banda del registro vecino —6000 en (15,78)
+  y 6002 en (54,78), banda 66..77,75—, así que el `stray=0` del gate NO prueba
+  que el tramo sea propio; se estira igual porque el borne está en la fila 12.
+- L9: Grupo 2, medido símbolo por símbolo sobre `componentes02.png`
+  (S=4, OX=−2, OY=−60) contra la posición del registro en `componentes02.cad`.
+  Medición común: los tres se dibujan enteros en las 12 unidades POR ENCIMA de
+  la fila del registro (banda `y` −12..−0,25), no entre las filas 0 y 12 como
+  los pulsadores. Decisión **resolved** para los tres: traslación pura +12 en
+  `y` (los bornes del archivo son las filas 0 y 12) más el último ramal
+  estirado 0,25 para cerrar en la fila inferior; el gate se re-corre con
+  `oy = y_registro − 12` y vuelve a dar `stray = 0`, lo que prueba que la forma
+  no cambió, sólo se desplazó.
+  - 5001 (registro 30,54 → gate con `oy = 42`): ref=187 sym=520 overlap=177
+    refOnly=10 **stray=0**. Conductores corridos +12 (ahora en x −5,75 y 0,25,
+    de 0 a 12) y cuerpo medido, completado con la barra superior que la captura
+    sí dibuja (refOnly 35 → 10).
+  - 5003 (registro 72,57 → gate con `oy = 45`): ref=361 sym=1011 overlap=345
+    refOnly=16 **stray=0**. Ídem por polo: conductor `x+0,25` de 0 a 12 y cuerpo
+    `x−1,25 .. x+1,5` con barras en 3 y 9 (refOnly 73 → 16).
+  - 8017 (registro 138,117 → gate con `oy = 105`): ref=136 sym=471 overlap=132
+    refOnly=4 **stray=0**. Traslación exacta: el `overlap` es el mismo 132 que
+    con `oy = 117` y `dy = 0`. `PALETA_TERMICO.py` pasa de −8,25 a 3,75 para
+    que la paleta gire sobre el mismo pivote de la barra fija.
+  - 9004: **blocked**, sin tocar. No hay registro suyo en `componentes02.cad`,
+    en `componentes01` ni en `PR1_Rodolfo_Giusti_03.cad`, y las capturas de
+    docs/03 no lo traen: no existe referencia contra la que medir, así que
+    ninguna posición de tinta se puede probar con el gate. Además sus bornes
+    A1/A2 vienen heredados del spread de `coil`, no de un registro, y su caja
+    genérica (3..12 × 3..12,9) no alcanza (0,0)/(0,12) sin dibujar un conductor
+    que ninguna referencia muestra. Se retoma si aparece una captura del
+    temporizador.
+  - Barrido de control (232 códigos, `anchor === 'origin'`, cada borne contra
+    `shapesBounds`): de **6** a **1**, y el que queda es el 9004 bloqueado.
+    Diferencial de tinta base-vs-árbol: 5 de 232 códigos cambiados (5000, 5002,
+    5001, 5003, 8017); el 9004 no aparece. Hash nuevo de `rest-ink`:
+    `5d1b1d68c92439b801a5cfcc19f6ffca289e60b548cc9db37ffd8b57f95d90ac`.
