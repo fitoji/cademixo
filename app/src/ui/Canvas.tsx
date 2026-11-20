@@ -9,6 +9,8 @@ import { idle, startBend, startMarquee, startMove, startPan, startVertex, step a
 import { attachPoints, type Point } from '../editor/pins.ts';
 import { buildNetwork, cableSegments } from '../editor/network.ts';
 import { snapContext, snapTarget, type SnapTarget } from '../editor/wiring/snap.ts';
+import { firstPin, nextPin, pinRefs, samePin, type Direction, type PinRef } from '../editor/wiring/keyboard.ts';
+import { dist } from '../editor/wiring/geometry.ts';
 import { hitContext, hitTest, segmentAttachedTo } from '../editor/wiring/hitTest.ts';
 import { WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { conductorToneOf, type ConductorTone } from '../editor/conductor.ts';
@@ -69,6 +71,26 @@ const MAX_K = 24;
  * realmente encima dell borne.
  */
 const PIN_SNAP_PX = 11;
+
+/**
+ * Radio del anillo de foco del cursor de bornes, en píxeles de pantalla.
+ *
+ * Va en pantalla y no en unidades de plano a propósito: es un indicador de foco,
+ * y alejar el zoom no puede hacerlo desaparecer. El radio del borne sí escala
+ * con el símbolo.
+ */
+const PIN_CURSOR_PX = 9;
+
+/** Teclas que mueven el cursor de bornes. */
+const ARROW_KEYS: Record<string, Direction> = {
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+};
+
+/** Dos puntos del plano son el mismo punto (tolerancia del formato). */
+const samePoint = (a: Point, b: Point): boolean => dist(a, b) < 0.01;
 
 export function Canvas(props: Props): JSX.Element {
   const {
@@ -201,7 +223,22 @@ export function Canvas(props: Props): JSX.Element {
   const network = useMemo(() => buildNetwork(records), [records]);
   // Hoja que se está dibujando: los registros llegan recortados a esta página.
   const sheet = records[0]?.sheet ?? 0;
-  const pinList = useMemo(() => [...pins.values()].flat(), [pins]);
+  // Bornes con identidad (componente + índice), para navegarlos con el teclado.
+  const pinRefsList = useMemo(() => pinRefs(pins), [pins]);
+  const pinList = useMemo(() => pinRefsList.map((r) => r.point), [pinRefsList]);
+  // Cursor de bornes: sobre qué borne actúa Enter. Se valida contra los bornes
+  // vigentes porque editar o deshacer puede borrar el que estaba enfocado.
+  const [cursor, setCursor] = useState<PinRef | null>(null);
+  const cursorPin = useMemo(
+    () => (cursor === null ? null : (pinRefsList.find((r) => samePin(r, cursor)) ?? null)),
+    [cursor, pinRefsList],
+  );
+  // La región viva repite el texto sólo para que el lector de pantalla vuelva a
+  // anunciarlo: el mismo texto dos veces no es un cambio de nodo.
+  const [notice, setNotice] = useState('');
+  const announce = useCallback((text: string) => {
+    setNotice((prev) => (prev === text ? `${text} ` : text));
+  }, []);
   // Contexto de cableado de la hoja: alimenta el snap priorizado y el hit-test.
   const wiring = useMemo(() => snapContext(network, records, sheet), [network, records, sheet]);
   const hitCtx = useMemo(() => hitContext(network, records, sheet), [network, records, sheet]);
@@ -291,7 +328,92 @@ export function Canvas(props: Props): JSX.Element {
     [snapOf, snapValue, applyEffects],
   );
 
+  /**
+   * Nombre del borne para anunciarlo: el rótulo del pin y el designador del
+   * componente, que es como el usuario lo lee en el plano.
+   */
+  const describePin = useCallback(
+    (ref: PinRef): string => {
+      const rec = records.find((r) => r.id === ref.componentId);
+      const who = rec !== undefined && rec.designator !== '' ? rec.designator : `componente ${ref.componentId}`;
+      const name = rec?.pins[ref.pinIndex];
+      return name ? `borne ${name} de ${who}` : `borne ${ref.pinIndex + 1} de ${who}`;
+    },
+    [records],
+  );
+
+  /**
+   * Cablear sin puntero.
+   *
+   * El lienzo era inalcanzable con el teclado: no era enfocable y los bornes no
+   * tenían foco, así que quien no puede arrastrar no podía conectar nada. Acá
+   * viven las flechas (mover el cursor de bornes) y Enter (marcar el primer
+   * extremo y cerrar el tramo), sobre la misma ruta de dos pasos que usan los
+   * clics: `onPlace` recibe el punto exacto del borne y App decide si arranca o
+   * cierra el cable.
+   *
+   * Colocar un componente es un gesto del puntero y no tiene bornes a los que ir,
+   * así que ahí las teclas no hacen nada.
+   */
+  const onCanvasKeyDown = useCallback(
+    (e: React.KeyboardEvent): void => {
+      const wireArmed = placing !== null && WIRE_TEMPLATES[placing] !== undefined;
+      if (simulating || (placing !== null && !wireArmed)) return;
+
+      const dir = ARROW_KEYS[e.key];
+      if (dir !== undefined) {
+        e.preventDefault();
+        const from = cursorPin ?? firstPin(pinRefsList);
+        if (from === null) {
+          announce('El esquema no tiene bornes');
+          return;
+        }
+        const next = nextPin(pinRefsList, from, dir);
+        if (next === null) return;
+        setCursor(next);
+        // El fantasma del cable sigue al cursor igual que sigue al puntero.
+        if (wireStart !== null) setHover(next.point);
+        announce(describePin(next));
+        return;
+      }
+
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+
+      const at = cursorPin ?? firstPin(pinRefsList);
+      if (at === null) {
+        announce('El esquema no tiene bornes');
+        return;
+      }
+      setCursor(at);
+      if (!wireArmed) {
+        announce(`${describePin(at)}. Elegí un cable en la paleta para conectarlo`);
+        return;
+      }
+
+      if (wireStart !== null) {
+        if (samePoint(at.point, wireStart)) {
+          announce('Elegí otro borne: el cable no puede empezar y terminar en el mismo');
+          return;
+        }
+        const from = pinRefsList.find((r) => samePoint(r.point, wireStart));
+        onPlace(at.point.x, at.point.y);
+        setHover(null);
+        announce(from ? `Cable conectado: ${describePin(from)} con ${describePin(at)}` : `Cable conectado en ${describePin(at)}`);
+        return;
+      }
+
+      setHover(at.point);
+      onPlace(at.point.x, at.point.y);
+      announce(`Cable desde ${describePin(at)}. Flechas para elegir el otro extremo, Enter para conectar`);
+    },
+    [simulating, placing, cursorPin, pinRefsList, wireStart, onPlace, announce, describePin],
+  );
+
   const onPointerDown = (e: React.PointerEvent): void => {
+    // El lienzo toma el foco al hacer clic: si no, cablear por teclado exigía
+    // tabular a ciegas desde afuera.
+    svgRef.current?.focus({ preventScroll: true });
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       setGesture(startPan({ x: e.clientX, y: e.clientY }, { x: view.x, y: view.y }));
       svgRef.current!.setPointerCapture(e.pointerId);
@@ -301,6 +423,11 @@ export function Canvas(props: Props): JSX.Element {
 
     const world = toWorld(e.clientX, e.clientY);
     const target = e.target as Element;
+    // El cursor de bornes sigue al puntero: un clic sobre un borne lo deja ahí,
+    // así se puede empezar con el mouse y seguir con las flechas.
+    const snapped = snapOf(world);
+    if (snapped.kind === 'pin')
+      setCursor({ componentId: snapped.componentId, pinIndex: snapped.pinIndex, point: snapped.point });
 
     if (placing !== null) {
       // Durante la simulación no se insertan componentes.
@@ -308,7 +435,7 @@ export function Canvas(props: Props): JSX.Element {
         // Dibujar cable: snap priorizado (arrancar sobre un borne, una junction
         // o el interior de otro tramo). Colocar componente: snap simple.
         const wirePlacing = WIRE_TEMPLATES[placing] !== undefined;
-        const s = wirePlacing || wireStart !== null ? snapOf(world).point : snapPoint(world);
+        const s = wirePlacing || wireStart !== null ? snapped.point : snapPoint(world);
         onPlace(s.x, s.y);
       }
       return;
@@ -473,6 +600,10 @@ export function Canvas(props: Props): JSX.Element {
       <svg
         ref={svgRef}
         className={cursorClass}
+        tabIndex={0}
+        role="application"
+        aria-label="Lienzo del esquema. Flechas recorren los bornes, Enter conecta, Escape cancela."
+        onKeyDown={onCanvasKeyDown}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -522,6 +653,8 @@ export function Canvas(props: Props): JSX.Element {
                 bad={highlight?.ids.includes(rec.id) ?? false}
                 rotation={rotation[rec.id] ?? 0}
                 pins={pins.get(rec.id) ?? []}
+                cursorIndex={cursorPin?.componentId === rec.id ? cursorPin.pinIndex : null}
+                zoom={view.k}
               />
             );
           })}
@@ -593,9 +726,13 @@ export function Canvas(props: Props): JSX.Element {
         </g>
       </svg>
 
+      <div className="sr-only" aria-live="assertive" aria-atomic="true">
+        {notice}
+      </div>
+
       <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-border/70 bg-background/85 px-2 py-1 text-[11px] text-muted-foreground backdrop-blur-sm">
-        arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>⌫</b> borra el vértice enfocado ·{' '}
-        <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar
+        arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
+        <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar
       </div>
       <div className="pointer-events-none absolute right-3 bottom-3 rounded-md border border-border/70 bg-background/85 px-2 py-0.5 font-mono text-[11px] text-muted-foreground backdrop-blur-sm">
         {Math.round(view.k * 100)}%
@@ -613,6 +750,8 @@ function Component({
   bad,
   rotation,
   pins,
+  cursorIndex,
+  zoom,
 }: {
   rec: CadeRecordModel;
   selected: boolean;
@@ -622,6 +761,10 @@ function Component({
   bad: boolean;
   rotation: Rotation;
   pins: Point[];
+  /** Índice del borne enfocado por el teclado, o null. */
+  cursorIndex: number | null;
+  /** Escala de la vista, para las marcas que no deben escalar con el zoom. */
+  zoom: number;
 }): JSX.Element | null {
   // Tamaño de borne elegido en Configuración → Apariencia; sin preferencia, 0,9.
   const { pinSize } = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
@@ -690,6 +833,19 @@ function Component({
       {pins.map((p, i) => (
         <circle key={`pin-${i}`} className={selected ? 'pin sel' : 'pin'} cx={p.x - x} cy={p.y - y} r={attachPinRadius(pinSize)} strokeWidth={pinStroke(pinSize)} />
       ))}
+
+      {cursorIndex !== null && pins[cursorIndex] && (
+        // Marca del cursor de bornes: dice sobre qué borne actúa Enter sin
+        // depender del puntero, que acá no está. Se divide por el zoom para
+        // conservar el tamaño en pantalla a cualquier escala.
+        <circle
+          className="pin-cursor"
+          cx={pins[cursorIndex]!.x - x}
+          cy={pins[cursorIndex]!.y - y}
+          r={PIN_CURSOR_PX / zoom}
+          strokeWidth={1 / zoom}
+        />
+      )}
 
       {/* Rótulo del borne: a la derecha del punto de conexión, como en CADeSimu. */}
       {pins.map((p, i) => {

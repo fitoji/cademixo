@@ -119,6 +119,35 @@
   stroke: var(--pin-sel-stroke);
 }
 
+/*
+ * Cursor de bornes para cablear por teclado: dice sobre qué borne actúa Enter.
+ * Va fuera del borne, como un anillo, para no tapar el relleno que marca la
+ * selección. La geometría se calcula en el lienzo en píxeles de pantalla; acá
+ * sólo viven el color y el pulso.
+ */
+.pin-cursor {
+  fill: none;
+  stroke: var(--select);
+  pointer-events: none;
+  animation: pin-cursor-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pin-cursor-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin-cursor {
+    animation: none;
+  }
+}
+
 .sym .pin-label {
   fill: var(--ink-soft);
   font-family: var(--mono, ui-monospace, 'SF Mono', Menlo, monospace);
