@@ -1,0 +1,30 @@
+Parte A — tabla de geometry[12..15] por orientación (código 6001, Automático I)
+
+Procedencia: los registros se obtuvieron de CADe_SIMU V4 abierto con automaticoin.cad
+(clave shareware 4962). Se seleccionó el 6001, se aplicaron los botones de la barra
+de herramientas y se guardó con Guardar como tras cada paso. Los temporales usados
+fueron orient-t5.cad, orient-next.cad, orient-t5b.cad y orient-t5c.cad en %TEMP%\opencode\rea-targets.
+
+Posición de los botones (barra superior, y=54, medido en la sesión):
+  girar izquierda x≈398 | girar derecha x≈423 | espejo vertical x≈448 | espejo horizontal x≈473
+
+| t | transformación        | off x | off y | ancho | alto | fuente |
+|---|-----------------------|-------|-------|-------|------|--------|
+| 0 | identidad             | -15   | -3    | 12    | 15   | base del handoff |
+| 1 | 90° horario           | -15   | -15   | 3     | 12   | automaticoin.cad (CADe) |
+| 2 | 180°                  | -12   | -15   | 15    | 3    | automaticoin.cad (CADe) |
+| 3 | 270° horario          | -3    | -12   | 15    | 15   | automaticoin.cad (CADe) |
+| 4 | espejo                | -12   | -3    | 15    | 15   | CADe (t=7 + 3 giros derecha) |
+| 5 | espejo + 90°          | -15   | -12   | 3     | 15   | CADe (t=6 + giro izquierda) |
+| 6 | espejo + 180°         | -15   | -15   | 12    | 3    | CADe (t=4 + giro derecha) |
+| 7 | espejo + 270°         | -3    | -15   | 15    | 12   | CADe (t=1 + espejo vertical) |
+
+Composición confirmada por los propios archivos de CADe: giro = t & 3, espejo = t & 4,
+primero giro y después espejo. Los cuatro números NO son la caja del dibujo transformado
+ni una transposición: por eso el escritor de la app sigue bloqueado hasta usar esta tabla.
+
+Nota: el archivo .cad reúne las 8 variantes en una fila (x=20,60,...,300; y=60).
+Los ids usados son 201..208: ids altos para no colisionar con la cola de geometría.
+El bloque de título (id 5) va al final, como en los archivos que guarda CADe.
+Nota: CADe dibuja y permite seleccionar las 8 piezas; el parser de la app, al reconstruir
+un archivo sintético con el título al final, descarta la primera variante (t=0).
