@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { JSX, ReactNode } from 'react';
-import { InfoIcon, MousePointerClickIcon, RotateCwIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import { InfoIcon, MousePointerClickIcon, RotateCwIcon, StarIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import { GEOMETRY, boxOf, wirePoints, LAMP_COLORS, type CadeRecordModel, type LampColor } from '../model/project.ts';
 import { hasColorSlot } from '../model/component-spec.ts';
 import { resolveSymbol } from '../symbols/library.ts';
@@ -8,6 +8,7 @@ import type { Rotation } from '../editor/state.ts';
 import { cableLength, cableNumberOf, cableSegments, type Finding, type Network } from '../editor/network.ts';
 import type { Point } from '../editor/pins.ts';
 import { PanelHead } from './PanelHead.tsx';
+import { getFavorites, isFavorite, subscribeFavorites, toggleStoredFavorite } from './favorites.ts';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -241,6 +242,11 @@ function Single({
   const sym = resolveSymbol(rec.code, rec.pins);
   const box = boxOf(rec);
   const deg = rotation[rec.id] ?? 0;
+  // La estrella de Propiedades comparte el store de la paleta: el favorito es
+  // el código del catálogo, así sobrevive a los ids de cada documento.
+  const favorites = useSyncExternalStore(subscribeFavorites, getFavorites, getFavorites);
+  const favorite = isFavorite(favorites, rec.code);
+  const favoriteLabel = favorite ? 'Quitar de favoritos' : 'Agregar a favoritos';
 
   return (
     <InspectorShell>
@@ -319,7 +325,7 @@ function Single({
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={onRotate} disabled={readOnly}>
               <RotateCwIcon data-icon="inline-start" />
               Rotar 90° {deg > 0 && <span className="text-muted-foreground">({deg}°)</span>}
@@ -327,6 +333,18 @@ function Single({
             <Button variant="outline" size="sm" onClick={onDelete} disabled={readOnly}>
               <Trash2Icon data-icon="inline-start" />
               Borrar
+            </Button>
+            {/* Favorito es una preferencia del navegador, no del documento: se
+                puede marcar también en simulación. */}
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label={`${favoriteLabel}: ${sym.name} (código ${rec.code})`}
+              aria-pressed={favorite}
+              title={favoriteLabel}
+              onClick={() => toggleStoredFavorite(rec.code)}
+            >
+              <StarIcon className={favorite ? 'fill-current text-[var(--tone-senalizacion)]' : 'text-muted-foreground'} />
             </Button>
           </div>
 

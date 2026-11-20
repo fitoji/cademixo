@@ -1,5 +1,5 @@
 import type { CSSProperties, JSX } from 'react';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { BoxesIcon, ChevronDownIcon, StarIcon } from 'lucide-react';
 import { lineList, symbolList, type SymbolDef, type SymbolGroup } from '../symbols/library.ts';
 import { CATALOG } from '../symbols/catalog.ts';
@@ -8,7 +8,7 @@ import { getSettings, nextOpenAccordion, nextOpenCats, subscribeSettings } from 
 import { SymbolGlyph } from './SymbolGlyph.tsx';
 import { PanelHead } from './PanelHead.tsx';
 import type { Sheet } from '../model/project.ts';
-import { readFavorites, writeFavorites } from './favorites.ts';
+import { getFavorites, isFavorite, subscribeFavorites, toggleStoredFavorite } from './favorites.ts';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -82,12 +82,8 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
   // Categorías plegadas: con el catálogo completo la lista no entra de una vista.
   // El mismo estado sirve a las dos orientaciones; arrancan todas plegadas.
   const [openCats, setOpenCats] = useState<string[]>([]);
-  const [favorites, setFavorites] = useState<number[]>(readFavorites);
-
-  useEffect(() => writeFavorites(favorites), [favorites]);
-
-  const toggleFavorite = (code: number): void =>
-    setFavorites((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+  // Mismo store que el panel Propiedades: marcar la estrella allá arma el grupo acá.
+  const favorites = useSyncExternalStore(subscribeFavorites, getFavorites, getFavorites);
 
   const favSymbols = favorites
     .map((code) => available.find((sym) => sym.code === code))
@@ -221,9 +217,9 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
                       sym={sym}
                       group={sym.group}
                       active={placing === sym.code}
-                      favorite={favorites.includes(sym.code)}
+                      favorite={isFavorite(favorites, sym.code)}
                       onPick={onPick}
-                      onToggleFavorite={toggleFavorite}
+                      onToggleFavorite={toggleStoredFavorite}
                     />
                   ))}
                 </AccordionContent>
