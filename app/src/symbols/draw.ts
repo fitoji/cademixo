@@ -17,6 +17,19 @@ export const circle = (cx: number, cy: number, r: number): string =>
   `M${round(cx - r)} ${round(cy)}a${round(r)} ${round(r)} 0 1 0 ${round(r * 2)} 0a${round(r)} ${round(r)} 0 1 0 ${round(-r * 2)} 0Z`;
 
 /**
+ * Giro que deja vertical la cuchilla del polo CADeSimu, en grados.
+ *
+ * La cuchilla se dibuja de (x − 3, 3) a (x, 9): desde su pivote (x, 9) el
+ * vector es (−3, −6), esto es tres unidades a la izquierda por seis de caída.
+ * El giro que la deja **vertical** es el ángulo entre ese vector y la vertical,
+ * `atan(3/6) = 26,565°`, redondeado a 26,57 como el resto de los giros de la
+ * librería. El signo es positivo por la convención del lienzo: `deg > 0` es
+ * "gira al cerrar" y la rotación de SVG lleva la punta de la izquierda a la
+ * columna del polo.
+ */
+const CADESIMU_BLADE_DEG = round((Math.atan2(3, 6) * 180) / Math.PI);
+
+/**
  * Polo del interruptor automático, con la geometría medida en CADeSimu.
  *
  * Unidades absolutas del archivo, relativas al borne de arriba del polo (que
@@ -49,7 +62,9 @@ export function cadesimuPole(x: number, h: number, withTrip: boolean, dashLeft =
   const bottom = gridBottom(h);
   const out: Shape[] = [
     { d: line(x, 0, x, 2.9) },
-    { d: line(x - 3, 3, x, 9) },
+    // La cuchilla es móvil: pivota en su extremo inferior, sobre la conductora
+    // de abajo, y al cerrar gira `CADESIMU_BLADE_DEG` hasta quedar vertical.
+    { d: line(x - 3, 3, x, 9), blade: { px: x, py: 9, deg: CADESIMU_BLADE_DEG } },
     { d: dashLeft ? line(x - 3.3, 6, x - 1.5, 6) : line(x - 1.5, 6, x + 0.3, 6), thin: true },
     { d: line(x, 9, x, bottom) },
   ];

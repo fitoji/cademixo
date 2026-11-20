@@ -157,6 +157,59 @@ test('el pivote de la rotación sale de la caja de tinta del trazo', () => {
   assert.equal(bladeTransform({ d: 'M0 0L10 10' }, { closed: false }), null);
 });
 
+/**
+ * Giro que deja vertical la cuchilla del polo CADeSimu: la diagonal dibujada va
+ * del pivote (x, 9) a la punta (x − 3, 3), así que forma `atan(3/6)` con la
+ * vertical. Es el mismo número que declara `cadesimuPole`.
+ */
+const CADESIMU_BLADE_DEG = 26.57;
+
+test('las protecciones de la fábrica CADeSimu giran su cuchilla al cerrar (S2)', () => {
+  // 6009 (tripolar, caja 18×24) y 6002 (bipolar, caja 12×15): sus polos salen de
+  // `cadesimuPole`, que hasta ahora emitía la diagonal sin metadato `blade` y
+  // por eso el lienzo no podía girarla en ningún estado.
+  for (const [code, w, h, poles] of [
+    [6009, 18, 24, 3],
+    [6002, 12, 15, 2],
+  ] as const) {
+    const blades = bladesOf(code, [], w, h);
+    assert.equal(blades.length, poles, `el ${code} lleva una cuchilla por polo`);
+
+    const rest = { closed: false, pressed: false } as const;
+    const closed = { closed: true, pressed: false } as const;
+
+    for (const shape of blades) {
+      const { from, to } = endsOf(shape);
+      const { px, py, deg } = shape.blade!;
+      // El pivote es el extremo inferior de la cuchilla, sobre su conductor.
+      assert.ok(near(to[0], px) && near(to[1], py), `el pivote del ${code} va en ${to}, no en (${px},${py})`);
+      // El ángulo es el que hay entre la diagonal y la vertical, no un estimado.
+      assert.ok(near(deg, CADESIMU_BLADE_DEG, 0.01), `giro del ${code}: ${deg}`);
+      // En reposo la pose es exactamente la dibujada: la de la captura.
+      assert.equal(bladeAngle(shape.blade!, rest), 0, `el ${code} no gira en reposo`);
+
+      const angle = bladeAngle(shape.blade!, closed);
+      assert.equal(angle, deg, `el ${code} aplica su giro al cerrar`);
+      const [tx, ty] = rotate(from[0], from[1], px, py, angle);
+      assert.ok(near(tx, px, 0.01), `cerrada, la punta del ${code} queda vertical en x=${tx} (pivote x=${px})`);
+      // La cuchilla mide √45 y gira rígida: la punta sube hasta y ≈ 2,29, por
+      // encima del extremo de la conductora superior (2,9), así que la cierra.
+      assert.ok(ty < 2.9, `cerrada, la punta del ${code} llega a y=${ty}`);
+    }
+  }
+});
+
+test('el pulsador NA (8000) muestra la pulsación aunque la rama no conduzca (S3)', () => {
+  const [blade] = bladesOf(8000, ['13', '14'], 9, 15);
+  const deg = blade.blade!.deg;
+  // La paleta del pulsador sigue al aparato accionado (`when: 'active'`), no al
+  // cierre eléctrico: apretarlo ya la gira aunque el circuito no esté armado.
+  assert.equal(bladeAngle(blade.blade!, { closed: false, pressed: false }), 0, 'en reposo se queda como está');
+  assert.equal(bladeAngle(blade.blade!, { closed: false, pressed: true }), deg, 'sólo apretado ya gira');
+  assert.equal(bladeAngle(blade.blade!, { closed: true, pressed: false }), deg, 'cerrado también gira');
+  assert.equal(bladeAngle(blade.blade!, { closed: true, pressed: true }), deg, 'cerrado y apretado dan la misma pose');
+});
+
 test('8003 y 8017 estrenan cuchilla con metadata', () => {
   for (const [code, pins] of [
     [8003, ['11', '12', '14']],

@@ -73,6 +73,39 @@ test('el cuadro de disparo va donde lo pone CADeSimu', () => {
   assert.equal(filled(6004, 18), 3, 'el 6004 hereda la del tripolar');
 });
 
+test('las siete protecciones de la fábrica CADeSimu llevan cuchilla con metadato (S2)', () => {
+  // Los códigos que dibujan sus polos con `cadesimuPole`: seis por
+  // `protectionDevice({ cadesimu: true })` —6000, 6002, 6003, 6004, 6006 y
+  // 6009— y el 6001, que va por `cadesimuBreaker`. Antes la diagonal se emitía
+  // sin `blade`, así que `bladeTransform` devolvía `null` y ningún estado podía
+  // girarla; el 6007 queda afuera porque sus conductores son rectos.
+  const codes = [6000, 6001, 6002, 6003, 6004, 6006, 6009] as const;
+  let blades = 0;
+  for (const [code, poles, w, h] of [
+    [6000, 1, 12, 15],
+    [6001, 2, 12, 15],
+    [6002, 2, 12, 15],
+    [6003, 3, 18, 15],
+    [6004, 3, 18, 15],
+    [6006, 3, 18, 15],
+    [6009, 3, 18, 24],
+  ] as const) {
+    const movable = resolveSymbol(code, [])
+      .shapes(w, h)
+      .filter((s) => s.blade);
+    assert.equal(movable.length, poles, `el ${code}: una cuchilla por polo`);
+    for (const blade of movable) {
+      const m = /M(-?[\d.]+) (-?[\d.]+)L(-?[\d.]+) (-?[\d.]+)/.exec(blade.d)!;
+      // El pivote va en el extremo inferior de la diagonal, sobre el polo.
+      assert.equal(Number(m[3]), blade.blade!.px, `el ${code}: el pivote va en la columna del polo`);
+      assert.equal(Number(m[4]), blade.blade!.py, `el ${code}: el pivote va en la fila 9`);
+      assert.ok(blade.blade!.deg > 0, `el ${code}: la cuchilla cierra girando a la vertical`);
+    }
+    blades += movable.length;
+  }
+  assert.equal(blades, 17, `cuchillas con metadato en los ${codes.length} códigos de la fábrica`);
+});
+
 test('el relé térmico no tiene cuchilla: sus conductores son rectos', () => {
   const ds = paths(6007, [], 21);
   // Conductora recta de la fila superior a la inferior, en cada polo.

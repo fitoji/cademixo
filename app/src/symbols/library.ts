@@ -743,8 +743,11 @@ const pushNO: SymbolDef = {
       { d: line(0, 0, 0, 2.75) },
       { d: line(0, 9, 0, 12) },
       // Paleta abierta, con el pivote en el extremo del conductor de abajo; el
-      // lienzo la gira al cerrar hasta frenar a 1 unidad del conductor.
-      { d: line(0, 9, -3, 3), blade: { px: 0, py: 9, deg: PUSH_BLADE_DEG } },
+      // lienzo la gira al cerrar hasta frenar a 1 unidad del conductor. La pose
+      // sigue al aparato accionado (`when: 'active'`, como el conmutado 8003):
+      // apretarlo se ve aunque el circuito no esté armado o la rama no conduzca,
+      // y cerrarse también la gira (S3).
+      { d: line(0, 9, -3, 3), blade: { px: 0, py: 9, deg: PUSH_BLADE_DEG, when: 'active' } },
       // Guion que toca la paleta en reposo y arranca 3 unidades a la izquierda.
       { d: line(-3, 6, -1.5, 6), thin: true },
       // Operador: corchete E con el brazo central más largo y separado.
