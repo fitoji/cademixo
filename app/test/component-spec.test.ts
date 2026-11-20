@@ -5,9 +5,10 @@ import {
   isPushable,
   isLamp,
   isProtection,
+  isLatching,
+  isMomentary,
   restStateOf,
   timerOf,
-  isLatching,
   type SimKind,
 } from '../src/model/component-spec.ts';
 import { CATALOG_CODES } from '../src/symbols/catalog.ts';
@@ -83,6 +84,27 @@ test('pulsadores 8000-8011: presionables, NC en 8001, 8005 y 8009', () => {
     assert.equal(spec.kind, 'pushbutton', `${code}`);
     assert.equal(spec.pressable, true, `${code}`);
     assert.equal(spec.rest, [8001, 8005, 8009].includes(code) ? 'closed' : 'open', `${code}`);
+  }
+});
+
+test('momentáneos: 8000-8007 son «Contacto pulsador» y vuelven solos', () => {
+  // El catálogo nombra las dos familias: 8000-8007 «Contacto pulsador» (acciona
+  // y vuelve) y 8008-8011 «Contacto interruptor» (se queda donde el usuario lo
+  // deja). La clasificación sale del nombre, no de adivinar por rango.
+  for (let code = 8000; code <= 8007; code++) assert.equal(isMomentary(code), true, `${code}`);
+  for (let code = 8008; code <= 8011; code++) assert.equal(isMomentary(code), false, `${code}`);
+  // El conmutador 8018 es de dos posiciones fijas, no un pulsador.
+  assert.equal(isMomentary(8018), false);
+  // Códigos no presionables (y uno inexistente): nunca momentáneos.
+  for (const code of [7000, 8100, 9000, 6000, 8014, 12345]) {
+    assert.equal(isMomentary(code), false, `${code}`);
+  }
+});
+
+test('momentáneo implica presionable: el clic es el que lo acciona', () => {
+  for (const code of SEMANTIC_CODES) {
+    if (!specOf(code).momentary) continue;
+    assert.equal(specOf(code).pressable, true, `${code}: momentáneo no presionable`);
   }
 });
 

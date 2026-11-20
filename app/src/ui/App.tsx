@@ -49,7 +49,16 @@ import {
 } from '../editor/state.ts';
 import { buildNetwork, validate } from '../editor/network.ts';
 import { roundTrips } from '../model/project.ts';
-import { isChangeover, isPushable, specOf, startsOpen } from '../model/component-spec.ts';
+import {
+  SIMULATION_TICK_MS,
+  MOMENTARY_PULSE_MS,
+  applyClick,
+  isChangeover,
+  isMomentary,
+  isPushable,
+  specOf,
+  startsOpen,
+} from '../model/component-spec.ts';
 import { changeoverPositions, linkedProtection } from '../sim/apparatus.ts';
 import type { Point } from '../editor/pins.ts';
 import { Canvas } from './Canvas.tsx';
@@ -153,7 +162,8 @@ export function App(): JSX.Element {
   const [running, setRunning] = useState(false);
   /** El aviso de arranque espera al primer paso calculado (ver el efecto). */
   const [startPending, setStartPending] = useState(false);
-  /** Pulsadores apretados durante la simulación (ids de registro). */
+  /** Aparatos accionados durante la simulación (ids de registro). Un pulsador
+   * momentáneo entra acá mientras dura su pulso y sale solo. */
   const [pressedRecords, setPressedRecords] = useState<number[]>([]);
   /**
    * Estado de las protecciones durante la simulación, por id de registro:
@@ -172,6 +182,14 @@ export function App(): JSX.Element {
   const [tick, setTick] = useState(0);
   const timerStartRef = useRef(new Map<string, number>());
   const timerDeStartRef = useRef(new Map<string, number>());
+  /**
+   * Pulsos momentáneos en curso, por id de registro. Un pulsador (8000-8007)
+   * se acciona y vuelve solo, así que su soltada es un `setTimeout`; el handle
+   * vive acá —claveado por registro, así se pueden pulsar dos botones a la
+   * vez— para poder reiniciar el pulso con un segundo clic y para cancelarlo
+   * cuando la simulación se detiene (S5) o la app se desmonta.
+   */
+  const pulseTimers = useRef(new Map<number, number>());
 
   useEffect(() => {
     if (!running) {
@@ -180,9 +198,47 @@ export function App(): JSX.Element {
       setTick(0);
       return;
     }
-    const id = window.setInterval(() => setTick((t) => t + 100), 100);
+    const id = window.setInterval(() => setTick((t) => t + SIMULATION_TICK_MS), SIMULATION_TICK_MS);
     return () => window.clearInterval(id);
   }, [running]);
+
+  /**
+   * Cancela los pulsos pendientes. Se llama al detener la simulación y al
+   * desmontar: un `setTimeout` vivo después de parar volvería a accionar el
+   * componente en una corrida que ya terminó (S5), y al desmontar apuntaría al
+   * `setState` de un componente que ya no existe.
+   */
+  const clearPulses = useCallback(() => {
+    for (const handle of pulseTimers.current.values()) window.clearTimeout(handle);
+    pulseTimers.current.clear();
+  }, []);
+
+  // Desmontaje: ningún timer sobrevive a la app.
+  useEffect(() => clearPulses, [clearPulses]);
+
+  /**
+   * Acciona un pulsador momentáneo y agenda su vuelta. Un segundo clic durante
+   * el pulso lo reinicia —no lo apaga— porque el aparato es un pulsador y no un
+   * interruptor: se cancela el handle anterior y se vuelve a agendar.
+   *
+   * La duración es `MOMENTARY_PULSE_MS`, que se deriva del paso del reloj de
+   * simulación justamente para que el solver alcance a muestrear el contacto:
+   * el razonamiento completo está junto a la constante
+   * (`model/component-spec.ts`).
+   */
+  const strikeMomentary = useCallback((id: number, code: number) => {
+    const pending = pulseTimers.current.get(id);
+    if (pending !== undefined) window.clearTimeout(pending);
+    setPressedRecords((prev) => [...applyClick(prev, id, code)]);
+    pulseTimers.current.set(
+      id,
+      window.setTimeout(() => {
+        pulseTimers.current.delete(id);
+        setPressedRecords((prev) => prev.filter((p) => p !== id));
+      }, MOMENTARY_PULSE_MS),
+    );
+  }, []);
+
   /** Aviso enfocado: se resalta en rojo en el lienzo. */
   const [highlight, setHighlight] = useState<{ ids: number[]; at: Point | null } | null>(null);
   /** Estado retenido: un contactor no olvida entre pasos (enclavamientos). */
@@ -612,6 +668,9 @@ export function App(): JSX.Element {
     if (running) {
       setRunning(false);
       setStartPending(false);
+      // Primero los timers: soltar un pulso que quedó agendado no puede
+      // sobrevivir a la parada (S5).
+      clearPulses();
       setPressedRecords([]);
       setProtectionStates({});
       setTrippedProtections([]);
@@ -636,13 +695,21 @@ export function App(): JSX.Element {
   }, [project, state]);
 
   const onSelect = useCallback((ids: number[], additive: boolean) => {
-    // Con la simulación activa, un clic sobre un pulsador lo aprieta/suelta y
-    // sobre una protección la abre/dispara (o la rearma).
+    // Con la simulación activa, un clic sobre un pulsador lo acciona —el
+    // momentáneo vuelve solo, el interruptor se queda accionado— y sobre una
+    // protección la abre/dispara (o la rearma).
     if (running && ids.length === 1) {
       const id = ids[0]!;
       const code = projectOf(state!).records.find((r) => r.id === id)?.code ?? -1;
       if (isPushable(code)) {
-        setPressedRecords((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+        // Pulsador momentáneo (8000-8007, «Contacto pulsador»): el clic lo
+        // acciona y agenda la vuelta. Interruptores (8008-8011) y selectores
+        // siguen alternando: se quedan donde el usuario los deja.
+        if (isMomentary(code)) {
+          strikeMomentary(id, code);
+        } else {
+          setPressedRecords((prev) => [...applyClick(prev, id, code)]);
+        }
         return;
       }
       if (isChangeover(code)) {
@@ -676,7 +743,7 @@ export function App(): JSX.Element {
     }
     setState((s) => (s ? select(s, ids, additive) : s));
     setPlacing(null);
-  }, [running, state, protectionStates]);
+  }, [running, state, protectionStates, strikeMomentary]);
 
   const onDragPreview = useCallback((op: DragOp | null) => {
     setPreview(op);

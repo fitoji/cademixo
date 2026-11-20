@@ -39,6 +39,12 @@ export interface ComponentSpec {
   rest: 'open' | 'closed';
   /** el usuario puede accionarlo con un clic */
   pressable: boolean;
+  /**
+   * Pulsador de verdad: además de accionarse con el clic, vuelve solo a su
+   * estado inicial (el clic es un pulso, no una posición). Sin este campo el
+   * pulsador se comportaba como interruptor.
+   */
+  momentary?: boolean;
   /** protección que el usuario puede abrir/disparar en simulación */
   protection: boolean;
   /** modo de retardo, si el aparato es temporizado */
@@ -110,9 +116,18 @@ function buildTable(): Readonly<Record<number, ComponentSpec>> {
 
   // Pulsadores (NA/NC/NA-NC/conmutado) y setas de emergencia: presionables.
   // NC en el solver: 8001, 8005 y 8009.
+  //
+  // El catálogo separa dos familias por el nombre: 8000-8007 son «Contacto
+  // pulsador» — se accionan y vuelven solos — y 8008-8011 son «Contacto
+  // interruptor», que se quedan donde el usuario los deja. Por eso el rango
+  // lleva `momentary` sólo hasta 8007: la clasificación sale del nombre del
+  // catálogo, no de suponer que todo lo presionable es momentáneo. `pressable`
+  // sigue diciendo «el clic lo acciona»; `momentary` agrega «y vuelve solo».
   for (let code = 8000; code <= 8011; code++) {
     const rest = code === 8001 || code === 8005 || code === 8009 ? 'closed' : 'open';
-    one(code, { kind: 'pushbutton', rest, pressable: true, protection: false });
+    const spec: ComponentSpec = { kind: 'pushbutton', rest, pressable: true, protection: false };
+    if (code <= 8007) spec.momentary = true;
+    one(code, spec);
   }
 
   // 8100 figura en CATALOG como «Pulsador» (designador -S) y estaba en
@@ -170,6 +185,73 @@ export function specOf(code: number): ComponentSpec {
 /** Presionable con un clic: pulsadores y selectores. */
 export function isPushable(code: number): boolean {
   return specOf(code).pressable;
+}
+
+/**
+ * Pulsador momentáneo: el clic lo acciona y vuelve solo a su estado inicial.
+ * Son los «Contacto pulsador» del catálogo (8000-8007); los «Contacto
+ * interruptor» (8008-8011) y el conmutador 8018 no lo son.
+ */
+export function isMomentary(code: number): boolean {
+  return specOf(code).momentary ?? false;
+}
+
+/**
+ * Paso del reloj de simulación de la app: `App.tsx` avanza `tick` de a este
+ * intervalo y cada tick es un paso del solver. Vive en este módulo porque la
+ * duración del pulso de un pulsador se deriva de él (`MOMENTARY_PULSE_MS`) y la
+ * app y los tests tienen que medir el mismo paso.
+ */
+export const SIMULATION_TICK_MS = 100;
+
+/**
+ * Cuánto dura accionado un pulsador momentáneo: tres pasos de simulación.
+ *
+ * El solver sólo ve el contacto en los pasos que calcula, y un paso es un tick
+ * del reloj (100 ms). Un pulso de un solo tick podría nacer y morir entre dos
+ * pasos —o perderse si el navegador retrasa el intervalo—, así que la ventana
+ * se toma con holgura: 300 ms contienen siempre al menos dos pasos con el
+ * contacto cerrado, cualquiera sea el instante del clic respecto del reloj, y
+ * siguen siendo imperceptibles para el usuario (nadie percibe un "pegajoso" de
+ * 300 ms). El valor se expresa en ticks justamente para que no sea un número
+ * arbitrario: si el reloj cambia, el pulso cambia con él.
+ */
+export const MOMENTARY_PULSE_MS = SIMULATION_TICK_MS * 3;
+
+/** Qué hace un clic de simulación sobre un aparato. */
+export type ClickAction = 'pulse' | 'press' | 'release' | 'none';
+
+/**
+ * Decisión pura del clic durante la simulación, por código y por estado actual:
+ *
+ * - `pulse`: pulsador momentáneo. Siempre acciona, incluso si ya estaba
+ *   accionado: un segundo clic reinicia el pulso, no lo apaga (no acumula
+ *   estados, porque el aparato es un pulsador y no un interruptor).
+ * - `press`/`release`: interruptor o selector, que alterna como antes.
+ * - `none`: el código no se acciona con el clic; cada camino (conmutador,
+ *   protecciones) decide por su cuenta como hasta hoy.
+ */
+export function clickActionOf(code: number, pressed: boolean): ClickAction {
+  if (!isPushable(code)) return 'none';
+  if (isMomentary(code)) return 'pulse';
+  return pressed ? 'release' : 'press';
+}
+
+/**
+ * Conjunto de aparatos accionados después de un clic. Puro: la app sólo guarda
+ * el resultado de `setTimeout` que suelta el pulso. Aplicarlo dos veces con el
+ * mismo estado no duplica ni acumula nada.
+ */
+export function applyClick(pressed: readonly number[], id: number, code: number): readonly number[] {
+  switch (clickActionOf(code, pressed.includes(id))) {
+    case 'none':
+      return pressed;
+    case 'pulse':
+    case 'press':
+      return pressed.includes(id) ? pressed : [...pressed, id];
+    case 'release':
+      return pressed.filter((p) => p !== id);
+  }
 }
 
 /** Conmutador de dos posiciones: el clic lo pasa de una salida a la otra. */
