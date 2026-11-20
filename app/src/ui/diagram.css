@@ -309,6 +309,21 @@
 }
 
 /*
+ * Y el vidrio se llena con ese color, para que el encendido se lea de lejos. El
+ * aspa del símbolo queda en tinta encima del relleno (`path.lamp.thin` son los
+ * dos trazos del aspa; el vidrio es el `path.lamp` sin `thin`), así la lámpara
+ * se sigue reconociendo como símbolo y no como un disco.
+ */
+[data-state='active'] .sym[data-lamp] path.lamp:not(.thin) {
+  fill: var(--lamp);
+  fill-opacity: 0.85;
+}
+
+[data-state='active'] .sym[data-lamp] path.lamp.thin {
+  stroke: var(--ink);
+}
+
+/*
  * Protección abierta: la tinta se atenúa para que la segunda pose se lea de un
  * vistazo, y una cerrada conserva la tinta plena (S7). El atributo lo pone el
  * lienzo sólo en protecciones y auxiliares térmicos, así que un pulsador

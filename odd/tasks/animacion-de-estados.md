@@ -149,3 +149,10 @@ cuchilla al abrir y cerrar, y el pulsador 8000 muestra el accionar. Branch:
   (`var(--lamp)`), un poco más ancho para que el tono domine. Test nuevo
   `test/state-cues.test.ts`, que lee `diagram.css` y verifica las dos reglas: no
   hay forma de volver a tapar el color sin romperlo.
+- L8: pedido siguiente del usuario: "ademas del halo se llene el circulo con el
+  color de la lampara, para que sea mas llamativo el encendido". La lámpara
+  encendida (`active` + `data-lamp`) ahora rellena su vidrio con `var(--lamp)` al
+  85% y los dos trazos del aspa pasan a tinta, así el símbolo se sigue leyendo
+  sobre el relleno. Se distinguen por clase: el vidrio es `path.lamp` sin `thin`
+  y el aspa son los `path.lamp.thin`. El test de `state-cues` cubre las cuatro
+  mitades de la regla (halo de aparamenta, halo de lámpara, relleno y aspa).

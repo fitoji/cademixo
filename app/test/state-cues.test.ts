@@ -32,3 +32,17 @@ test('el halo de activo no alcanza a las señalizaciones ópticas', () => {
     `el halo de la lámpara tiene que ser sólo para [data-lamp]: ${lampara!.selector.trim()}`,
   );
 });
+
+/**
+ * Pedido siguiente: además del halo, el vidrio se llena con el color de la luz
+ * para que el encendido sea llamativo, sin perder el aspa del símbolo.
+ */
+test('la lámpara encendida se llena con su color y conserva el aspa', () => {
+  const llenado = /\[data-state='active'\]\s+\.sym\[data-lamp\]\s+path\.lamp:not\(\.thin\)\s*\{([^}]*)\}/.exec(CSS);
+  assert.ok(llenado, 'falta el relleno del vidrio de la lámpara encendida');
+  assert.ok(llenado![1]!.includes('fill: var(--lamp)'), `el vidrio se llena con el color de la luz: ${llenado![1]}`);
+
+  const aspa = /\[data-state='active'\]\s+\.sym\[data-lamp\]\s+path\.lamp\.thin\s*\{([^}]*)\}/.exec(CSS);
+  assert.ok(aspa, 'falta la regla del aspa sobre el relleno');
+  assert.ok(aspa![1]!.includes('stroke: var(--ink)'), `el aspa queda en tinta encima del relleno: ${aspa![1]}`);
+});
