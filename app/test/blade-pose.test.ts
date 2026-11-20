@@ -172,8 +172,18 @@ test('las protecciones de la fábrica CADeSimu giran su cuchilla al cerrar (S2)'
     [6009, 18, 24, 3],
     [6002, 12, 15, 2],
   ] as const) {
-    const blades = bladesOf(code, [], w, h);
+    // Las cuchillas son trazos; los cuadros de disparo son polígonos rellenos
+    // que van montados sobre ellas y giran con ellas (mismo pivote y giro).
+    const all = bladesOf(code, [], w, h);
+    const blades = all.filter((s) => !s.fill);
+    const squares = all.filter((s) => s.fill);
     assert.equal(blades.length, poles, `el ${code} lleva una cuchilla por polo`);
+    // El cuadro de disparo va en un polo (`tripSquare: 'first'`) o en todos
+    // (`'all'`), nunca en una cantidad distinta.
+    assert.ok(
+      squares.length === 0 || squares.length === 1 || squares.length === poles,
+      `el ${code} lleva cuadro en ningún polo, en uno o en todos, no en ${squares.length}`,
+    );
 
     const rest = { closed: false, pressed: false } as const;
     const closed = { closed: true, pressed: false } as const;
@@ -187,6 +197,13 @@ test('las protecciones de la fábrica CADeSimu giran su cuchilla al cerrar (S2)'
       assert.ok(near(deg, CADESIMU_BLADE_DEG, 0.01), `giro del ${code}: ${deg}`);
       // En reposo la pose es exactamente la dibujada: la de la captura.
       assert.equal(bladeAngle(shape.blade!, rest), 0, `el ${code} no gira en reposo`);
+      // Reportado: "el 6003 tiene cuchillas y unos cuadrados negros que deberían
+      // moverse al cerrar y no lo hacen". Cada cuadro comparte pivote y giro con
+      // su cuchilla, así que se mueve con ella en vez de quedar clavado.
+      for (const square of squares.filter((s) => s.blade!.px === px)) {
+        assert.deepEqual(square.blade, shape.blade, `el cuadro del ${code} gira con su cuchilla`);
+        assert.ok(bladeAngle(square.blade!, closed) > 0, `el cuadro del ${code} se mueve al cerrar`);
+      }
 
       const angle = bladeAngle(shape.blade!, closed);
       assert.equal(angle, deg, `el ${code} aplica su giro al cerrar`);

@@ -81,6 +81,7 @@ test('las siete protecciones de la fábrica CADeSimu llevan cuchilla con metadat
   // girarla; el 6007 queda afuera porque sus conductores son rectos.
   const codes = [6000, 6001, 6002, 6003, 6004, 6006, 6009] as const;
   let blades = 0;
+  let squares = 0;
   for (const [code, poles, w, h] of [
     [6000, 1, 12, 15],
     [6001, 2, 12, 15],
@@ -90,10 +91,30 @@ test('las siete protecciones de la fábrica CADeSimu llevan cuchilla con metadat
     [6006, 3, 18, 15],
     [6009, 3, 18, 24],
   ] as const) {
-    const movable = resolveSymbol(code, [])
+    // Las cuchillas son trazos; los cuadros de disparo son polígonos rellenos
+    // montados sobre la cuchilla, que giran con ella (reporte del usuario sobre
+    // el 6003: los cuadrados no se movían al cerrar).
+    const withBlade = resolveSymbol(code, [])
       .shapes(w, h)
       .filter((s) => s.blade);
+    const movable = withBlade.filter((s) => !s.fill);
+    const squaresOfCode = withBlade.filter((s) => s.fill);
     assert.equal(movable.length, poles, `el ${code}: una cuchilla por polo`);
+    assert.ok(
+      squaresOfCode.length === 0 || squaresOfCode.length === 1 || squaresOfCode.length === poles,
+      `el ${code}: cuadro de disparo en ningún polo, en uno o en todos, no en ${squaresOfCode.length}`,
+    );
+    for (const square of squaresOfCode) {
+      // Cada cuadro se mueve con la cuchilla de SU polo, no con la primera.
+      const suya = movable.find((b) => b.blade!.px === square.blade!.px);
+      assert.ok(suya, `el ${code}: el cuadro en x=${square.blade!.px} tiene su polo`);
+      assert.deepEqual(
+        { px: square.blade!.px, py: square.blade!.py, deg: square.blade!.deg },
+        { px: suya!.blade!.px, py: suya!.blade!.py, deg: suya!.blade!.deg },
+        `el ${code}: el cuadro del polo ${square.blade!.px} gira con su cuchilla`,
+      );
+      squares += 1;
+    }
     for (const blade of movable) {
       const m = /M(-?[\d.]+) (-?[\d.]+)L(-?[\d.]+) (-?[\d.]+)/.exec(blade.d)!;
       // El pivote va en el extremo inferior de la diagonal, sobre el polo.
@@ -104,6 +125,7 @@ test('las siete protecciones de la fábrica CADeSimu llevan cuchilla con metadat
     blades += movable.length;
   }
   assert.equal(blades, 17, `cuchillas con metadato en los ${codes.length} códigos de la fábrica`);
+  assert.ok(squares > 0, 'los cuadros de disparo también llevan metadato y se mueven');
 });
 
 test('el relé térmico no tiene cuchilla: sus conductores son rectos', () => {

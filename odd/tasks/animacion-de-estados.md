@@ -129,3 +129,14 @@ cuchilla al abrir y cerrar, y el pulsador 8000 muestra el accionar. Branch:
   exportado como `CADESIMU_BLADE_DEG` desde `draw.ts` para que sea una sola
   fuente. En reposo el ángulo sigue siendo 0, así que el hash de `rest-ink` no
   cambia; hay test de las tres cuchillas (reposo abierto, cierre > 20°).
+- L6: tercer caso de la misma clase, reportado por el usuario: "el componente
+  6003 tiene cuchillas y unos cuadrados negros que deberian moverse al cerrar y
+  no lo hacen". El cuadro de disparo de `cadesimuPole` se emitía como polígono
+  relleno aparte, sin metadato `blade`, así que la cuchilla giraba y el cuadro
+  quedaba clavado. Ahora lleva el mismo pivote y giro que su cuchilla, polo por
+  polo (el 6003 tiene cuadro en los tres). Igual corrección en
+  `filledSquareOnBlade`, que además arrastraba un comentario obsoleto: decía que
+  un polígono girado no podía llevar `blade`, cuando `bladeTransform` calcula el
+  pivote en porcentaje de la caja **de la propia forma** y funciona igual. Los
+  tests ahora distinguen cuchillas (trazo) de cuadros (relleno) y verifican que
+  cada cuadro gira con la cuchilla de su polo.

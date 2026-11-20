@@ -71,7 +71,16 @@ export function cadesimuPole(x: number, h: number, withTrip: boolean, dashLeft =
     { d: dashLeft ? line(x - 3.3, 6, x - 1.5, 6) : line(x - 1.5, 6, x + 0.3, 6), thin: true },
     { d: line(x, 9, x, bottom) },
   ];
-  if (withTrip) out.push({ d: tiltedSquare(x - 2.95, 5.9, 1.35, 18), fill: true });
+  // El cuadro de disparo va montado SOBRE la cuchilla, así que gira con ella:
+  // mismo pivote (el borne inferior) y mismo giro. Sin esto queda clavado en su
+  // lugar mientras la cuchilla se mueve.
+  if (withTrip) {
+    out.push({
+      d: tiltedSquare(x - 2.95, 5.9, 1.35, 18),
+      fill: true,
+      blade: { px: x, py: 9, deg: CADESIMU_BLADE_DEG },
+    });
+  }
   return out;
 }
 
@@ -480,9 +489,11 @@ const BLADE_RAD = (BLADE_DEG * Math.PI) / 180;
  * elemento que distingue un aparato automático de un interruptor manual
  * (`interruptor proteccion contra cortocircuitos monofasico.png`).
  *
- * No lleva metadata `blade`: el lienzo rota cada forma con `Shape.blade` sobre
- * su caja envolvente, y eso alcanza para un trazo recto pero no para un
- * polígono girado. El cuadrado ya sale dibujado con el ángulo de la cuchilla.
+ * Lleva metadata `blade` como cualquier hoja móvil: el lienzo calcula el pivote
+ * en porcentaje de la caja de tinta **de la propia forma** (`bladeTransform`),
+ * así que también vale para este polígono. El cuadrado ya se dibuja girado con
+ * el ángulo de la cuchilla, de modo que en reposo se apoya sobre ella y al
+ * cerrar el aparato gira con ella alrededor del mismo pivote.
  *
  * Las fracciones del alto replican las de `verticalPole()`, que no se toca.
  */
@@ -503,6 +514,7 @@ export function filledSquareOnBlade(x: number, h: number, side?: number): Shape[
     {
       d: `M${pt(-ax + bx, -ay + by)}L${pt(ax + bx, ay + by)}L${pt(ax - bx, ay - by)}L${pt(-ax - bx, -ay - by)}Z`,
       fill: true,
+      blade: { px: x, py: yPivot, deg: BLADE_DEG },
     },
   ];
 }
