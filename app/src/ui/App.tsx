@@ -172,6 +172,10 @@ export function App(): JSX.Element {
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   /** Primer clic de un cable: origen. El segundo clic lo cierra. */
   const [wireStart, setWireStart] = useState<{ x: number; y: number } | null>(null);
+  // Drop de archivos: profundidad de `dragenter` para que el aviso no parpadee
+  // al pasar sobre los hijos del layout.
+  const [dragging, setDragging] = useState(false);
+  const dragDepth = useRef(0);
   const [running, setRunning] = useState(false);
   /** El aviso de arranque espera al primer paso calculado (ver el efecto). */
   const [startPending, setStartPending] = useState(false);
@@ -334,18 +338,22 @@ export function App(): JSX.Element {
    * Limpio sólo si el texto en pantalla es todavía el que se escribió: una
    * edición tipeada mientras la escritura estaba en vuelo no está en el archivo,
    * y bendecirla como guardada sería mentir sobre lo que hay en disco.
+   *
+   * Devuelve si el archivo se escribió: el drop de un `.cad` necesita saber si el
+   * proyecto quedó guardado antes de reemplazarlo.
    */
   const writeDocument = useCallback(
-    async (handle: FileSystemFileHandle, text: string): Promise<void> => {
+    async (handle: FileSystemFileHandle, text: string): Promise<boolean> => {
       try {
         await writeHandle(handle, text);
       } catch {
         flash('no se guardó: no se pudo escribir el archivo');
-        return;
+        return false;
       }
       fileHandle.current = handle;
       setFileName(handle.name);
       setState((s) => (s && s.text === text ? markSaved(s) : s));
+      return true;
     },
     [flash],
   );
@@ -359,11 +367,11 @@ export function App(): JSX.Element {
    * se escribe por ningún camino.
    */
   const saveDocument = useCallback(
-    async (mode: 'save' | 'save-as'): Promise<void> => {
-      if (!state) return;
+    async (mode: 'save' | 'save-as'): Promise<boolean> => {
+      if (!state) return false;
       if (!roundTrips(state.text)) {
         flash('no se guardó: el documento no re-parsea igual');
-        return;
+        return false;
       }
       const text = state.text;
       const openHandle = mode === 'save' ? fileHandle.current : null;
@@ -372,8 +380,7 @@ export function App(): JSX.Element {
         browserSupportsPickers: hasFileSystemAccess(),
       });
       if (action === 'write-in-place' && openHandle) {
-        await writeDocument(openHandle, text);
-        return;
+        return writeDocument(openHandle, text);
       }
       if (action === 'pick-location') {
         // Se sugiere el `.cad` normalizado; el nombre que queda en pantalla es
@@ -383,15 +390,14 @@ export function App(): JSX.Element {
           picked = await pickSaveHandle(suggestedSaveName(fileName));
         } catch {
           flash('no se guardó: no se pudo abrir el selector de destino');
-          return;
+          return false;
         }
         // `null` es cancelación: el usuario decidió no escribir en ningún lado.
         if (!picked) {
           flash('no se guardó: no se eligió destino');
-          return;
+          return false;
         }
-        await writeDocument(picked, text);
-        return;
+        return writeDocument(picked, text);
       }
       // Sin selectores: se descarga, con el `.cad` normalizado como nombre. La
       // diferencia entre «Guardar» y «Guardar como…» es el nombre: «Guardar» usa
@@ -402,14 +408,47 @@ export function App(): JSX.Element {
       // camino.
       if (mode === 'save-as') {
         setSaveAsOpen(true);
-        return;
+        return false;
       }
       const name = suggestedSaveName(fileName);
       downloadCade(text, name);
       setFileName(name);
       setState((s) => (s && s.text === text ? markSaved(s) : s));
+      return true;
     },
     [state, fileName, flash, writeDocument],
+  );
+
+  /**
+   * Drop de un `.cad` sobre la app (S1).
+   *
+   * Si el documento abierto tiene cambios sin guardar, primero se pregunta por
+   * guardarlo: reemplazarlo sin más tiraría trabajo que el usuario no eligió
+   * descartar. Cancelar deja todo como estaba, y si el guardado no se pudo
+   * hacer, el archivo arrastrado tampoco se abre, porque abrirlo es justamente
+   * lo que destruye.
+   */
+  const openDropped = useCallback(
+    async (file: File): Promise<void> => {
+      if (!/\.(cad|cade)$/i.test(file.name)) {
+        flash('no se cargó: tiene que ser un archivo .cad');
+        return;
+      }
+      if (state !== null && state.dirty) {
+        const wantsSave = window.confirm(
+          `Hay cambios sin guardar en «${fileName}». ¿Guardar antes de abrir «${file.name}»?`,
+        );
+        if (!wantsSave) return;
+        if (!(await saveDocument('save'))) {
+          flash('no se cargó: el proyecto no se guardó');
+          return;
+        }
+      }
+      const { text, name } = await loadFile(file);
+      openText(text, name);
+      toast(`abierto ${name}`);
+    },
+    [state, fileName, flash, saveDocument, openText],
   );
 
   /**
@@ -906,7 +945,38 @@ export function App(): JSX.Element {
 
   return (
     <TooltipProvider delayDuration={400}>
-      <div className="flex h-full flex-col" data-pack="cadesimu">
+      <div
+        className="relative flex h-full flex-col"
+        data-pack="cadesimu"
+        onDragEnter={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+          dragDepth.current += 1;
+          setDragging(true);
+        }}
+        onDragOver={(e) => {
+          // Sin `preventDefault` el navegador abre el archivo y la app se va.
+          if (!e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+        }}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDragging(false);
+        }}
+        onDrop={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+          dragDepth.current = 0;
+          setDragging(false);
+          const file = e.dataTransfer.files[0];
+          if (file) void openDropped(file);
+        }}
+      >
+        {dragging && (
+          <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-background/80 text-sm font-medium">
+            soltá el archivo .cad para abrirlo
+          </div>
+        )}
         <header className="relative z-10 flex h-[46px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 shadow-chrome-down">
           <div className="mr-0.5 flex shrink-0 items-baseline gap-1.5">
             <strong className="text-[13.5px] font-semibold tracking-tight">Electro-Simulador</strong>
