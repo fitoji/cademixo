@@ -30,6 +30,7 @@ import {
   line,
   magneticTriangle,
   manualOperator,
+  MOTOR_BODY_RATIO,
   poles,
   poleColumns,
   rect,
@@ -103,7 +104,7 @@ export function polesInCadeOrder(n: number, size: { w: number; h: number }): Sym
 
 /** Cuerpo de motor: círculo con la letra y una entrada por borne. */
 const motorBody = (pins: SymbolPin[]) => (w: number, h: number): Shape[] => {
-  const r = Math.min(w, h) * 0.42;
+  const r = Math.min(w, h) * MOTOR_BODY_RATIO;
   const cx = w / 2;
   const cy = h / 2;
   const out: Shape[] = [{ d: circle(cx, cy, r) }];

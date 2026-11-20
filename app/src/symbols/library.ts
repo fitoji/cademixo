@@ -33,6 +33,7 @@ import {
   contact,
   left,
   line,
+  MOTOR_BODY_RATIO,
   pinsBoth,
   rect,
   right,
@@ -69,6 +70,22 @@ export interface Blade {
   deg: number;
   /** pose que gira la hoja; sin dato la decide el signo de `deg` */
   when?: BladeWhen;
+}
+
+/**
+ * Cuerpo de un motor: el círculo con la letra, en las mismas unidades que
+ * `shapes`.
+ *
+ * Es el eje del motor: la flecha de giro que dibuja la simulación gira sobre
+ * este centro y toma de acá su tamaño. Sólo hace falta declararlo cuando el
+ * cuerpo NO está centrado en la caja declarada —el motor `1000` está anclado al
+ * origen y su círculo queda en (6, 6), no en el centro de la caja de 24×24—;
+ * los motores de caja (`families.ts`) usan centro y radio de la caja.
+ */
+export interface MotorBody {
+  x: number;
+  y: number;
+  r: number;
 }
 
 export interface Shape {
@@ -118,6 +135,12 @@ export interface SymbolDef {
    * archivo: esto sólo dice DÓNDE se conecta.
    */
   originPins?: OriginPin[];
+  /**
+   * Cuerpo del motor cuando el círculo no está centrado en la caja, que es el
+   * eje sobre el que gira la flecha de la simulación (S4). Sin dato se toma el
+   * centro y el radio de la caja.
+   */
+  motorBody?: MotorBody;
   shapes(w: number, h: number): Shape[];
   labels?(w: number, h: number): Label[];
 }
@@ -147,7 +170,13 @@ const genericPins = (names: string[]): SymbolPin[] =>
  * deja CADe). La terminal del `PE` es un arco concéntrico al cuerpo
  * (r=9,75), no una marca de tierra. Geometría medida sobre
  * `docs/cadesimu-svg/reference/PR1_Rodolfo_Giusti_03.png` (M1 en (183,168)).
+ *
+ * `motorBody` declara ESE círculo, el mismo que dibuja `shapes`: la flecha de
+ * giro de la simulación gira sobre su centro y no sobre el centro de la caja
+ * de 24×24, que queda 6 unidades a la derecha y 6 abajo (S4).
  */
+const MOTOR_1000_BODY: MotorBody = { x: 6, y: 6, r: 9 };
+
 const motor: SymbolDef = {
   code: 1000,
   name: 'Motor trifásico',
@@ -166,9 +195,10 @@ const motor: SymbolDef = {
     { name: 'PE', x: 18, y: 0 },
   ],
   size: { w: 24, h: 24 },
+  motorBody: MOTOR_1000_BODY,
   shapes() {
     return [
-      { d: circle(6, 6, 9) },
+      { d: circle(MOTOR_1000_BODY.x, MOTOR_1000_BODY.y, MOTOR_1000_BODY.r) },
       // Bajadas de los bornes, hasta ~0,15 del borde del círculo.
       { d: line(0, -6, 0, -0.375) },
       { d: line(6, -6, 6, -2.875) },
@@ -1178,7 +1208,7 @@ const motorVariant = (code: number, name: string, pins: SymbolPin[]): SymbolDef 
   pins,
   size: { w: 24, h: 24 },
   shapes(w, h) {
-    const r = Math.min(w, h) * 0.42;
+    const r = Math.min(w, h) * MOTOR_BODY_RATIO;
     const cx = w / 2;
     const cy = h / 2;
     const out: Shape[] = [{ d: circle(cx, cy, r) }];

@@ -3,7 +3,7 @@
  * generadas. Viven aparte para que `library.ts` y `families.ts` no se importen
  * entre sí: acá sólo hay funciones puras de geometría.
  */
-import type { Blade, BladeWhen, Shape, SymbolPin } from './library.ts';
+import type { Blade, BladeWhen, MotorBody, Shape, SymbolPin } from './library.ts';
 
 export const round = (n: number): number => Math.round(n * 100) / 100;
 
@@ -227,6 +227,59 @@ export function bladeTransform(shape: Shape, state: BladeState): BladeRotation |
     originX: ((shape.blade.px - box.minX) / spanX) * 100,
     originY: ((shape.blade.py - box.minY) / spanY) * 100,
     angle: bladeAngle(shape.blade, state),
+  };
+}
+
+/**
+ * Radio del cuerpo de un motor de caja, en fracción del lado menor: el mismo
+ * que usa `motorBody` de `families.ts` para dibujar el círculo.
+ */
+export const MOTOR_BODY_RATIO = 0.42;
+
+/**
+ * Cuerpo del motor sobre el que gira la flecha de la simulación.
+ *
+ * El símbolo lo declara cuando el círculo no está centrado en su caja (el
+ * `1000`, anclado al origen, lo tiene en (6, 6)); sin dato se toma el centro de
+ * la caja con radio `MOTOR_BODY_RATIO` del lado menor, que es donde los motores
+ * de caja dibujan su círculo.
+ */
+export function motorBodyOf(body: MotorBody | undefined, w: number, h: number): MotorBody {
+  return body ?? { x: w / 2, y: h / 2, r: Math.min(w, h) * MOTOR_BODY_RATIO };
+}
+
+/** Flecha de giro de un motor energizado, con el pivote de su animación. */
+export interface RotorArrow extends MotorBody {
+  /** arco de la flecha, ya centrado en el cuerpo */
+  arrow: string;
+  /** las dos marcas de la punta */
+  head: string;
+}
+
+/**
+ * Flecha de giro que dibuja la simulación sobre un motor energizado.
+ *
+ * Gira sobre el **centro del cuerpo** (`x`, `y`), que es lo que recibe el
+ * `transform-origin` de la animación: el arco se dibuja concéntrico a ese punto
+ * y a 1,12 radios de él, así la vuelta entera traza el anillo alrededor del
+ * motor en vez de orbitar un punto corrido. Para el `1000` ese centro es (6, 6)
+ * —el círculo del cuerpo— y no el centro de la caja de 24×24: con el de la caja
+ * la flecha giraba 8,49 unidades fuera de eje (S4).
+ *
+ * La fórmula del arco es la que ya usaba el glifo sobre el centro de la caja, y
+ * se repite sin redondear a propósito: así los motores de caja
+ * (1001/1006/1007) dibujan exactamente el mismo `d` que antes del arreglo.
+ */
+export function rotorArrow(body: MotorBody | undefined, w: number, h: number): RotorArrow {
+  const { x: cx, y: cy, r } = motorBodyOf(body, w, h);
+  const from = `${cx - r * 0.55} ${cy - r * 1.12}`;
+  const to = `${cx + r * 0.55} ${cy - r * 1.12}`;
+  return {
+    x: cx,
+    y: cy,
+    r,
+    arrow: `M ${from} A ${r * 0.92} ${r * 0.92} 0 0 1 ${to}`,
+    head: `M ${to} l ${-r * 0.22} ${-r * 0.14} M ${to} l ${-r * 0.02} ${r * 0.28}`,
   };
 }
 

@@ -2,7 +2,7 @@ import type { CSSProperties, JSX } from 'react';
 import { useSyncExternalStore } from 'react';
 import { LAMP_COLORS, type LampColor } from '../model/project.ts';
 import { resolveSymbol, type Shape } from '../symbols/library.ts';
-import { bladeTransform, shapesBounds, type BladeState } from '../symbols/draw.ts';
+import { bladeTransform, rotorArrow, shapesBounds, type BladeState } from '../symbols/draw.ts';
 import { getSettings, pinRadius, pinStroke, subscribeSettings } from './settings.ts';
 
 interface Props {
@@ -72,12 +72,13 @@ export function SymbolGlyph({
   const labels = sym.labels?.(w, h) ?? [];
   const cx = w / 2;
   const cy = h / 2;
-  const rotor = live && sym.group === 'motor';
+  // Flecha de giro del motor energizado. Gira sobre el centro del CUERPO, que
+  // no es el de la caja cuando el símbolo está anclado al origen: el `1000`
+  // dibuja su círculo en (6, 6) y la caja de 24×24 tiene el centro en (12, 12).
+  // Por eso el pivote sale de `motorBody` y no de `cx`/`cy` (S4).
+  const rotor = live && sym.group === 'motor' ? rotorArrow(sym.motorBody, w, h) : null;
   // Pose de las hojas móviles: el contacto que conduce y el aparato accionado.
   const bladeState: BladeState = { closed, pressed };
-  const r = Math.min(w, h) * 0.42;
-  const arrow = `M ${cx - r * 0.55} ${cy - r * 1.12} A ${r * 0.92} ${r * 0.92} 0 0 1 ${cx + r * 0.55} ${cy - r * 1.12}`;
-  const head = `M ${cx + r * 0.55} ${cy - r * 1.12} l ${-r * 0.22} ${-r * 0.14} M ${cx + r * 0.55} ${cy - r * 1.12} l ${-r * 0.02} ${r * 0.28}`;
 
   // Un símbolo anclado al origen trae su geometría en unidades del archivo:
   // en el lienzo se dibuja tal cual (el origen del registro es el 0,0) y en
@@ -109,9 +110,9 @@ export function SymbolGlyph({
         />
       ))}
       {rotor && (
-        <g className="motor-rotor" style={{ transformOrigin: `${cx}px ${cy}px` }}>
-          <path className="motor-arrow" d={arrow} />
-          <path className="motor-arrow" d={head} />
+        <g className="motor-rotor" style={{ transformOrigin: `${rotor.x}px ${rotor.y}px` }}>
+          <path className="motor-arrow" d={rotor.arrow} />
+          <path className="motor-arrow" d={rotor.head} />
         </g>
       )}
       {anchored

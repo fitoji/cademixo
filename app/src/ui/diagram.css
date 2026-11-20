@@ -367,6 +367,15 @@
 }
 
 .motor-rotor {
+  /*
+   * El pivote del giro viene inline, en unidades del SÍMBOLO: `view-box` toma
+   * como referencia la caja del viewport apoyada en el (0,0) del elemento, que
+   * acá es el origen del propio dibujo (en el `1000`, el borne `U1`). Por eso
+   * `transform-origin: 6px 6px` es el centro de su círculo y no un punto del
+   * lienzo: con `fill-box` habría que expresarlo como porcentaje de la tinta de
+   * la flecha, que es un anillo y no contiene su centro (S4).
+   */
+  transform-box: view-box;
   animation: motor-spin 1.3s linear infinite;
 }
 
