@@ -61,9 +61,14 @@ function restingFingerprint(): { codes: number; hash: string } {
 test('el dibujo en reposo de los 232 códigos es el calibrado', () => {
   const { codes, hash } = restingFingerprint();
   assert.equal(codes, 232, `la librería dibuja ${codes} códigos y no los 232 calibrados`);
+  // Huella regenerada por `bornes-grilla-del-archivo` (S5): los seis pulsadores
+  // 8000-8005 dejaron de coincidir con la captura de CADe por decisión de
+  // producto —sus bornes son las filas 0/12 del registro y la tinta se corrió
+  // +6 en `y` para llegar a ellos—, así que su tinta en reposo ya no es la
+  // calibrada. El resto de los 226 códigos no cambia (S6).
   assert.equal(
     hash,
-    'dc960d89bcd506574b9d43357248ecebe54a0c585074ab353777482338205de4',
+    'd41a4673bb92f4bed92e0e2648ba297dee3a9e008fd320a9c73ade739ec74e06',
     `la tinta en reposo cambió (huella ${hash}): el dibujo sin simular ya no es el calibrado`,
   );
 });

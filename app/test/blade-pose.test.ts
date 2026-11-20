@@ -61,18 +61,19 @@ test('el conmutador (8018) gira una cuchilla cuando la otra no, y al revés', ()
 test('el pulsador conmutado (8003) lleva la punta del tiro NC al NO al accionarlo', () => {
   const [blade] = bladesOf(8003, ['11', '12', '14']);
   const { from, to } = endsOf(blade);
-  // El pivote es el borne común: la cuchilla está dibujada apoyada en el NC.
-  assert.deepEqual(from, [3, -3], 'el pivote va en el común (3,-3)');
-  assert.ok(near(blade.blade!.px, 3) && near(blade.blade!.py, -3), 'el pivote declarado es el del común');
-  assert.ok(near(to[0], 0.5) && near(to[1], 3), `en reposo apoya en el NC: ${to}`);
+  // El pivote está en la columna del común, en la fila 3 de la tinta (el común
+  // es el borne (3,0)): la cuchilla está dibujada apoyada en el NC.
+  assert.deepEqual(from, [3, 3], 'el pivote va en la columna del común (3,3)');
+  assert.ok(near(blade.blade!.px, 3) && near(blade.blade!.py, 3), 'el pivote declarado es el del común');
+  assert.ok(near(to[0], 0.5) && near(to[1], 9), `en reposo apoya en el NC: ${to}`);
 
   const rest = { closed: false, pressed: false };
   const pressed = { closed: false, pressed: true };
   assert.equal(bladeAngle(blade.blade!, rest), 0, 'en reposo no gira: el dibujo ya es la pose NC');
 
-  const [tx, ty] = rotate(to[0], to[1], 3, -3, bladeAngle(blade.blade!, pressed));
+  const [tx, ty] = rotate(to[0], to[1], 3, 3, bladeAngle(blade.blade!, pressed));
   // Espejo del NC respecto del común: la punta cae sobre el tiro NO.
-  assert.ok(near(tx, 5.5) && near(ty, 3), `accionado apoya en el NO: (${tx},${ty})`);
+  assert.ok(near(tx, 5.5) && near(ty, 9), `accionado apaga en el NO: (${tx},${ty})`);
 
   // Cerrado también lo acciona: es un pulsador conmutado, no un contacto más.
   assert.equal(

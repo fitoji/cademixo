@@ -718,8 +718,13 @@ const PUSH_BLADE_DEG = 17.1;
 /**
  * Pulsador NA (el 8000), vertical y anclado al origen, como lo dibuja
  * CADeSimu: el borne 13 arriba en el origen y el 14 doce unidades abajo.
- * La geometría está medida sobre
- * `docs/cadesimu-svg/reference/PR1_Rodolfo_Giusti_03.png` (S1 en (66,123)).
+ *
+ * Regla (S2/S3): **los bornes son las filas del registro** (0 y 12), no las
+ * puntas de la tinta, y la tinta se dibuja hasta ellos. La captura dibuja el
+ * símbolo centrado en el origen del registro, así que la geometría medida
+ * sobre `docs/cadesimu-svg/reference/PR1_Rodolfo_Giusti_03.png` (S1 en
+ * (66,123)) va corrida +6 en `y` y el ramal inferior se estira 0,25 más —de
+ * 11,75 a 12— para que el borne 14 caiga sobre la tinta.
  */
 const pushNO: SymbolDef = {
   code: 8000,
@@ -734,25 +739,28 @@ const pushNO: SymbolDef = {
   size: { w: 9, h: 15 },
   shapes() {
     return [
-      // Conductores arriba y abajo del corte.
-      { d: line(0, -6, 0, -3.25) },
-      { d: line(0, 3, 0, 5.75) },
-      // Paleta abierta, con el pivote en el borne de abajo; el lienzo la gira
-      // al cerrar hasta frenar a 1 unidad del conductor.
-      { d: line(0, 3, -3, -3), blade: { px: 0, py: 3, deg: PUSH_BLADE_DEG } },
+      // Conductores arriba y abajo del corte: los dos extremos caen en los
+      // bornes 13 (y=0) y 14 (y=12).
+      { d: line(0, 0, 0, 2.75) },
+      { d: line(0, 9, 0, 12) },
+      // Paleta abierta, con el pivote en el extremo del conductor de abajo; el
+      // lienzo la gira al cerrar hasta frenar a 1 unidad del conductor.
+      { d: line(0, 9, -3, 3), blade: { px: 0, py: 9, deg: PUSH_BLADE_DEG } },
       // Guion que toca la paleta en reposo y arranca 3 unidades a la izquierda.
-      { d: line(-3, 0, -1.5, 0), thin: true },
+      { d: line(-3, 6, -1.5, 6), thin: true },
       // Operador: corchete E con el brazo central más largo y separado.
-      { d: line(-6, -1.5, -5, -1.5), thin: true },
-      { d: line(-6, 1.25, -5, 1.25), thin: true },
-      { d: line(-6, -1.5, -6, 1.25), thin: true },
-      { d: line(-6, 0, -4.25, 0), thin: true },
+      { d: line(-6, 4.5, -5, 4.5), thin: true },
+      { d: line(-6, 7.25, -5, 7.25), thin: true },
+      { d: line(-6, 4.5, -6, 7.25), thin: true },
+      { d: line(-6, 6, -4.25, 6), thin: true },
     ];
   },
 };
 
 /**
- * Pulsador NC (el 8001), espejo del NA: el borne 11 arriba y el 12 abajo.
+ * Pulsador NC (el 8001), espejo del NA: el borne 11 arriba y el 12 abajo, en
+ * las filas del registro (0 y 12), con la tinta dibujada hasta ellos (corrida
+ * +6 respecto de la captura).
  * En reposo la paleta está apoyada hacia la derecha cruzando la barra del
  * contacto fijo; al presionar gira al lado contrario del NA y abre.
  */
@@ -769,22 +777,25 @@ const pushNC: SymbolDef = {
   size: { w: 9, h: 15 },
   shapes() {
     return [
-      // Tramo superior hasta la barra del contacto fijo, en (0,-2.5).
-      { d: line(0, -6, 0, -2.5) },
-      { d: line(0, -2.5, 3.25, -2.5) },
-      // Paleta apoyada (estado de reposo, cerrado), pivote en el borne de
-      // abajo; el giro negativo lo aplica el lienzo cuando el contacto abre.
-      { d: line(0, 3, 3, -3), blade: { px: 0, py: 3, deg: -PUSH_BLADE_DEG } },
-      { d: line(0, 3, 0, 5.75) },
-      // Guiones a la altura del origen: el derecho toca la paleta y el
-      // izquierdo queda separado, espejo de los del NA.
-      { d: line(0, 0, 1.5, 0), thin: true },
-      { d: line(-3, 0, -1.25, 0), thin: true },
+      // Tramo superior desde el borne 11 hasta la barra del contacto fijo, en
+      // (0,3.5).
+      { d: line(0, 0, 0, 3.5) },
+      { d: line(0, 3.5, 3.25, 3.5) },
+      // Paleta apoyada (estado de reposo, cerrado), pivote en el extremo del
+      // conductor de abajo; el giro negativo lo aplica el lienzo cuando el
+      // contacto abre.
+      { d: line(0, 9, 3, 3), blade: { px: 0, py: 9, deg: -PUSH_BLADE_DEG } },
+      // Ramal inferior hasta el borne 12 (estirado 0,25 sobre la medición).
+      { d: line(0, 9, 0, 12) },
+      // Guiones a media tinta: el derecho toca la paleta y el izquierdo queda
+      // separado, espejo de los del NA.
+      { d: line(0, 6, 1.5, 6), thin: true },
+      { d: line(-3, 6, -1.25, 6), thin: true },
       // Mismo operador E que el NA.
-      { d: line(-6, -1.5, -5, -1.5), thin: true },
-      { d: line(-6, 1.25, -5, 1.25), thin: true },
-      { d: line(-6, -1.5, -6, 1.25), thin: true },
-      { d: line(-6, 0, -4.25, 0), thin: true },
+      { d: line(-6, 4.5, -5, 4.5), thin: true },
+      { d: line(-6, 7.25, -5, 7.25), thin: true },
+      { d: line(-6, 4.5, -6, 7.25), thin: true },
+      { d: line(-6, 6, -4.25, 6), thin: true },
     ];
   },
 };
@@ -1448,48 +1459,53 @@ const pushNANC: SymbolDef = {
   group: 'senalizacion',
   pins: [left(0, '11'), left(0.6, '13'), right(0, '12'), right(0.6, '14')],
   anchor: 'origin',
-  // Medido sobre docs/02/pulsadores.png (9 px/u), NA-NC en (528,198): el NC
-  // ocupa la columna 0 y el NO la 9, con el enlace mecánico discontinuo en
-  // y=0. Los bornes van en el extremo visible de cada ramal: CADe_SIMU imprime
-  // el rótulo del borne ahí (medido en y≈−5,4) y la tinta termina en −6/5,75.
+  // Medido sobre docs/02/pulsadores.png (9 px/u), NA-NC en (528,198). Los
+  // bornes son las FILAS DEL REGISTRO (0 arriba, 12 abajo), no las puntas de
+  // la tinta: la tinta va corrida +6 en `y` y los dos ramales de abajo se
+  // estiran 0,25 —de 11,75 a 12— para que los bornes 12 y 14 caigan sobre
+  // ella. El enlace mecánico discontinuo queda en y=6.
   originPins: [
-    { name: '11', x: 0, y: -6 },
-    { name: '13', x: 9, y: -6 },
-    { name: '12', x: 0, y: 5.75 },
-    { name: '14', x: 9, y: 5.75 },
+    { name: '11', x: 0, y: 0 },
+    { name: '13', x: 9, y: 0 },
+    { name: '12', x: 0, y: 12 },
+    { name: '14', x: 9, y: 12 },
   ],
   size: { w: 15, h: 15 },
   shapes() {
     return [
       // Corchete del operador, igual al del NA.
-      { d: line(-6, -1.5, -5, -1.5), thin: true },
-      { d: line(-6, 1.25, -5, 1.25), thin: true },
-      { d: line(-6, -1.5, -6, 1.25), thin: true },
-      { d: line(-6, 0, -4.25, 0), thin: true },
+      { d: line(-6, 4.5, -5, 4.5), thin: true },
+      { d: line(-6, 7.25, -5, 7.25), thin: true },
+      { d: line(-6, 4.5, -6, 7.25), thin: true },
+      { d: line(-6, 6, -4.25, 6), thin: true },
       // Contacto NC (11-12): tramo, barra fija y paleta apoyada.
-      { d: line(0, -6, 0, -2.5) },
-      { d: line(0, -2.5, 3.5, -2.5) },
-      { d: line(0, 3, 3, -3), blade: { px: 0, py: 3, deg: -PUSH_BLADE_DEG } },
-      { d: line(0, 3, 0, 5.75) },
+      { d: line(0, 0, 0, 3.5) },
+      { d: line(0, 3.5, 3.5, 3.5) },
+      { d: line(0, 9, 3, 3), blade: { px: 0, py: 9, deg: -PUSH_BLADE_DEG } },
+      { d: line(0, 9, 0, 12) },
       // Contacto NO (13-14): paleta abierta hacia la izquierda.
-      { d: line(9, -6, 9, -3) },
-      { d: line(9, 3, 6, -3), blade: { px: 9, py: 3, deg: PUSH_BLADE_DEG } },
-      { d: line(9, 3, 9, 5.75) },
+      { d: line(9, 0, 9, 3) },
+      { d: line(9, 9, 6, 3), blade: { px: 9, py: 9, deg: PUSH_BLADE_DEG } },
+      { d: line(9, 9, 9, 12) },
       // Enlace mecánico discontinuo que une los dos contactos.
-      { d: line(-3, 0, -1, 0), thin: true },
-      { d: line(0, 0, 2, 0), thin: true },
-      { d: line(3, 0, 5, 0), thin: true },
-      { d: line(6, 0, 7.5, 0), thin: true },
+      { d: line(-3, 6, -1, 6), thin: true },
+      { d: line(0, 6, 2, 6), thin: true },
+      { d: line(3, 6, 5, 6), thin: true },
+      { d: line(6, 6, 7.5, 6), thin: true },
     ];
   },
 };
 
 /**
- * Pulsador conmutado (8003): común arriba y dos tiros abajo.
+ * Pulsador conmutado (8003): común arriba y dos tiros abajo, en las filas del
+ * registro.
  *
- * Medido sobre `docs/02/pulsadores.png` (9 px/u), en (798,198): el común sube
- * en x=3, la cuchilla en reposo apoya en el tiro NC (x=0) y el tiro NO (x=6)
- * queda con su barra corta apuntando hacia la cuchilla.
+ * Medido sobre `docs/02/pulsadores.png` (9 px/u), en (798,198), con la tinta
+ * corrida +6 en `y` para que los bornes caigan sobre ella: el común es el
+ * borne (3,0) y sube hasta la cuchilla en x=3, la cuchilla en reposo apoya en
+ * el tiro NC (x=0) y el tiro NO (x=6) queda con su barra corta apuntando hacia
+ * la cuchilla. Los dos tiros bajan hasta la fila 12 (estirados 0,25 sobre la
+ * medición).
  */
 const pushChangeover: SymbolDef = {
   code: 8003,
@@ -1498,32 +1514,32 @@ const pushChangeover: SymbolDef = {
   pins: [left(0.25, '11'), right(0, '12'), right(0.5, '14')],
   anchor: 'origin',
   originPins: [
-    { name: '11', x: 3, y: -6 },
-    { name: '12', x: 0, y: 5.75 },
-    { name: '14', x: 6, y: 5.75 },
+    { name: '11', x: 3, y: 0 },
+    { name: '12', x: 0, y: 12 },
+    { name: '14', x: 6, y: 12 },
   ],
   size: { w: 12, h: 15 },
   shapes() {
     return [
-      { d: line(-6, -1.5, -5, -1.5), thin: true },
-      { d: line(-6, 1.25, -5, 1.25), thin: true },
-      { d: line(-6, -1.5, -6, 1.25), thin: true },
-      { d: line(-6, 0, -4.25, 0), thin: true },
+      { d: line(-6, 4.5, -5, 4.5), thin: true },
+      { d: line(-6, 7.25, -5, 7.25), thin: true },
+      { d: line(-6, 4.5, -6, 7.25), thin: true },
+      { d: line(-6, 6, -4.25, 6), thin: true },
       // Común y cuchilla apoyada en el tiro NC. La cuchilla es móvil: pivota en
       // el común y, al accionar el pulsador, gira -45,24° (el espejo del tiro
       // NC respecto del común) hasta apoyar la punta en el tiro NO (S3). Como es
       // un conmutado, la pose sigue al aparato accionado (`when: 'active'`).
-      { d: line(3, -6, 3, -3) },
-      { d: line(3, -3, 0.5, 3), blade: { px: 3, py: -3, deg: -45.24, when: 'active' } },
+      { d: line(3, 0, 3, 3) },
+      { d: line(3, 3, 0.5, 9), blade: { px: 3, py: 3, deg: -45.24, when: 'active' } },
       // Tiro NC.
-      { d: line(0, 2.33, 0, 5.75) },
-      { d: line(0, 2.33, 1.2, 2.33) },
+      { d: line(0, 8.33, 0, 12) },
+      { d: line(0, 8.33, 1.2, 8.33) },
       // Tiro NO.
-      { d: line(6, 2.33, 6, 5.75) },
-      { d: line(4.78, 2.33, 6, 2.33) },
+      { d: line(6, 8.33, 6, 12) },
+      { d: line(4.78, 8.33, 6, 8.33) },
       // Guiones del enlace mecánico hasta la cuchilla.
-      { d: line(-3, 0, -1, 0), thin: true },
-      { d: line(0, 0, 2, 0), thin: true },
+      { d: line(-3, 6, -1, 6), thin: true },
+      { d: line(0, 6, 2, 6), thin: true },
     ];
   },
 };
@@ -1533,6 +1549,10 @@ const pushChangeover: SymbolDef = {
  * como lo dibuja CADe_SIMU en `docs/02/pulsadores.png` (9 px/u): radio 2 con
  * el lado plano en x=-6 y el vástago hasta -4,1. El contacto es el del NA
  * (8004) o el del NC (8005), medido en la misma captura.
+ *
+ * Regla (S2/S3): los bornes son las filas del registro (0 y 12), no las puntas
+ * de la tinta; por eso la tinta va corrida +6 en `y` y el ramal inferior se
+ * estira 0,25 —de 11,75 a 12— para que el borne de abajo caiga sobre ella.
  */
 const mushroom = (code: number, name: string, nc: boolean): SymbolDef => ({
   code,
@@ -1542,43 +1562,44 @@ const mushroom = (code: number, name: string, nc: boolean): SymbolDef => ({
   anchor: 'origin',
   originPins: nc
     ? [
-        { name: '11', x: 0, y: -6 },
-        { name: '12', x: 0, y: 5.75 },
+        { name: '11', x: 0, y: 0 },
+        { name: '12', x: 0, y: 12 },
       ]
     : [
-        { name: '13', x: 0, y: -6 },
-        { name: '14', x: 0, y: 5.75 },
+        { name: '13', x: 0, y: 0 },
+        { name: '14', x: 0, y: 12 },
       ],
   size: { w: 6, h: 15 },
   shapes() {
     // Cúpula de la seta: CADe la dibuja con una curva que no es un círculo
     // (se aplana cerca del lado plano y llega a −8 en el medio). La polilínea
-    // sigue los píxeles medidos, así el raster calza dentro de 2 px.
+    // sigue los píxeles medidos, así el raster calza dentro de 2 px una vez
+    // corrida +6 en `y`.
     const dome =
-      'M-6 -1.9L-6.35 -1.7L-6.7 -1.5L-7 -1.3L-7.3 -1.1L-7.55 -0.9L-7.8 -0.6L-7.95 -0.3' +
-      'L-8 0L-7.95 0.3L-7.8 0.6L-7.55 0.9L-7.3 1.1L-7 1.3L-6.7 1.5L-6.35 1.7L-6 1.9';
-    const chord = line(-6, -2, -6, 2);
+      'M-6 4.1L-6.35 4.3L-6.7 4.5L-7 4.7L-7.3 4.9L-7.55 5.1L-7.8 5.4L-7.95 5.7' +
+      'L-8 6L-7.95 6.3L-7.8 6.6L-7.55 6.9L-7.3 7.1L-7 7.3L-6.7 7.5L-6.35 7.7L-6 7.9';
+    const chord = line(-6, 4, -6, 8);
     if (nc) {
       return [
         { d: dome },
         { d: chord },
-        { d: line(-6, 0, -4.1, 0) },
-        { d: line(0, -6, 0, -2.5) },
-        { d: line(0, -2.5, 3.25, -2.5) },
-        { d: line(0, 3, 3, -3), blade: { px: 0, py: 3, deg: -PUSH_BLADE_DEG } },
-        { d: line(0, 3, 0, 5.75) },
-        { d: line(0, 0, 1.5, 0), thin: true },
-        { d: line(-3, 0, -1.25, 0), thin: true },
+        { d: line(-6, 6, -4.1, 6) },
+        { d: line(0, 0, 0, 3.5) },
+        { d: line(0, 3.5, 3.25, 3.5) },
+        { d: line(0, 9, 3, 3), blade: { px: 0, py: 9, deg: -PUSH_BLADE_DEG } },
+        { d: line(0, 9, 0, 12) },
+        { d: line(0, 6, 1.5, 6), thin: true },
+        { d: line(-3, 6, -1.25, 6), thin: true },
       ];
     }
     return [
       { d: dome },
       { d: chord },
-      { d: line(-6, 0, -4.1, 0) },
-      { d: line(0, -6, 0, -3.25) },
-      { d: line(0, 3, -3, -3), blade: { px: 0, py: 3, deg: PUSH_BLADE_DEG } },
-      { d: line(0, 3, 0, 5.75) },
-      { d: line(-3, 0, -1.5, 0), thin: true },
+      { d: line(-6, 6, -4.1, 6) },
+      { d: line(0, 0, 0, 2.75) },
+      { d: line(0, 9, -3, 3), blade: { px: 0, py: 9, deg: PUSH_BLADE_DEG } },
+      { d: line(0, 9, 0, 12) },
+      { d: line(-3, 6, -1.5, 6), thin: true },
     ];
   },
 });
