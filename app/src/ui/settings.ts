@@ -1,11 +1,12 @@
 /**
  * Ajustes de apariencia del simulador.
  *
- * Cuatro preferencias que sólo cambian cómo se dibuja el esquema y cómo se
- * comporta la paleta: el tamaño de los bornes, el grosor de los cables, la
- * orientación de los paneles de componentes y el auto cierre. Viven fuera de
- * React para que el diálogo de configuración, el lienzo y la paleta compartan el
- * valor; la UI se suscribe con `useSyncExternalStore`.
+ * Seis preferencias: cómo se dibuja el esquema y cómo se comporta la paleta —el
+ * tamaño de los bornes, el grosor de los cables, la orientación de los paneles
+ * de componentes y el auto cierre— y qué suena (`sonidosInterfaz`,
+ * `sonidosSimulacion`, S7) con su mute maestro (`silenciado`, S9). Viven fuera
+ * de React para que el diálogo de configuración, el lienzo, la paleta y el motor
+ * de sonido compartan el valor; la UI se suscribe con `useSyncExternalStore`.
  *
  * Sin `localStorage` disponible (tests en node, modo privado) todo cae a los
  * valores por defecto sin romper la aplicación.
@@ -21,14 +22,33 @@ export type Settings = {
   wireWidth: WireWidth;
   paneles: Paneles;
   autoCierre: boolean;
+  /** Cues de la interfaz: abrir, guardar, errores, aparatos, colocar (S7). */
+  sonidosInterfaz: boolean;
+  /** Cues de la simulación: flancos de bobinas y protecciones (S7). */
+  sonidosSimulacion: boolean;
+  /**
+   * Mute maestro de la barra (S9): apaga todo el sonido sin tocar los dos
+   * interruptores por canal, que conservan su preferencia y vuelven a valer al
+   * reactivar.
+   */
+  silenciado: boolean;
 };
 
-/** Defaults elegidos para no cambiar nada mientras nadie toque la preferencia. */
+/**
+ * Defaults elegidos para no cambiar nada mientras nadie toque la preferencia.
+ *
+ * La interfaz suena de entrada; la simulación no, porque CADe_SIMU es mudo y la
+ * desviación se elige, no se impone (S7). El mute arranca apagado por lo mismo:
+ * se silencia cuando el usuario lo pide.
+ */
 export const DEFAULT_SETTINGS: Settings = {
   pinSize: 'normal',
   wireWidth: 'normal',
   paneles: 'horizontal',
   autoCierre: false,
+  sonidosInterfaz: true,
+  sonidosSimulacion: false,
+  silenciado: false,
 };
 
 export const SETTINGS_KEY = 'simuelectro:ajustes';
@@ -68,6 +88,16 @@ export function parseSettings(raw: string | null): Settings {
     paneles: isPaneles(record.paneles) ? record.paneles : DEFAULT_SETTINGS.paneles,
     autoCierre:
       typeof record.autoCierre === 'boolean' ? record.autoCierre : DEFAULT_SETTINGS.autoCierre,
+    sonidosInterfaz:
+      typeof record.sonidosInterfaz === 'boolean'
+        ? record.sonidosInterfaz
+        : DEFAULT_SETTINGS.sonidosInterfaz,
+    sonidosSimulacion:
+      typeof record.sonidosSimulacion === 'boolean'
+        ? record.sonidosSimulacion
+        : DEFAULT_SETTINGS.sonidosSimulacion,
+    silenciado:
+      typeof record.silenciado === 'boolean' ? record.silenciado : DEFAULT_SETTINGS.silenciado,
   };
 }
 
@@ -77,6 +107,9 @@ export function serializeSettings(settings: Settings): string {
     wireWidth: settings.wireWidth,
     paneles: settings.paneles,
     autoCierre: settings.autoCierre,
+    sonidosInterfaz: settings.sonidosInterfaz,
+    sonidosSimulacion: settings.sonidosSimulacion,
+    silenciado: settings.silenciado,
   });
 }
 
@@ -104,7 +137,10 @@ export function setSettings(patch: Partial<Settings>): void {
     next.pinSize === current.pinSize &&
     next.wireWidth === current.wireWidth &&
     next.paneles === current.paneles &&
-    next.autoCierre === current.autoCierre
+    next.autoCierre === current.autoCierre &&
+    next.sonidosInterfaz === current.sonidosInterfaz &&
+    next.sonidosSimulacion === current.sonidosSimulacion &&
+    next.silenciado === current.silenciado
   ) {
     return;
   }

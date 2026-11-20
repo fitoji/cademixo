@@ -20,6 +20,8 @@ import {
   SunIcon,
   Trash2Icon,
   Undo2Icon,
+  Volume2Icon,
+  VolumeXIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import pkg from '../../package.json';
@@ -110,7 +112,8 @@ import { Toaster } from '@/components/ui/sonner';
 import { SettingsDialog } from './SettingsDialog.tsx';
 import { SaveAsDialog } from './SaveAsDialog.tsx';
 import { getScope, setScope, subscribeScope } from '../symbols/scope.ts';
-import { getSettings, subscribeSettings, wireStroke } from './settings.ts';
+import { getSettings, setSettings, subscribeSettings, wireStroke } from './settings.ts';
+import { armAudio, cue, unlockAudio, type SoundEvent } from './sound.ts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -245,13 +248,20 @@ export function App(): JSX.Element {
    */
   const strikeMomentary = useCallback((id: number, code: number) => {
     const pending = pulseTimers.current.get(id);
-    if (pending !== undefined) window.clearTimeout(pending);
+    if (pending !== undefined) {
+      // El segundo clic reinicia el pulso: el anterior se suelta antes de que
+      // suene la nueva apretada, así el par press/release queda balanceado.
+      window.clearTimeout(pending);
+      cue('pulsador suelta');
+    }
     setPressedRecords((prev) => [...applyClick(prev, id, code)]);
+    cue('pulsador aprieta');
     pulseTimers.current.set(
       id,
       window.setTimeout(() => {
         pulseTimers.current.delete(id);
         setPressedRecords((prev) => prev.filter((p) => p !== id));
+        cue('pulsador suelta');
       }, MOMENTARY_PULSE_MS),
     );
   }, []);
@@ -260,6 +270,16 @@ export function App(): JSX.Element {
   const [highlight, setHighlight] = useState<{ ids: number[]; at: Point | null } | null>(null);
   /** Estado retenido: un contactor no olvida entre pasos (enclavamientos). */
   const lastEnergized = useRef<Set<string>>(new Set());
+  /**
+   * Último frame que sonó (S5). La simulación se recalcula cada 100 ms aunque
+   * nada cambie, así que los cues de simulación salen de comparar contra este
+   * ref —bobinas que se energizan o se desenergizan, protecciones que
+   * disparan— y nunca de un re-render (S4).
+   */
+  const audioFrame = useRef<{ energized: ReadonlySet<string>; tripped: ReadonlySet<number> }>({
+    energized: new Set<string>(),
+    tripped: new Set<number>(),
+  });
   const fileInput = useRef<HTMLInputElement | null>(null);
   /**
    * Archivo abierto, si el navegador permite elegir archivo con handle. Es lo
@@ -282,8 +302,22 @@ export function App(): JSX.Element {
     }
   }, [mode]);
 
-  const flash = useCallback((message: string) => {
+  /**
+   * Aviso al pie, con el cue opcional de S3: el mensaje de error, el rechazo y
+   * las confirmaciones del camino de archivo son los mismos puntos que suenan.
+   */
+  const flash = useCallback((message: string, sonido?: SoundEvent) => {
+    if (sonido) cue(sonido);
     toast(message, { duration: 2200 });
+  }, []);
+
+  /**
+   * Desbloqueo temprano del audio (S8, bug #22 de `cuelume`): el primer clic o
+   * tecla real carga el motor dentro del gesto. `unlock()` fuera de un gesto
+   * resuelve `false` y el audio queda mudo para siempre.
+   */
+  useEffect(() => {
+    armAudio();
   }, []);
 
   const openText = useCallback((text: string, name: string, handle: FileSystemFileHandle | null = null) => {
@@ -303,8 +337,8 @@ export function App(): JSX.Element {
     if (!state) return;
     if (state.dirty && !window.confirm('Hay cambios sin guardar. ¿Empezar un proyecto nuevo igual?')) return;
     openText(blankDocument(), DEFAULT_FILE_NAME);
-    toast('proyecto nuevo');
-  }, [state, openText]);
+    flash('proyecto nuevo', 'proyecto nuevo');
+  }, [state, openText, flash]);
 
   /**
    * Abrir: con selectores se conserva el handle para poder reescribir después
@@ -322,12 +356,13 @@ export function App(): JSX.Element {
     try {
       picked = await pickOpenHandle();
     } catch {
-      flash('no se pudo abrir el selector de archivos');
+      flash('no se pudo abrir el selector de archivos', 'error');
       return;
     }
     if (!picked) return;
     const { text, name } = await loadFile(picked.file);
     openText(text, name, picked.handle);
+    cue('abrir archivo');
   }, [openText, flash]);
 
   /**
@@ -347,12 +382,13 @@ export function App(): JSX.Element {
       try {
         await writeHandle(handle, text);
       } catch {
-        flash('no se guardó: no se pudo escribir el archivo');
+        flash('no se guardó: no se pudo escribir el archivo', 'error');
         return false;
       }
       fileHandle.current = handle;
       setFileName(handle.name);
       setState((s) => (s && s.text === text ? markSaved(s) : s));
+      cue('guardar');
       return true;
     },
     [flash],
@@ -370,7 +406,7 @@ export function App(): JSX.Element {
     async (mode: 'save' | 'save-as'): Promise<boolean> => {
       if (!state) return false;
       if (!roundTrips(state.text)) {
-        flash('no se guardó: el documento no re-parsea igual');
+        flash('no se guardó: el documento no re-parsea igual', 'error');
         return false;
       }
       const text = state.text;
@@ -389,12 +425,12 @@ export function App(): JSX.Element {
         try {
           picked = await pickSaveHandle(suggestedSaveName(fileName));
         } catch {
-          flash('no se guardó: no se pudo abrir el selector de destino');
+          flash('no se guardó: no se pudo abrir el selector de destino', 'error');
           return false;
         }
         // `null` es cancelación: el usuario decidió no escribir en ningún lado.
         if (!picked) {
-          flash('no se guardó: no se eligió destino');
+          flash('no se guardó: no se eligió destino', 'error');
           return false;
         }
         return writeDocument(picked, text);
@@ -414,6 +450,7 @@ export function App(): JSX.Element {
       downloadCade(text, name);
       setFileName(name);
       setState((s) => (s && s.text === text ? markSaved(s) : s));
+      cue('guardar');
       return true;
     },
     [state, fileName, flash, writeDocument],
@@ -431,7 +468,7 @@ export function App(): JSX.Element {
   const openDropped = useCallback(
     async (file: File): Promise<void> => {
       if (!/\.(cad|cade)$/i.test(file.name)) {
-        flash('no se cargó: tiene que ser un archivo .cad');
+        flash('no se cargó: tiene que ser un archivo .cad', 'error');
         return;
       }
       if (state !== null && state.dirty) {
@@ -440,12 +477,13 @@ export function App(): JSX.Element {
         );
         if (!wantsSave) return;
         if (!(await saveDocument('save'))) {
-          flash('no se cargó: el proyecto no se guardó');
+          flash('no se cargó: el proyecto no se guardó', 'error');
           return;
         }
       }
       const { text, name } = await loadFile(file);
       openText(text, name);
+      cue('abrir archivo');
       toast(`abierto ${name}`);
     },
     [state, fileName, flash, saveDocument, openText],
@@ -466,7 +504,7 @@ export function App(): JSX.Element {
       setSaveAsOpen(false);
       if (!state) return;
       if (!roundTrips(state.text)) {
-        flash('no se guardó: el documento no re-parsea igual');
+        flash('no se guardó: el documento no re-parsea igual', 'error');
         return;
       }
       const name = normalizeSaveName(chosen);
@@ -475,7 +513,7 @@ export function App(): JSX.Element {
       downloadCade(text, name);
       setFileName(name);
       setState((s) => (s && s.text === text ? markSaved(s) : s));
-      flash(`guardado como ${name}`);
+      flash(`guardado como ${name}`, 'guardar como');
     },
     [state, flash],
   );
@@ -604,8 +642,23 @@ export function App(): JSX.Element {
    * pendiente del tick anterior no puede reponer el estado de una corrida vieja.
    */
   useEffect(() => {
-    lastEnergized.current = step ? step.state.energized : new Set();
-  }, [step]);
+    const energized: ReadonlySet<string> = step ? step.state.energized : new Set<string>();
+    const tripped: ReadonlySet<number> = new Set(trippedProtections);
+    const previous = audioFrame.current;
+    audioFrame.current = { energized, tripped };
+    lastEnergized.current = step ? step.state.energized : new Set<string>();
+    // Detener la simulación no es un flanco: sin paso no hay nada que sonar.
+    if (!step) return;
+    for (const part of energized) {
+      if (!previous.energized.has(part)) cue('bobina energizada');
+    }
+    for (const part of previous.energized) {
+      if (!energized.has(part)) cue('bobina desenergizada');
+    }
+    for (const id of tripped) {
+      if (!previous.tripped.has(id)) cue('protección disparada');
+    }
+  }, [step, trippedProtections]);
 
   /**
    * Aviso de arranque: usa el MISMO resultado que el badge (este `step`), no un
@@ -620,6 +673,7 @@ export function App(): JSX.Element {
       simulation.stable
         ? `simulando · ${count} aparato${count === 1 ? '' : 's'} energizado${count === 1 ? '' : 's'}`
         : 'la maniobra no converge: revisá los enclavamientos',
+      simulation.stable ? undefined : 'error',
     );
   }, [startPending, simulation, flash]);
 
@@ -717,6 +771,9 @@ export function App(): JSX.Element {
   );
 
   const toggleSimulation = (): void => {
+    // El botón es un gesto real: sirve para desbloquear el audio aunque el
+    // usuario haya llegado hasta acá sin tocar nada más.
+    unlockAudio();
     if (running) {
       setRunning(false);
       setStartPending(false);
@@ -731,7 +788,7 @@ export function App(): JSX.Element {
       return;
     }
     if (!built) {
-      flash('el dibujo no tiene alimentación: agregá un símbolo de fase y otro de neutro');
+      flash('el dibujo no tiene alimentación: agregá un símbolo de fase y otro de neutro', 'error');
       return;
     }
     setRunning(true);
@@ -761,6 +818,7 @@ export function App(): JSX.Element {
           strikeMomentary(id, code);
         } else {
           setPressedRecords((prev) => [...applyClick(prev, id, code)]);
+          cue('accionar');
         }
         return;
       }
@@ -779,6 +837,7 @@ export function App(): JSX.Element {
         }
         // Conmutador suelto: el clic lo pasa de una salida a la otra.
         setChangeovers((prev) => ({ ...prev, [String(id)]: prev[String(id)] === 1 ? 0 : 1 }));
+        cue('accionar');
         return;
       }
       if (isProtectionCode(code)) {
@@ -845,6 +904,8 @@ export function App(): JSX.Element {
         return;
       }
       setState((s) => (s ? addComponent(s, template, x, y) : s));
+      // Sólo el componente colocado suena: el commit de cada cable es de S4.
+      cue('colocar');
     },
     [placing, flash, wireStart],
   );
@@ -931,7 +992,7 @@ export function App(): JSX.Element {
       placing={placing}
       onPick={(code) => {
         if (running) {
-          flash('detené la simulación para editar el circuito');
+          flash('detené la simulación para editar el circuito', 'rechazo');
           return;
         }
         setWireStart(null);
@@ -1106,7 +1167,7 @@ export function App(): JSX.Element {
                 <MenubarGroup>
                   <MenubarItem onSelect={() => setSettingsOpen(true)}>
                     <PaletteIcon />
-                    Apariencia…
+                    Configuración…
                   </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />
@@ -1152,7 +1213,10 @@ export function App(): JSX.Element {
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              void loadFile(file).then(({ text, name }) => openText(text, name));
+              void loadFile(file).then(({ text, name }) => {
+                openText(text, name);
+                cue('abrir archivo');
+              });
               e.target.value = '';
             }}
           />
@@ -1207,6 +1271,27 @@ export function App(): JSX.Element {
               </Button>
             </TooltipTrigger>
             <TooltipContent>{running ? 'Detener la simulación' : 'Simular con la alimentación indicada'}</TooltipContent>
+          </Tooltip>
+
+          {/* S9: mute maestro de todo el sonido, pegado al botón Simular. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-pressed={settings.silenciado}
+                aria-label={settings.silenciado ? 'Activar sonido' : 'Silenciar'}
+                onClick={() => {
+                  // El clic es un gesto real: reactivar también desbloquea.
+                  unlockAudio();
+                  setSettings({ silenciado: !settings.silenciado });
+                }}
+              >
+                {settings.silenciado ? <VolumeXIcon /> : <Volume2Icon />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{settings.silenciado ? 'Activar sonido' : 'Silenciar'}</TooltipContent>
           </Tooltip>
 
           <Tooltip>

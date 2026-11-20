@@ -1,5 +1,7 @@
-import type { JSX } from 'react';
+import type { ComponentProps, JSX } from 'react';
 import { useSyncExternalStore } from 'react';
+import { Switch as SwitchPrimitive } from 'radix-ui';
+import { cn } from 'cn';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -11,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Field, FieldContent, FieldDescription, FieldLabel, FieldSet } from '@/components/ui/field';
+import { Field, FieldContent, FieldDescription, FieldLabel, FieldSet, FieldLegend } from '@/components/ui/field';
 import { Separator } from '@/components/ui/separator';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
@@ -24,10 +26,35 @@ import {
 } from './settings.ts';
 
 /**
- * Diálogo «Ver → Apariencia…».
+ * Interruptor de dos estados.
  *
- * Lee y escribe las preferencias con el store de `settings.ts`, así el lienzo y
- * la paleta ven el cambio en el acto.
+ * No hay pieza en `components/ui` para `Switch` todavía y el diálogo es el único
+ * lugar que lo usa, así que se dibuja acá con el mismo criterio que las demás
+ * piezas: el primitivo de Radix y las clases del tema.
+ */
+function Switch({ className, ...props }: ComponentProps<typeof SwitchPrimitive.Root>): JSX.Element {
+  return (
+    <SwitchPrimitive.Root
+      data-slot="switch"
+      className={cn(
+        'peer inline-flex h-[18px] w-8 shrink-0 items-center rounded-full border border-transparent bg-input outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary',
+        className,
+      )}
+      {...props}
+    >
+      <SwitchPrimitive.Thumb
+        data-slot="switch-thumb"
+        className="pointer-events-none block size-3.5 rounded-full bg-background shadow-sm transition-transform data-[state=checked]:translate-x-[14px] data-[state=unchecked]:translate-x-0.5"
+      />
+    </SwitchPrimitive.Root>
+  );
+}
+
+/**
+ * Diálogo «Ver → Configuración…».
+ *
+ * Lee y escribe las preferencias con el store de `settings.ts`, así el lienzo,
+ * la paleta y el motor de sonido ven el cambio en el acto.
  */
 export function SettingsDialog({
   open,
@@ -42,8 +69,10 @@ export function SettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Apariencia</DialogTitle>
-          <DialogDescription>Cómo se dibuja el plano y cómo se comportan los paneles.</DialogDescription>
+          <DialogTitle>Configuración</DialogTitle>
+          <DialogDescription>
+            Cómo se dibuja el plano, cómo se comportan los paneles y qué suena.
+          </DialogDescription>
         </DialogHeader>
 
         <Separator />
@@ -136,6 +165,45 @@ export function SettingsDialog({
               <FieldLabel htmlFor="ajustes-auto-cierre">Auto cierre</FieldLabel>
               <FieldDescription>
                 Al abrir un panel de la paleta se cierra el que estaba abierto.
+              </FieldDescription>
+            </FieldContent>
+          </Field>
+        </FieldSet>
+
+        <Separator />
+
+        {/* S7: la ley de oro de CADe_SIMU es el silencio; la desviación se elige. */}
+        <FieldSet>
+          <FieldLegend variant="label">Sonidos</FieldLegend>
+
+          <Field orientation="horizontal">
+            <Switch
+              id="ajustes-sonidos-interfaz"
+              aria-label="Sonidos de interfaz"
+              checked={settings.sonidosInterfaz}
+              onCheckedChange={(checked) => setSettings({ sonidosInterfaz: checked })}
+            />
+            <FieldContent>
+              <FieldLabel htmlFor="ajustes-sonidos-interfaz">Sonidos de interfaz</FieldLabel>
+              <FieldDescription>
+                Abrir, guardar y crear un proyecto, los avisos de error, accionar aparatos y
+                colocar componentes.
+              </FieldDescription>
+            </FieldContent>
+          </Field>
+
+          <Field orientation="horizontal">
+            <Switch
+              id="ajustes-sonidos-simulacion"
+              aria-label="Sonidos de simulación"
+              checked={settings.sonidosSimulacion}
+              onCheckedChange={(checked) => setSettings({ sonidosSimulacion: checked })}
+            />
+            <FieldContent>
+              <FieldLabel htmlFor="ajustes-sonidos-simulacion">Sonidos de simulación</FieldLabel>
+              <FieldDescription>
+                Los flancos del circuito con la simulación andando: bobinas que se energizan o se
+                desenergizan y protecciones que disparan.
               </FieldDescription>
             </FieldContent>
           </Field>

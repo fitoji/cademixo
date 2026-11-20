@@ -31,6 +31,9 @@ test('sin nada guardado valen los ajustes por defecto', () => {
     wireWidth: 'normal',
     paneles: 'horizontal',
     autoCierre: false,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
   });
 });
 
@@ -48,12 +51,18 @@ test('un objeto parcial completa cada campo con su default', () => {
     wireWidth: 'normal',
     paneles: 'horizontal',
     autoCierre: false,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
   });
   assert.deepEqual(parseSettings('{"autoCierre":true}'), {
     pinSize: 'normal',
     wireWidth: 'normal',
     paneles: 'horizontal',
     autoCierre: true,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
   });
 });
 
@@ -64,12 +73,18 @@ test('un valor desconocido cae sólo al default de su campo', () => {
     wireWidth: 'normal',
     paneles: 'horizontal',
     autoCierre: true,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
   });
   assert.deepEqual(parseSettings('{"pinSize":"chico","wireWidth":"fino"}'), {
     pinSize: 'chico',
     wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: false,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
   });
 });
 
@@ -81,6 +96,9 @@ test('un tipo equivocado cae sólo al default de su campo', () => {
     wireWidth: 'grueso',
     paneles: 'horizontal',
     autoCierre: false,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
   });
 });
 
@@ -92,8 +110,24 @@ test('un objeto o un número en lugar del valor cae al default del campo', () =>
 test('serializar y volver a parsear devuelve los mismos ajustes', () => {
   const values = [
     DEFAULT_SETTINGS,
-    { pinSize: 'chico', wireWidth: 'fino', paneles: 'vertical', autoCierre: true },
-    { pinSize: 'grande', wireWidth: 'grueso', paneles: 'horizontal', autoCierre: true },
+    {
+      pinSize: 'chico',
+      wireWidth: 'fino',
+      paneles: 'vertical',
+      autoCierre: true,
+      sonidosInterfaz: false,
+      sonidosSimulacion: true,
+      silenciado: true,
+    },
+    {
+      pinSize: 'grande',
+      wireWidth: 'grueso',
+      paneles: 'horizontal',
+      autoCierre: true,
+      sonidosInterfaz: true,
+      sonidosSimulacion: false,
+      silenciado: false,
+    },
   ] as const;
   for (const settings of values) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
@@ -103,12 +137,18 @@ test('serializar y volver a parsear devuelve los mismos ajustes', () => {
     wireWidth: 'fino',
     paneles: 'vertical',
     autoCierre: true,
+    sonidosInterfaz: false,
+    sonidosSimulacion: true,
+    silenciado: true,
   });
   assert.deepEqual(JSON.parse(text), {
     pinSize: 'grande',
     wireWidth: 'fino',
     paneles: 'vertical',
     autoCierre: true,
+    sonidosInterfaz: false,
+    sonidosSimulacion: true,
+    silenciado: true,
   });
 });
 
@@ -136,6 +176,9 @@ test('una orientación inválida cae a horizontal sin tocar los otros campos', (
     wireWidth: 'normal',
     paneles: 'horizontal',
     autoCierre: false,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
   });
 });
 
@@ -246,6 +289,9 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
     wireWidth: 'normal',
     paneles: 'horizontal',
     autoCierre: false,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
   });
   assert.equal(avisos, 1);
 
@@ -255,6 +301,9 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
     wireWidth: 'grueso',
     paneles: 'vertical',
     autoCierre: true,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
   });
   assert.equal(avisos, 2);
 
@@ -295,6 +344,9 @@ test('setSettings persiste el objeto mezclado bajo la clave y no escribe si nada
       wireWidth: 'fino',
       paneles: 'horizontal',
       autoCierre: true,
+      sonidosInterfaz: true,
+      sonidosSimulacion: false,
+      silenciado: false,
     });
     assert.equal(store.get(SETTINGS_KEY), serializeSettings(getSettings()));
 
@@ -346,4 +398,77 @@ test('un storage que tira no rompe el store ni la elección en memoria', () => {
     setSettings(DEFAULT_SETTINGS);
   }
   assert.deepEqual(getSettings(), DEFAULT_SETTINGS);
+});
+
+// --- Sonidos (S7) ---------------------------------------------------------
+
+test('un localStorage viejo sin los sonidos sigue funcionando con los defaults', () => {
+  const viejo = '{"pinSize":"grande","wireWidth":"grueso","paneles":"vertical","autoCierre":true}';
+  assert.deepEqual(parseSettings(viejo), {
+    pinSize: 'grande',
+    wireWidth: 'grueso',
+    paneles: 'vertical',
+    autoCierre: true,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
+  });
+  // La interfaz suena de entrada; la simulación no, porque CADe_SIMU es mudo.
+  assert.equal(parseSettings('{}').sonidosInterfaz, true);
+  assert.equal(parseSettings('{}').sonidosSimulacion, false);
+});
+
+test('un valor que no es booleano cae sólo al default de su campo de sonido', () => {
+  assert.deepEqual(parseSettings('{"sonidosInterfaz":"si"}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"sonidosSimulacion":1}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"sonidosInterfaz":false,"sonidosSimulacion":true}'), {
+    pinSize: 'normal',
+    wireWidth: 'normal',
+    paneles: 'horizontal',
+    autoCierre: false,
+    sonidosInterfaz: false,
+    sonidosSimulacion: true,
+    silenciado: false,
+  });
+  // El campo inválido no arrastra al otro: el que vale, se respeta.
+  assert.deepEqual(parseSettings('{"sonidosInterfaz":null,"sonidosSimulacion":true}'), {
+    ...DEFAULT_SETTINGS,
+    sonidosSimulacion: true,
+  });
+});
+
+// --- Mute maestro (S9) ----------------------------------------------------
+
+test('un localStorage sin el mute parsea con el sonido prendido', () => {
+  assert.equal(parseSettings(null).silenciado, false);
+  assert.equal(parseSettings('{}').silenciado, false);
+  const sinMute =
+    '{"pinSize":"grande","wireWidth":"grueso","paneles":"vertical","autoCierre":true,"sonidosInterfaz":false,"sonidosSimulacion":true}';
+  assert.deepEqual(parseSettings(sinMute), {
+    pinSize: 'grande',
+    wireWidth: 'grueso',
+    paneles: 'vertical',
+    autoCierre: true,
+    sonidosInterfaz: false,
+    sonidosSimulacion: true,
+    silenciado: false,
+  });
+});
+
+test('un valor que no es booleano en el mute cae sólo al default de ese campo', () => {
+  assert.deepEqual(parseSettings('{"silenciado":"si"}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"silenciado":1}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"silenciado":null}'), DEFAULT_SETTINGS);
+  // El mute se lee solo: el valor guardado vuelve tal cual.
+  assert.equal(parseSettings('{"silenciado":true}').silenciado, true);
+  // Y un mute inválido no arrastra a los interruptores de canal.
+  assert.deepEqual(parseSettings('{"silenciado":"si","sonidosInterfaz":false,"sonidosSimulacion":true}'), {
+    pinSize: 'normal',
+    wireWidth: 'normal',
+    paneles: 'horizontal',
+    autoCierre: false,
+    sonidosInterfaz: false,
+    sonidosSimulacion: true,
+    silenciado: false,
+  });
 });
