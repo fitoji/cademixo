@@ -82,7 +82,10 @@ second»—. Así que se **sintetiza con WebAudio** en `app/src/ui/motor-hum.ts`
 
 | | |
 | --- | --- |
-| Fuente | dos osciladores desafinados (~50 y 50,6 Hz) para el batido, armónico a 100 Hz, pasabajos 320 Hz |
+| Fuente | seis voces: 50 y 50,6 Hz (fundamental y batido), 100, 150, 151 y 300 Hz |
+| Por qué tantas | un parlante de notebook no reproduce por debajo de ~150 Hz: con sólo 50/100 Hz el zumbido existe en el grafo y no se oye. Los parciales son además el timbre real de un motor, no un truco |
+| Pasabajos | 1200 Hz, para que los parciales sobrevivan |
+| Ganancia | 0,22 al nivel máximo; el pico teórico de las voces queda en ~0,41, con margen contra el recorte |
 | Envolvente | ataque 250 ms, relajación 200 ms |
 | Cantidad | **un solo** zumbido para todos los motores; el nivel sale de cuántos están energizados y tiene techo a los 3 |
 | Disparo | por transición, nunca por tick: es un estado, no un evento |

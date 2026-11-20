@@ -24,10 +24,38 @@ const BASE_HZ = 50;
 const DETUNE_HZ = 0.6;
 /** Armónico bajo: da cuerpo sin volverse un zumbido eléctrico agudo. */
 const HARMONIC_HZ = BASE_HZ * 2;
-/** Pasabajos: todo el zumbido es grave. */
-const FILTER_HZ = 320;
-/** Ganancia del techo: el nivel 1 de `humLevel` suena a esto, no a fondo. */
-const HUM_GAIN = 0.12;
+/**
+ * Pasabajos del conjunto.
+ *
+ * Estaba en 320 Hz, y con eso el zumbido quedaba entero por debajo del rango de
+ * un parlante de notebook. Medido en el navegador: la ganancia maestra llegaba
+ * a 0,06 con el motor energizado —sonaba— y no se oía, porque 50 Hz a ese nivel
+ * un altavoz chico no lo mueve. Ahora deja pasar los parciales que sí mueve.
+ */
+const FILTER_HZ = 1200;
+/**
+ * Ganancia del techo: el nivel 1 de `humLevel` suena a esto, no a fondo.
+ *
+ * Subió de 0,12 a 0,22 al abrir el filtro: el pico teórico de las voces
+ * (suma 1,87) queda en ~0,41, con margen contra el recorte.
+ */
+const HUM_GAIN = 0.22;
+/**
+ * Las voces del zumbido, con su ganancia relativa.
+ *
+ * La fundamental de 50 Hz y su batido son lo que hace sentirse un motor, pero
+ * un parlante chico no los reproduce: el sonido tiene que viajar también en los
+ * parciales. No es un truco para audífonos flojos — un motor real tiene serie
+ * armónica, y son los parciales de 100 a 300 Hz los que le dan el timbre.
+ */
+const VOICES: readonly (readonly [hz: number, level: number])[] = [
+  [BASE_HZ, 0.35], // fundamental: el cuerpo
+  [BASE_HZ + DETUNE_HZ, 0.35], // batido lento contra la fundamental
+  [HARMONIC_HZ, 0.35], // octava
+  [BASE_HZ * 3, 0.4], // el que se oye en un parlante de notebook
+  [BASE_HZ * 3 + 1, 0.3], // batido en la banda audible
+  [BASE_HZ * 6, 0.12], // aire mecánico
+];
 /** Envolvente de entrada y de salida, en milisegundos (S10). */
 export const ATTACK_MS = 250;
 export const RELEASE_MS = 200;
@@ -132,9 +160,7 @@ function ensureGraph(): Graph | null {
       gain.connect(filter);
       oscillator.start();
     };
-    voice(BASE_HZ, 0.6);
-    voice(BASE_HZ + DETUNE_HZ, 0.6);
-    voice(HARMONIC_HZ, 0.25);
+    for (const [hz, level] of VOICES) voice(hz, level);
     graph = { context, master };
     return graph;
   } catch {
