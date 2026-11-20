@@ -459,8 +459,12 @@ export function Canvas(props: Props): JSX.Element {
     onCancel();
   };
 
-  const cursorClass =
-    placing !== null ? 'canvas placing' : gesture.kind === 'panning' ? 'canvas panning' : 'canvas';
+  // Modo del puntero. Colocar un símbolo, arrastrar el lienzo y trazar un cable
+  // son las tres situaciones en que el puntero elige un punto o un extremo y no
+  // un objeto: el hover se apaga ahí para no competir con el gesto en curso.
+  const pointerMode: 'placing' | 'panning' | 'wiring' | null =
+    placing !== null ? 'placing' : gesture.kind === 'panning' ? 'panning' : wireStart !== null ? 'wiring' : null;
+  const cursorClass = pointerMode === null ? 'canvas' : `canvas ${pointerMode}`;
 
   const selectedWires = records.filter((r) => r.kind === 'connection' && selection.has(r.id));
 
@@ -652,11 +656,15 @@ function Component({
     : { x: 0, y: 0, w: box.width, h: box.height };
 
   return (
+    // `data-sel` marca el grupo entero como seleccionado: el designador y los
+    // rótulos de borne viven fuera del glifo, y sin esto la selección no los
+    // alcanzaba.
     <g
       data-id={rec.id}
       data-state={state}
       data-protection={protection ? '' : undefined}
       data-bad={bad || undefined}
+      data-sel={selected || undefined}
       transform={`translate(${x} ${y})`}
       style={{ cursor: 'move' }}
     >

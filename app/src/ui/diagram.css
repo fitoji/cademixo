@@ -31,9 +31,11 @@
   stroke: var(--grid-major);
 }
 
+/* El grosor de la tinta entra por variable: el hover y la selección lo suben
+   desde el grupo en vez de repintar cada trazo por separado. */
 .sym path {
   stroke: var(--ink);
-  stroke-width: 0.26;
+  stroke-width: var(--sym-stroke-w, 0.26);
   stroke-linejoin: round;
   stroke-linecap: round;
   fill: none;
@@ -44,7 +46,7 @@
 }
 
 .sym path.thin {
-  stroke-width: 0.17;
+  stroke-width: var(--sym-thin-w, 0.17);
   stroke: var(--ink-soft);
 }
 
@@ -156,12 +158,67 @@
   stroke-width: 0.8;
 }
 
+/*
+ * Selección de los textos del componente. El designador y el rótulo del borne se
+ * dibujan fuera del glifo, así que no los alcanzaba `.sym.sel`: se seleccionaba
+ * el componente y los dos textos seguían en su color de reposo, sin señalar
+ * nada. `data-sel` los cubre junto con el resto del grupo.
+ */
+[data-sel] .designator,
+[data-sel] .pinlabel {
+  fill: var(--select);
+}
+
+/*
+ * Selección del símbolo: el contorno pasa a acento y engorda, para leerse con el
+ * mismo peso que el cable seleccionado (que también duplica su grosor). El
+ * grosor va por variable porque el hover usa el mismo mecanismo con un valor
+ * más leve.
+ */
+.sym.sel {
+  --sym-stroke-w: 0.42;
+  --sym-thin-w: 0.28;
+}
+
 .sym.sel path {
   stroke: var(--select);
 }
 
+/*
+ * Los rellenos macizos se quedaban en tinta: el símbolo cambiaba de contorno
+ * pero su área sólida no, así que un símbolo relleno se veía igual seleccionado
+ * o no.
+ */
+.sym.sel path.fill {
+  fill: var(--select);
+}
+
+/* Los bornes del glifo sólo cambiaban de contorno; el relleno quedaba igual, a
+   diferencia de los bornes externos, que cambian enteros (`.pin.sel`). */
 .sym.sel .pin {
+  fill: var(--pin-sel-fill);
   stroke: var(--pin-sel-stroke);
+}
+
+/*
+ * Hover sobre un componente: un halo tenue del color de acento y la tinta algo
+ * más gruesa. Sin recuadro de componente, el lienzo no respondía al puntero: la
+ * única pista de que algo era clickeable era el cursor de arrastre.
+ *
+ * Se retira cuando el componente ya está señalando algo por su cuenta —está
+ * seleccionado, o la simulación le puso el halo de activo o de disparo— para no
+ * tapar el color de estado. Tampoco aparece mientras se coloca un símbolo, se
+ * arrastra el lienzo o se traza un cable: ahí el puntero elige un punto de la
+ * grilla o un extremo, no un objeto, y el halo distraería del gesto.
+ *
+ * `:has(.sym)` limita la regla a los grupos que en verdad dibujan un símbolo:
+ * el cable también lleva `data-id`, y sin ese filtro el halo y el grosor le
+ * caerían encima por herencia.
+ */
+.canvas:not(.placing):not(.panning):not(.wiring) [data-id]:has(.sym):hover:not([data-sel]):not([data-state='active']):not([data-state='tripped']) {
+  --sym-stroke-w: 0.44;
+  --sym-thin-w: 0.28;
+  filter: drop-shadow(0 0 0.9px color-mix(in oklab, var(--select) 55%, transparent));
 }
 
 .hitbox {
