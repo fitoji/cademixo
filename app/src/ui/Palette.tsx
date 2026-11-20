@@ -6,7 +6,7 @@ import { CATALOG } from '../symbols/catalog.ts';
 import { searchSymbols } from '../symbols/search.ts';
 import { getScope, subscribeScope } from '../symbols/scope.ts';
 import { getSettings, nextOpenAccordion, nextOpenCats, subscribeSettings } from './settings.ts';
-import { SymbolGlyph } from './SymbolGlyph.tsx';
+import { SymbolPreview } from './SymbolPreview.tsx';
 import { ComponentTooltip } from './ComponentTooltip.tsx';
 import { PanelHead } from './PanelHead.tsx';
 import type { Sheet } from '../model/project.ts';
@@ -189,9 +189,7 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
                         className="pal-tone grid size-[26px] shrink-0 place-items-center rounded-md border"
                         style={{ '--ink': cat.tone } as CSSProperties}
                       >
-                        <svg className="size-[22px]" viewBox="-4 -6 26 24" aria-hidden="true">
-                          <SymbolGlyph code={first.code} pinNames={first.pins.map((p) => p.name)} w={18} h={15} />
-                        </svg>
+                        <SymbolPreview code={first.code} pinNames={first.pins.map((p) => p.name)} />
                       </span>
                     )}
                     <span className="flex flex-col items-start leading-tight">
@@ -452,9 +450,7 @@ function SymbolTile({
           className="pal-tone grid size-[28px] shrink-0 place-items-center rounded-md border"
           style={{ '--ink': GROUP_TONE[group] } as CSSProperties}
         >
-          <svg className="size-[24px]" viewBox="-4 -6 26 24" aria-hidden="true">
-            <SymbolGlyph code={sym.code} pinNames={sym.pins.map((p) => p.name)} w={18} h={15} />
-          </svg>
+          <SymbolPreview code={sym.code} pinNames={sym.pins.map((p) => p.name)} />
         </span>
         <span className="w-full truncate text-center text-[8px] leading-tight">{sym.name}</span>
       </Button>
@@ -477,9 +473,7 @@ function SymbolRow({ sym, group, active, favorite, onPick, onToggleFavorite }: R
             className="pal-tone grid size-[30px] shrink-0 place-items-center rounded-md border"
             style={{ '--ink': GROUP_TONE[group] } as CSSProperties}
           >
-            <svg className="size-[26px]" viewBox="-4 -6 26 24" aria-hidden="true">
-              <SymbolGlyph code={sym.code} pinNames={sym.pins.map((p) => p.name)} w={18} h={15} />
-            </svg>
+            <SymbolPreview code={sym.code} pinNames={sym.pins.map((p) => p.name)} />
           </span>
           <span className="min-w-0 flex-1 truncate text-left text-xs">{sym.name}</span>
           <Badge variant="outline" className="ml-auto h-4 shrink-0 px-1 font-mono text-[10px] font-normal">

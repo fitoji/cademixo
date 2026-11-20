@@ -5,7 +5,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { SymbolDef } from '../symbols/library.ts';
-import { SymbolGlyph } from './SymbolGlyph.tsx';
+import { SymbolPreview } from './SymbolPreview.tsx';
 
 interface Props {
   sym: SymbolDef;
@@ -34,9 +34,7 @@ export function ComponentTooltip({ sym, label, tone, children }: Props): JSX.Ele
             className="pal-tone grid size-28 place-items-center rounded-md border"
             style={{ '--ink': tone } as CSSProperties}
           >
-            <svg className="size-24" viewBox="-4 -6 26 24" aria-hidden="true">
-              <SymbolGlyph code={sym.code} pinNames={pinNames} w={18} h={15} />
-            </svg>
+            <SymbolPreview code={sym.code} pinNames={pinNames} />
           </span>
           <p className="font-semibold">{sym.name}</p>
           <p className="text-xs">
