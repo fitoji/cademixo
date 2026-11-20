@@ -13,11 +13,11 @@ lote. El origen de cada spec es la línea textual de ese archivo.
 
 ## Tasks
 
-- T1 — Drop de `.cad` sobre la app, con la guarda de cambios sin guardar. Spec S1. Inline. commit: —
-- T2 — Botón central centra el proyecto (sin arrastre). Spec S2. Inline. commit: —
-- T3 — Estrella de favoritos en Propiedades, con grupo de favoritos en la paleta. Spec S3. Inline. commit: —
-- T4 — Giro del motor 1000 centrado sobre su eje al simular. Spec S4. Inline. commit: —
-- T5 — `cuelume` (S5): bloqueado hasta decidir qué sonido y dónde suena. commit: —
+- T1 — Drop de `.cad` sobre la app, con la guarda de cambios sin guardar. Spec S1. Inline. commit: 7c87cf6
+- T2 — Botón central centra el proyecto (sin arrastre). Spec S2. Inline. commit: c6eec0a
+- T3 — Estrella de favoritos en Propiedades, con grupo de favoritos en la paleta. Spec S3. Inline. commit: 330cf74
+- T4 — Giro del motor 1000 centrado sobre su eje al simular. Spec S4. Inline. commit: 3273bbd
+- T5 — `cuelume` (S5): pendiente de decisión. commit: —
 
 ## Log
 
@@ -29,3 +29,11 @@ lote. El origen de cada spec es la línea textual de ese archivo.
 - L3 — S5 no se aplica a ciegas: `cuelume` es una biblioteca de sonidos de
   interacción y la app todavía no tiene audio. Instalar una dependencia sin uso
   definido es un cambio de entrega sin objetivo; queda pendiente de decisión.
+- L4 — El usuario confirma en la app que el drop funciona, **incluido el camino
+  donde acepta guardar antes de abrir**: el único que la automatización no podía
+  alcanzar, porque sin handle de archivo abre el selector nativo del sistema.
+  S1 queda verificado de punta a punta y sin deuda de verificación.
+- L5 — S5 sigue abierta y no está bloqueada por código: se aplica cuando se
+  defina qué evento suena y con qué dispositivo del catálogo (los candidatos son
+  el timbre 9010/9012/9013 y el pulsador). Instalarla antes deja una dependencia
+  muerta en `package.json`.
