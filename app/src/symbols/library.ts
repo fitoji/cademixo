@@ -37,6 +37,7 @@ import {
   pinsBoth,
   rect,
   right,
+  tiltedSquare,
 } from './draw.ts';
 import { FAMILY_SYMBOLS, LINE_SYMBOLS, polesInCadeOrder } from './families.ts';
 import { QET_SYMBOLS } from './qet.ts';
@@ -1581,6 +1582,46 @@ const mushroom = (code: number, name: string, nc: boolean): SymbolDef => ({
   },
 });
 
+/**
+ * Relé térmico tripolar (6007), anclado al origen.
+ * Medido sobre `docs/cadesimu-svg/reference/cade-6007-capture.png` (registro
+ * 30,129; S=20, OX=-299, OY=-2308): tres polos con conductores en x=0/6/12,
+ * cuchilla de (−3,3) a (0,9), dado térmico relleno sobre la cuchilla y guion
+ * horizontal. El designador `ITM` lo pinta el lienzo, no va en la tinta.
+ */
+const thermalRelay3: SymbolDef = {
+  code: 6007,
+  name: 'Relé térmico',
+  group: 'proteccion',
+  pins: [
+    { name: '1', nx: 0, ny: 0, side: 'top' },
+    { name: '3', nx: 0.5, ny: 0, side: 'top' },
+    { name: '5', nx: 1, ny: 0, side: 'top' },
+    { name: '2', nx: 0, ny: 0.8, side: 'bottom' },
+    { name: '4', nx: 0.5, ny: 0.8, side: 'bottom' },
+    { name: '6', nx: 1, ny: 0.8, side: 'bottom' },
+  ],
+  anchor: 'origin',
+  originPins: [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '5', x: 12, y: 0 },
+    { name: '2', x: 0, y: 12 },
+    { name: '4', x: 6, y: 12 },
+    { name: '6', x: 12, y: 12 },
+  ],
+  size: { w: 21, h: 15 },
+  shapes() {
+    return [0, 6, 12].flatMap((x) => [
+      { d: line(x, 0.05, x, 3) },
+      { d: line(x - 3, 3, x, 9) },
+      { d: tiltedSquare(x - 2.8, 5.15, 1.09, -74), fill: true },
+      { d: line(x - 3.6, 5.7, x - 1.7, 5.7) },
+      { d: line(x, 9, x, 12) },
+    ]);
+  },
+};
+
 const mushroomNA: SymbolDef = mushroom(8004, 'Contacto pulsador seta NA', false);
 const mushroomNC: SymbolDef = mushroom(8005, 'Contacto pulsador seta NC', true);
 
@@ -1664,6 +1705,7 @@ const ALL: SymbolDef[] = [
   pushChangeover,
   mushroomNA,
   mushroomNC,
+  thermalRelay3,
   switchNO,
   switchNANC,
   ...FAMILY_SYMBOLS,

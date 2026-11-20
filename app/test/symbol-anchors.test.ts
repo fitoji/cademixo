@@ -557,8 +557,8 @@ test('el rótulo del borne va a su derecha y el designador a la izquierda del s�
 
 test('los símbolos que no se migraron siguen dibujándose en su caja', () => {
   // El anclaje al origen es opt-in: el resto del catálogo no se mueve.
-  // El 2001 ya migró (test de arriba); el 6007 sigue sin registro que lo ancle.
-  for (const code of [6007]) {
+  // El 2001, el 6007 y la 1051 ya migraron; la 3006 sigue en su caja.
+  for (const code of [3006]) {
     const sym = resolveSymbol(code, []);
     assert.notEqual(sym.anchor, 'origin', `${code} no debería estar anclado todavía`);
   }
@@ -634,6 +634,27 @@ test('el contacto del térmico (8017) va anclado al origen', () => {
   const ink = shapesBounds(sh);
   assert.equal(ink.minY, 0, 'la tinta arranca en la fila del borne 95');
   assert.equal(ink.maxY, 12, 'la tinta termina en la fila del borne 96');
+});
+
+test('el relé térmico tripolar (6007) va anclado al origen', () => {
+  const sym = resolveSymbol(6007, ['1', '3', '5', '2', '4', '6']);
+  assert.equal(sym.anchor, 'origin');
+  assert.deepEqual(sym.originPins, [
+    { name: '1', x: 0, y: 0 },
+    { name: '3', x: 6, y: 0 },
+    { name: '5', x: 12, y: 0 },
+    { name: '2', x: 0, y: 12 },
+    { name: '4', x: 6, y: 12 },
+    { name: '6', x: 12, y: 12 },
+  ]);
+  const sh = sym.shapes(21, 15);
+  assert.equal(sh.length, 15, 'cinco trazos por polo');
+  assert.equal(sh.filter((x) => x.fill).length, 3, 'un dado térmico relleno por polo');
+  assert.ok(sh.some((x) => x.d === 'M0 0.05L0 3'), 'conductor superior');
+  assert.ok(sh.some((x) => x.d === 'M12 9L12 12'), 'conductor inferior');
+  const ink = shapesBounds(sh);
+  assert.equal(ink.minY, 0.05);
+  assert.equal(ink.maxY, 12);
 });
 
 test('la paleta del térmico (8017) es una hoja maciza, no catorce puntos', () => {

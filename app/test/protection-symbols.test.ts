@@ -128,19 +128,18 @@ test('las siete protecciones de la fábrica CADeSimu llevan cuchilla con metadat
   assert.ok(squares > 0, 'los cuadros de disparo también llevan metadato y se mueven');
 });
 
-test('el relé térmico no tiene cuchilla: sus conductores son rectos', () => {
+test('el relé térmico (6007) replica la captura real de CADe', () => {
   const ds = paths(6007, [], 21);
-  // Conductora recta de la fila superior a la inferior, en cada polo.
+  // Cada polo lleva conductor superior, cuchilla inclinada y conductor inferior.
   for (const x of [0, 6, 12]) {
-    assert.ok(ds.includes(`M${x} 0L${x} 12`), `el térmico: falta la conductora recta del polo ${x}`);
+    assert.ok(ds.includes(`M${x} 0.05L${x} 3`), `falta la conductora superior del polo ${x}`);
+    assert.ok(ds.includes(`M${x - 3} 3L${x} 9`), `falta la cuchilla del polo ${x}`);
+    assert.ok(ds.includes(`M${x} 9L${x} 12`), `falta la conductora inferior del polo ${x}`);
+    assert.ok(ds.includes(`M${x - 3.6} 5.7L${x - 1.7} 5.7`), `falta el guion del polo ${x}`);
   }
-  // La cuchilla vieja era una diagonal: no puede quedar ninguna.
-  const diagonals = ds.filter((d) => /M(-?[\d.]+) (-?[\d.]+)L(-?[\d.]+) (-?[\d.]+)/.test(d) && (() => {
-    const m = /M(-?[\d.]+) (-?[\d.]+)L(-?[\d.]+) (-?[\d.]+)/.exec(d)!;
-    return m[1] !== m[3];
-  })());
-  assert.deepEqual(diagonals, [], 'el térmico no tiene diagonales');
-  assert.equal(resolveSymbol(6007, []).shapes(21, 15).filter((s) => s.fill).length, 0);
+  // El dado térmico es tinta rellena, igual que en la captura.
+  assert.equal(ds.filter((d) => d.endsWith('Z')).length, 3);
+  assert.equal(resolveSymbol(6007, []).shapes(21, 15).filter((s) => s.fill).length, 3);
 });
 
 test('el automático IN sigue anclado al origen con el cuadro sólo en el primer polo', () => {

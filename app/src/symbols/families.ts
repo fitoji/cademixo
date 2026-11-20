@@ -508,7 +508,8 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   protectionDevice(6006, 3, { w: 18, h: 15 }, { cadesimu: true, tripSquare: 'none', torus: true, trip: true, cadeOrder: true }),
   // El térmico dibuja el gancho de cada polo en su celda (`rele termico.png`):
   // sus conductores son rectos, no llevan cuchilla.
-  protectionDevice(6007, 3, { w: 21, h: 15 }, { body: true, hook: true, straight: true, cadeOrder: true }), // medido
+  // 6007 («Relé térmico») vive en `library.ts` calibrado contra la captura
+  // real de CADe (cade-6007-capture.png): tres polos con cuchilla y dado.
   // 6008 («Disyuntor II») vive en `library.ts` calibrado contra
   // `componentes01`, anclado al origen.
   // Disyuntor III: caja de dos filas, gancho arriba y triángulo abajo, con el
