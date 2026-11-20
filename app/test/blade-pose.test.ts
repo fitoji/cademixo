@@ -222,3 +222,19 @@ test('8003 y 8017 estrenan cuchilla con metadata', () => {
     );
   }
 });
+
+test('el contacto de potencia (2001) muestra el cierre en sus tres polos', () => {
+  // Reporte del usuario: el 7000 cerraba el 2001 eléctricamente pero no se veía
+  // el cierre. La diagonal se dibujaba sin metadato `blade`, así que no había
+  // rotación posible; ahora cada polo pivota en su borne inferior y cierra
+  // vertical, con el mismo ángulo que el polo de CADeSimu.
+  const blades = bladesOf(2001, ['1', '3', '5', '2', '4', '6'], 18, 15);
+  assert.equal(blades.length, 3, 'tres polos, tres cuchillas');
+  for (const [i, p] of [0, 6, 12].entries()) {
+    const blade = blades.find((s) => s.blade!.px === p);
+    assert.ok(blade, `falta la cuchilla del polo ${p}`);
+    assert.equal(blade!.blade!.py, 9, `el polo ${i} pivota en su borne inferior`);
+    assert.equal(bladeAngle(blade!.blade!, { closed: false }), 0, `el polo ${i} en reposo se dibuja abierto`);
+    assert.ok(bladeAngle(blade!.blade!, { closed: true }) > 20, `el polo ${i} cierra al conducir`);
+  }
+});

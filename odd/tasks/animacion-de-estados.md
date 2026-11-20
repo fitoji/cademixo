@@ -119,3 +119,13 @@ cuchilla al abrir y cerrar, y el pulsador 8000 muestra el accionar. Branch:
   la pulsación visible del 8000 en el lienzo real, donde `pressed` llega desde
   `Canvas` (`state === 'pressed'`). Todo lo demás está cubierto por las
   funciones puras (`bladeAngle`/`bladeTransform`) y el differential de formas.
+- L5: segundo caso de la misma clase, reportado por el usuario: "cuando 7000
+  cierra activa 2001 automaticamente, pero no veo el cierre grafico". El 2001
+  (contacto de potencia) dibujaba la diagonal de cada polo sin metadato `blade`,
+  así que su cierre eléctrico no tenía animación posible, igual que las
+  protecciones de `cadesimuPole`. Barrido sobre los 232 símbolos buscando
+  diagonales de polo sin `blade`: era el único que quedaba. Se le puso el mismo
+  pivote (borne inferior) y el mismo ángulo que la fábrica de protecciones,
+  exportado como `CADESIMU_BLADE_DEG` desde `draw.ts` para que sea una sola
+  fuente. En reposo el ángulo sigue siendo 0, así que el hash de `rest-ink` no
+  cambia; hay test de las tres cuchillas (reposo abierto, cierre > 20°).

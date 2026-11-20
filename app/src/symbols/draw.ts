@@ -17,7 +17,10 @@ export const circle = (cx: number, cy: number, r: number): string =>
   `M${round(cx - r)} ${round(cy)}a${round(r)} ${round(r)} 0 1 0 ${round(r * 2)} 0a${round(r)} ${round(r)} 0 1 0 ${round(-r * 2)} 0Z`;
 
 /**
- * Giro que deja vertical la cuchilla del polo CADeSimu, en grados.
+ * Giro que deja vertical la cuchilla de un polo dibujado abierto, en grados.
+ *
+ * Lo usan el polo de CADeSimu (`cadesimuPole`) y el contacto de potencia
+ * (`2001`): los dos dibujan la misma diagonal abierta, de (p − 3, 3) a (p, 9).
  *
  * La cuchilla se dibuja de (x − 3, 3) a (x, 9): desde su pivote (x, 9) el
  * vector es (−3, −6), esto es tres unidades a la izquierda por seis de caída.
@@ -27,7 +30,7 @@ export const circle = (cx: number, cy: number, r: number): string =>
  * "gira al cerrar" y la rotación de SVG lleva la punta de la izquierda a la
  * columna del polo.
  */
-const CADESIMU_BLADE_DEG = round((Math.atan2(3, 6) * 180) / Math.PI);
+export const CADESIMU_BLADE_DEG = round((Math.atan2(3, 6) * 180) / Math.PI);
 
 /**
  * Polo del interruptor automático, con la geometría medida en CADeSimu.

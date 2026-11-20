@@ -27,6 +27,7 @@ export type SymbolGroup =
   | 'otro';
 
 import {
+  CADESIMU_BLADE_DEG,
   cadesimuLamp,
   circle,
   contact,
@@ -214,7 +215,9 @@ const powerContact: SymbolDef = {
     return [
       ...[0, 6, 12].flatMap((p) => [
         { d: line(p, 0, p, 3) },
-        { d: line(p - 3, 3, p, 9) },
+        // Cuchilla móvil: pivota en su extremo inferior y al cerrar gira hasta
+        // quedar vertical, igual que el polo de CADeSimu (`cadesimuPole`).
+        { d: line(p - 3, 3, p, 9), blade: { px: p, py: 9, deg: CADESIMU_BLADE_DEG } },
         { d: line(p, 9, p, 12) },
       ]),
       { d: line(-1.5, 6, 0.5, 6), thin: true },
