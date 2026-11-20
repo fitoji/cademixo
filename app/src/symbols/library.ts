@@ -37,7 +37,6 @@ import {
   pinsBoth,
   rect,
   right,
-  threePole,
 } from './draw.ts';
 import { FAMILY_SYMBOLS, LINE_SYMBOLS, polesInCadeOrder } from './families.ts';
 import { QET_SYMBOLS } from './qet.ts';
@@ -153,7 +152,7 @@ export interface OriginPin {
 }
 
 // --- helpers de dibujo -------------------------------------------------------
-// (line, rect, circle, left, right, spread, pinsBoth, contact, threePole y
+// (line, rect, circle, left, right, spread, pinsBoth, contact y
 // poles viven en draw.ts: las familias generadas los comparten.)
 
 const genericPins = (names: string[]): SymbolPin[] =>
@@ -591,77 +590,6 @@ const selectorCO8015: SymbolDef = {
       { d: line(0, 9, 0, 12) },
       { d: line(6, 9, 6, 12) },
     ];
-  },
-};
-
-/** Bornes de los aparatos tripolares: 1-3-5 arriba, 2-4-6 abajo. */
-const SIX_POLES: SymbolPin[] = [
-  left(0.18, '1'),
-  left(0.5, '3'),
-  left(0.82, '5'),
-  right(0.18, '2'),
-  right(0.5, '4'),
-  right(0.82, '6'),
-];
-
-/** Detalle de disparo magnético/térmico que distingue al automático. */
-function tripDetail(w: number, h: number): Shape[] {
-  const cy = h / 2;
-  const mx = w / 2;
-  return [
-    { d: rect(mx - w * 0.06, cy - h * 0.3, w * 0.12, h * 0.12), thin: true },
-    { d: line(mx, cy - h * 0.3, mx, cy - h * 0.4), thin: true },
-  ];
-}
-
-const fuse: SymbolDef = {
-  code: 6009,
-  name: 'Disyuntor III',
-  group: 'proteccion',
-  pins: SIX_POLES,
-  shapes(w, h) {
-    return threePole(w, h, false);
-  },
-};
-
-const breaker: SymbolDef = {
-  code: 6003,
-  name: 'Automático III',
-  group: 'proteccion',
-  pins: SIX_POLES,
-  shapes(w, h) {
-    return [...threePole(w, h, false), ...tripDetail(w, h)];
-  },
-};
-
-const thermalRelay: SymbolDef = {
-  code: 6007,
-  name: 'Relé térmico',
-  group: 'proteccion',
-  pins: SIX_POLES,
-  shapes(w, h) {
-    const cy = h / 2;
-    return [
-      ...threePole(w, h, false),
-      { d: rect(w * 0.36, cy - h * 0.12, w * 0.28, h * 0.24), thin: true },
-      { d: line(w * 0.36, cy + h * 0.12, w * 0.64, cy - h * 0.12), thin: true },
-    ];
-  },
-};
-
-/**
- * Automático II: dos polos con el detalle de disparo.
- *
- * El automático IN (6001) tiene su propia definición, anclada al origen y con
- * la geometría medida en CADeSimu (`draw.ts:cadesimuPole`).
- */
-const breaker4: SymbolDef = {
-  code: 6002,
-  name: 'Automático II',
-  group: 'proteccion',
-  pins: [left(0.3, '1'), left(0.7, '3'), right(0.3, '2'), right(0.7, '4')],
-  shapes(w, h) {
-    return [...threePole(w, h, false), ...tripDetail(w, h)];
   },
 };
 
@@ -1359,20 +1287,6 @@ const feedPos: SymbolDef = feed(3008, 'Alimentación +', [right(0.5, '+')]);
 
 const feedDC: SymbolDef = feed(3010, 'Alimentación + -', [right(0.3, '+'), right(0.7, '-')]);
 
-/** Aparato de un polo: un solo corte más el detalle de disparo. */
-const onePole = (code: number, name: string): SymbolDef => ({
-  code,
-  name,
-  group: 'proteccion',
-  pins: [left(0.5, '1'), right(0.5, '2')],
-  size: { w: 12, h: 15 },
-  shapes(w, h) {
-    return [...contact(w, h / 2, false), ...tripDetail(w, h)];
-  },
-});
-
-const auto1: SymbolDef = onePole(6000, 'Automático I');
-
 // 6010 («Disyuntor I») se midió contra `componentes01`: vive arriba como
 // `breakerMotor1`, anclado al origen y con el disparo magnético propio.
 
@@ -1726,14 +1640,10 @@ const ALL: SymbolDef[] = [
   feed3NPE,
   feedPos,
   feedDC,
-  fuse,
   fuse5001,
   fuse5003,
   fuse1,
   fuse2,
-  breaker,
-  thermalRelay,
-  breaker4,
   coil,
   auxContact,
   auxContactNC,
@@ -1751,7 +1661,6 @@ const ALL: SymbolDef[] = [
   motorWound,
   motorTwoSpeeds,
   motorAsSingle,
-  auto1,
   disyuntor2,
   auxNANC,
   auxCO7003,

@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '../src/format/cade.ts';
 import { buildProject, boxOf } from '../src/model/project.ts';
-import { resolveSymbol, symbolList, fallbackSymbol } from '../src/symbols/library.ts';
+import { resolveSymbol, symbolList, lineList, fallbackSymbol } from '../src/symbols/library.ts';
 import { TEMPLATES, TEMPLATE_CODES } from '../src/symbols/templates.ts';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -60,6 +60,15 @@ test('los símbolos declarados tienen bornes con posición dentro de la caja', (
       assert.notEqual(p.name, '', `${sym.code}: borne sin nombre`);
     }
   }
+});
+
+test('un solo símbolo por código: la paleta no repite el mismo aparato', () => {
+  // 6000, 6002, 6003, 6007 y 6009 tenían una definición vieja hecha a mano y la
+  // generada desde los planos: un tile de más por código, ambos con el mismo
+  // nombre y el mismo registro real. `symbolFor` ya resolvía a la generada.
+  const codes = [...symbolList(), ...lineList()].map((sym) => sym.code);
+  const repeated = codes.filter((code, i) => codes.indexOf(code) !== i);
+  assert.deepEqual(repeated, [], `códigos dibujados dos veces: ${repeated.join(', ')}`);
 });
 
 test('la lámpara marca su vidrio para pintarse con el color del archivo', () => {

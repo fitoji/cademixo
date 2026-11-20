@@ -58,9 +58,9 @@ function restingFingerprint(): { codes: number; hash: string } {
   };
 }
 
-test('el dibujo en reposo de los 232 códigos es el calibrado', () => {
+test('el dibujo en reposo de los 227 códigos es el calibrado', () => {
   const { codes, hash } = restingFingerprint();
-  assert.equal(codes, 232, `la librería dibuja ${codes} códigos y no los 232 calibrados`);
+  assert.equal(codes, 227, `la librería dibuja ${codes} códigos y no los 227 calibrados`);
   // Huella regenerada por `bornes-grilla-del-archivo` (S5): los seis pulsadores
   // 8000-8005 dejaron de coincidir con la captura de CADe por decisión de
   // producto —sus bornes son las filas 0/12 del registro y la tinta se corrió
@@ -72,9 +72,14 @@ test('el dibujo en reposo de los 232 códigos es el calibrado', () => {
   // +12 en `y` para que los bornes del archivo (filas 0 y 12) caigan sobre ella.
   // El 9004 no entra: queda bloqueado, sin tocar. El resto de los 227 códigos
   // conserva la huella anterior (diferencial de tinta: 5 de 232 códigos).
+  //
+  // Huella regenerada al quitar los símbolos duplicados (6000, 6002, 6003,
+  // 6007, 6009): la lista pasa de 232 a 227 entradas porque esos cinco códigos
+  // tenían una definición vieja y la generada desde los planos. La tinta de
+  // cada código no cambió: sólo desaparecieron líneas repetidas del listado.
   assert.equal(
     hash,
-    '5d1b1d68c92439b801a5cfcc19f6ffca289e60b548cc9db37ffd8b57f95d90ac',
+    '53a49a63b572a631d19f1e906c0718113727ad0607327b9f0ee8f4f568ef2a3c',
     `la tinta en reposo cambió (huella ${hash}): el dibujo sin simular ya no es el calibrado`,
   );
 });

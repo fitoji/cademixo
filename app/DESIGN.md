@@ -232,7 +232,7 @@ Marco fijo de tres bandas con dos columnas laterales. El documento nunca hace sc
 
 - **Header** 46px, siempre visible, con el menubar a la izquierda y las acciones frecuentes a la derecha. Es la única banda con navegación de producto.
 - **Footer** 26px en mono de 11px: archivo abierto, conteos, estado de alimentación, avisos y zoom. Es el tablero de instrumentos, y por eso no tiene botones.
-- **Paleta** 232px a la izquierda: grupos de símbolos plegables, favoritos y las hojas del documento al pie.
+- **Paleta** 232px a la izquierda: buscador, grupos de símbolos plegables, recientes, favoritos y las hojas del documento al pie.
 - **Inspector** 268px a la derecha: propiedades de la selección, red detectada y avisos.
 - **Lienzo**: toma todo el resto y nunca se comprime por debajo de 640px.
 
