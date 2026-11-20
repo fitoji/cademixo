@@ -7,6 +7,7 @@ import { searchSymbols } from '../symbols/search.ts';
 import { getScope, subscribeScope } from '../symbols/scope.ts';
 import { getSettings, nextOpenAccordion, nextOpenCats, subscribeSettings } from './settings.ts';
 import { SymbolGlyph } from './SymbolGlyph.tsx';
+import { ComponentTooltip } from './ComponentTooltip.tsx';
 import { PanelHead } from './PanelHead.tsx';
 import type { Sheet } from '../model/project.ts';
 import { getFavorites, isFavorite, subscribeFavorites, toggleStoredFavorite } from './favorites.ts';
@@ -440,23 +441,24 @@ function SymbolTile({
   onPick: (code: number | null) => void;
 }): JSX.Element {
   return (
-    <Button
-      variant={active ? 'secondary' : 'ghost'}
-      className="flex h-auto w-[56px] flex-col items-center gap-0.5 px-0.5 py-1"
-      title={`${sym.name} — código ${sym.code}`}
-      aria-pressed={active}
-      onClick={() => onPick(active ? null : sym.code)}
-    >
-      <span
-        className="pal-tone grid size-[28px] shrink-0 place-items-center rounded-md border"
-        style={{ '--ink': GROUP_TONE[group] } as CSSProperties}
+    <ComponentTooltip sym={sym} label={GROUP_LABEL[group]} tone={GROUP_TONE[group]}>
+      <Button
+        variant={active ? 'secondary' : 'ghost'}
+        className="flex h-auto w-[56px] flex-col items-center gap-0.5 px-0.5 py-1"
+        aria-pressed={active}
+        onClick={() => onPick(active ? null : sym.code)}
       >
-        <svg className="size-[24px]" viewBox="-4 -6 26 24" aria-hidden="true">
-          <SymbolGlyph code={sym.code} pinNames={sym.pins.map((p) => p.name)} w={18} h={15} />
-        </svg>
-      </span>
-      <span className="w-full truncate text-center text-[8px] leading-tight">{sym.name}</span>
-    </Button>
+        <span
+          className="pal-tone grid size-[28px] shrink-0 place-items-center rounded-md border"
+          style={{ '--ink': GROUP_TONE[group] } as CSSProperties}
+        >
+          <svg className="size-[24px]" viewBox="-4 -6 26 24" aria-hidden="true">
+            <SymbolGlyph code={sym.code} pinNames={sym.pins.map((p) => p.name)} w={18} h={15} />
+          </svg>
+        </span>
+        <span className="w-full truncate text-center text-[8px] leading-tight">{sym.name}</span>
+      </Button>
+    </ComponentTooltip>
   );
 }
 
@@ -464,26 +466,27 @@ function SymbolTile({
 function SymbolRow({ sym, group, active, favorite, onPick, onToggleFavorite }: RowProps): JSX.Element {
   return (
     <div className="flex items-center gap-0.5">
-      <Button
-        variant={active ? 'secondary' : 'ghost'}
-        className="h-auto min-w-0 flex-1 justify-start gap-2 px-1.5 py-1"
-        title={`${sym.name} — código ${sym.code}`}
-        aria-pressed={active}
-        onClick={() => onPick(active ? null : sym.code)}
-      >
-        <span
-          className="pal-tone grid size-[30px] shrink-0 place-items-center rounded-md border"
-          style={{ '--ink': GROUP_TONE[group] } as CSSProperties}
+      <ComponentTooltip sym={sym} label={GROUP_LABEL[group]} tone={GROUP_TONE[group]}>
+        <Button
+          variant={active ? 'secondary' : 'ghost'}
+          className="h-auto min-w-0 flex-1 justify-start gap-2 px-1.5 py-1"
+          aria-pressed={active}
+          onClick={() => onPick(active ? null : sym.code)}
         >
-          <svg className="size-[26px]" viewBox="-4 -6 26 24" aria-hidden="true">
-            <SymbolGlyph code={sym.code} pinNames={sym.pins.map((p) => p.name)} w={18} h={15} />
-          </svg>
-        </span>
-        <span className="min-w-0 flex-1 truncate text-left text-xs">{sym.name}</span>
-        <Badge variant="outline" className="ml-auto h-4 shrink-0 px-1 font-mono text-[10px] font-normal">
-          {sym.code}
-        </Badge>
-      </Button>
+          <span
+            className="pal-tone grid size-[30px] shrink-0 place-items-center rounded-md border"
+            style={{ '--ink': GROUP_TONE[group] } as CSSProperties}
+          >
+            <svg className="size-[26px]" viewBox="-4 -6 26 24" aria-hidden="true">
+              <SymbolGlyph code={sym.code} pinNames={sym.pins.map((p) => p.name)} w={18} h={15} />
+            </svg>
+          </span>
+          <span className="min-w-0 flex-1 truncate text-left text-xs">{sym.name}</span>
+          <Badge variant="outline" className="ml-auto h-4 shrink-0 px-1 font-mono text-[10px] font-normal">
+            {sym.code}
+          </Badge>
+        </Button>
+      </ComponentTooltip>
       <Button
         variant="ghost"
         size="icon-xs"
