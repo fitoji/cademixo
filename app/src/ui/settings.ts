@@ -1,10 +1,11 @@
 /**
  * Ajustes de apariencia del simulador.
  *
- * Tres preferencias que sólo cambian cómo se dibuja el esquema: el tamaño de
- * los bornes, el grosor de los cables y el auto cierre de los paneles de la
- * paleta. Viven fuera de React para que el diálogo de configuración, el lienzo
- * y la paleta compartan el valor; la UI se suscribe con `useSyncExternalStore`.
+ * Cuatro preferencias que sólo cambian cómo se dibuja el esquema y cómo se
+ * comporta la paleta: el tamaño de los bornes, el grosor de los cables, la
+ * orientación de los paneles de componentes y el auto cierre. Viven fuera de
+ * React para que el diálogo de configuración, el lienzo y la paleta compartan el
+ * valor; la UI se suscribe con `useSyncExternalStore`.
  *
  * Sin `localStorage` disponible (tests en node, modo privado) todo cae a los
  * valores por defecto sin romper la aplicación.
@@ -12,10 +13,13 @@
 
 export type PinSize = 'chico' | 'normal' | 'grande';
 export type WireWidth = 'fino' | 'normal' | 'grueso';
+/** Orientación de la barra de componentes: arriba (horizontal) o al costado. */
+export type Paneles = 'horizontal' | 'vertical';
 
 export type Settings = {
   pinSize: PinSize;
   wireWidth: WireWidth;
+  paneles: Paneles;
   autoCierre: boolean;
 };
 
@@ -23,6 +27,7 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   pinSize: 'normal',
   wireWidth: 'normal',
+  paneles: 'horizontal',
   autoCierre: false,
 };
 
@@ -30,6 +35,7 @@ export const SETTINGS_KEY = 'simuelectro:ajustes';
 
 const PIN_SIZES: readonly PinSize[] = ['chico', 'normal', 'grande'];
 const WIRE_WIDTHS: readonly WireWidth[] = ['fino', 'normal', 'grueso'];
+const PANELES: readonly Paneles[] = ['horizontal', 'vertical'];
 
 function isPinSize(value: unknown): value is PinSize {
   return typeof value === 'string' && (PIN_SIZES as readonly string[]).includes(value);
@@ -37,6 +43,10 @@ function isPinSize(value: unknown): value is PinSize {
 
 function isWireWidth(value: unknown): value is WireWidth {
   return typeof value === 'string' && (WIRE_WIDTHS as readonly string[]).includes(value);
+}
+
+function isPaneles(value: unknown): value is Paneles {
+  return typeof value === 'string' && (PANELES as readonly string[]).includes(value);
 }
 
 /** Lee un objeto de ajustes tolerando basura: campo inválido, default del campo. */
@@ -55,6 +65,7 @@ export function parseSettings(raw: string | null): Settings {
   return {
     pinSize: isPinSize(record.pinSize) ? record.pinSize : DEFAULT_SETTINGS.pinSize,
     wireWidth: isWireWidth(record.wireWidth) ? record.wireWidth : DEFAULT_SETTINGS.wireWidth,
+    paneles: isPaneles(record.paneles) ? record.paneles : DEFAULT_SETTINGS.paneles,
     autoCierre:
       typeof record.autoCierre === 'boolean' ? record.autoCierre : DEFAULT_SETTINGS.autoCierre,
   };
@@ -64,6 +75,7 @@ export function serializeSettings(settings: Settings): string {
   return JSON.stringify({
     pinSize: settings.pinSize,
     wireWidth: settings.wireWidth,
+    paneles: settings.paneles,
     autoCierre: settings.autoCierre,
   });
 }
@@ -91,6 +103,7 @@ export function setSettings(patch: Partial<Settings>): void {
   if (
     next.pinSize === current.pinSize &&
     next.wireWidth === current.wireWidth &&
+    next.paneles === current.paneles &&
     next.autoCierre === current.autoCierre
   ) {
     return;
@@ -156,4 +169,22 @@ export function nextOpenCats(prev: string[], key: string, autoCierre: boolean): 
   const abierto = prev.includes(key);
   if (autoCierre) return abierto ? [] : [key];
   return abierto ? prev.filter((k) => k !== key) : [...prev, key];
+}
+
+/**
+ * Valor controlado del acordeón vertical de la paleta.
+ *
+ * Radix entrega el conjunto de paneles abiertos después del clic, no cuál se
+ * tocó; con auto cierre prendido sólo sobrevive el panel recién abierto, y
+ * cerrar sigue cerrando. Apagado, el acordeón hace lo que el usuario abrió
+ * (varios paneles a la vez), igual que la barra horizontal.
+ */
+export function nextOpenAccordion(
+  prev: string[],
+  values: string[],
+  autoCierre: boolean,
+): string[] {
+  if (!autoCierre) return values;
+  const nuevo = values.find((value) => !prev.includes(value));
+  return nuevo === undefined ? values : nextOpenCats(prev, nuevo, autoCierre);
 }

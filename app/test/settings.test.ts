@@ -1,4 +1,7 @@
-/** Ajustes de apariencia: codec tolerante, store, derivaciones y auto cierre. */
+/**
+ * Ajustes de apariencia: codec tolerante (incluida la orientación de los
+ * paneles), store, derivaciones y auto cierre en las dos orientaciones.
+ */
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
@@ -7,6 +10,7 @@ import {
   SETTINGS_KEY,
   attachPinRadius,
   getSettings,
+  nextOpenAccordion,
   nextOpenCats,
   parseSettings,
   pinRadius,
@@ -22,7 +26,12 @@ import {
 test('sin nada guardado valen los ajustes por defecto', () => {
   assert.deepEqual(parseSettings(null), DEFAULT_SETTINGS);
   assert.deepEqual(parseSettings(''), DEFAULT_SETTINGS);
-  assert.deepEqual(DEFAULT_SETTINGS, { pinSize: 'normal', wireWidth: 'normal', autoCierre: false });
+  assert.deepEqual(DEFAULT_SETTINGS, {
+    pinSize: 'normal',
+    wireWidth: 'normal',
+    paneles: 'horizontal',
+    autoCierre: false,
+  });
 });
 
 test('la basura y el JSON roto caen a los valores por defecto', () => {
@@ -37,21 +46,29 @@ test('un objeto parcial completa cada campo con su default', () => {
   assert.deepEqual(parseSettings('{"pinSize":"grande"}'), {
     pinSize: 'grande',
     wireWidth: 'normal',
+    paneles: 'horizontal',
     autoCierre: false,
   });
   assert.deepEqual(parseSettings('{"autoCierre":true}'), {
     pinSize: 'normal',
     wireWidth: 'normal',
+    paneles: 'horizontal',
     autoCierre: true,
   });
 });
 
 test('un valor desconocido cae sólo al default de su campo', () => {
   const parsed = parseSettings('{"pinSize":"enorme","wireWidth":"gigante","autoCierre":true}');
-  assert.deepEqual(parsed, { pinSize: 'normal', wireWidth: 'normal', autoCierre: true });
+  assert.deepEqual(parsed, {
+    pinSize: 'normal',
+    wireWidth: 'normal',
+    paneles: 'horizontal',
+    autoCierre: true,
+  });
   assert.deepEqual(parseSettings('{"pinSize":"chico","wireWidth":"fino"}'), {
     pinSize: 'chico',
     wireWidth: 'fino',
+    paneles: 'horizontal',
     autoCierre: false,
   });
 });
@@ -62,6 +79,7 @@ test('un tipo equivocado cae sólo al default de su campo', () => {
   assert.deepEqual(parseSettings('{"pinSize":["grande"],"wireWidth":"grueso","autoCierre":0}'), {
     pinSize: 'normal',
     wireWidth: 'grueso',
+    paneles: 'horizontal',
     autoCierre: false,
   });
 });
@@ -74,14 +92,51 @@ test('un objeto o un número en lugar del valor cae al default del campo', () =>
 test('serializar y volver a parsear devuelve los mismos ajustes', () => {
   const values = [
     DEFAULT_SETTINGS,
-    { pinSize: 'chico', wireWidth: 'fino', autoCierre: true },
-    { pinSize: 'grande', wireWidth: 'grueso', autoCierre: true },
+    { pinSize: 'chico', wireWidth: 'fino', paneles: 'vertical', autoCierre: true },
+    { pinSize: 'grande', wireWidth: 'grueso', paneles: 'horizontal', autoCierre: true },
   ] as const;
   for (const settings of values) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
   }
-  const text = serializeSettings({ pinSize: 'grande', wireWidth: 'fino', autoCierre: true });
-  assert.deepEqual(JSON.parse(text), { pinSize: 'grande', wireWidth: 'fino', autoCierre: true });
+  const text = serializeSettings({
+    pinSize: 'grande',
+    wireWidth: 'fino',
+    paneles: 'vertical',
+    autoCierre: true,
+  });
+  assert.deepEqual(JSON.parse(text), {
+    pinSize: 'grande',
+    wireWidth: 'fino',
+    paneles: 'vertical',
+    autoCierre: true,
+  });
+});
+
+// --- Orientación de los paneles de componentes ----------------------------
+
+test('sin preferencia los paneles de componentes son horizontales', () => {
+  assert.equal(DEFAULT_SETTINGS.paneles, 'horizontal');
+  assert.equal(parseSettings(null).paneles, 'horizontal');
+  assert.equal(parseSettings('{}').paneles, 'horizontal');
+});
+
+test('la orientación vertical guardada vuelve a leerse', () => {
+  assert.equal(parseSettings('{"paneles":"vertical"}').paneles, 'vertical');
+  const guardado = serializeSettings({ ...DEFAULT_SETTINGS, paneles: 'vertical' });
+  assert.equal(parseSettings(guardado).paneles, 'vertical');
+  assert.equal(JSON.parse(guardado).paneles, 'vertical');
+});
+
+test('una orientación inválida cae a horizontal sin tocar los otros campos', () => {
+  assert.deepEqual(parseSettings('{"paneles":"diagonal"}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"paneles":null}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"paneles":["vertical"]}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"paneles":3,"pinSize":"grande"}'), {
+    pinSize: 'grande',
+    wireWidth: 'normal',
+    paneles: 'horizontal',
+    autoCierre: false,
+  });
 });
 
 // --- Reducer del auto cierre ----------------------------------------------
@@ -107,6 +162,24 @@ test('tocar el panel abierto lo cierra en los dos modos', () => {
 test('sin auto cierre el panel que queda conserva el orden de los que sobreviven', () => {
   const prev = ['alimentacion', 'motores', 'fav'];
   assert.deepEqual(nextOpenCats(prev, 'motores', false), ['alimentacion', 'fav']);
+});
+
+test('el acordeón vertical con auto cierre deja abierto sólo el último panel', () => {
+  assert.deepEqual(nextOpenAccordion([], ['motor'], true), ['motor']);
+  assert.deepEqual(nextOpenAccordion(['motor'], ['proteccion'], true), ['proteccion']);
+  // Radix devuelve los dos valores cuando el usuario abre un segundo panel.
+  assert.deepEqual(nextOpenAccordion(['motor'], ['motor', 'proteccion'], true), ['proteccion']);
+  // Cerrar el abierto sigue cerrando en el modo con auto cierre.
+  assert.deepEqual(nextOpenAccordion(['motor'], [], true), []);
+});
+
+test('el acordeón vertical sin auto cierre respeta lo que abrió el usuario', () => {
+  assert.deepEqual(nextOpenAccordion(['motor'], ['motor', 'proteccion'], false), [
+    'motor',
+    'proteccion',
+  ]);
+  assert.deepEqual(nextOpenAccordion(['motor', 'proteccion'], ['proteccion'], false), ['proteccion']);
+  assert.deepEqual(nextOpenAccordion(['motor'], [], false), []);
 });
 
 test('el reducer no modifica el arreglo que recibe', () => {
@@ -168,11 +241,21 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
   assert.equal(avisos, 0);
 
   setSettings({ pinSize: 'grande' });
-  assert.deepEqual(getSettings(), { pinSize: 'grande', wireWidth: 'normal', autoCierre: false });
+  assert.deepEqual(getSettings(), {
+    pinSize: 'grande',
+    wireWidth: 'normal',
+    paneles: 'horizontal',
+    autoCierre: false,
+  });
   assert.equal(avisos, 1);
 
-  setSettings({ wireWidth: 'grueso', autoCierre: true });
-  assert.deepEqual(getSettings(), { pinSize: 'grande', wireWidth: 'grueso', autoCierre: true });
+  setSettings({ wireWidth: 'grueso', paneles: 'vertical', autoCierre: true });
+  assert.deepEqual(getSettings(), {
+    pinSize: 'grande',
+    wireWidth: 'grueso',
+    paneles: 'vertical',
+    autoCierre: true,
+  });
   assert.equal(avisos, 2);
 
   unsubscribe();
@@ -207,11 +290,22 @@ test('setSettings persiste el objeto mezclado bajo la clave y no escribe si nada
 
     setSettings({ pinSize: 'grande', wireWidth: 'fino', autoCierre: true });
     assert.equal(escrituras, 1);
-    assert.deepEqual(getSettings(), { pinSize: 'grande', wireWidth: 'fino', autoCierre: true });
+    assert.deepEqual(getSettings(), {
+      pinSize: 'grande',
+      wireWidth: 'fino',
+      paneles: 'horizontal',
+      autoCierre: true,
+    });
     assert.equal(store.get(SETTINGS_KEY), serializeSettings(getSettings()));
 
     setSettings({ pinSize: 'grande' });
     assert.equal(escrituras, 1);
+    assert.equal(store.get(SETTINGS_KEY), serializeSettings(getSettings()));
+
+    // Cambiar sólo la orientación no es un cambio nulo: se persiste.
+    setSettings({ paneles: 'vertical' });
+    assert.equal(escrituras, 2);
+    assert.equal(getSettings().paneles, 'vertical');
     assert.equal(store.get(SETTINGS_KEY), serializeSettings(getSettings()));
   } finally {
     if (original) Object.defineProperty(globalThis, 'localStorage', original);
@@ -241,6 +335,7 @@ test('un storage que tira no rompe el store ni la elección en memoria', () => {
     assert.deepEqual(actual, DEFAULT_SETTINGS);
     assert.equal(typeof actual.pinSize, 'string');
     assert.equal(typeof actual.wireWidth, 'string');
+    assert.equal(actual.paneles, 'horizontal');
     assert.equal(typeof actual.autoCierre, 'boolean');
 
     assert.doesNotThrow(() => setSettings({ wireWidth: 'grueso' }));

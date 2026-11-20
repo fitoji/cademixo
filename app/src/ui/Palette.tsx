@@ -4,7 +4,7 @@ import { BoxesIcon, ChevronDownIcon, StarIcon } from 'lucide-react';
 import { lineList, symbolList, type SymbolDef, type SymbolGroup } from '../symbols/library.ts';
 import { CATALOG } from '../symbols/catalog.ts';
 import { getScope, subscribeScope } from '../symbols/scope.ts';
-import { getSettings, nextOpenCats, subscribeSettings } from './settings.ts';
+import { getSettings, nextOpenAccordion, nextOpenCats, subscribeSettings } from './settings.ts';
 import { SymbolGlyph } from './SymbolGlyph.tsx';
 import { PanelHead } from './PanelHead.tsx';
 import type { Sheet } from '../model/project.ts';
@@ -68,8 +68,8 @@ interface Props {
 
 export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props): JSX.Element {
   const scope = useSyncExternalStore(subscribeScope, getScope, getScope);
-  const { autoCierre } = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
-  const horizontal = true;
+  const { autoCierre, paneles } = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
+  const horizontal = paneles === 'horizontal';
   const available = [...symbolList(), ...lineList()].filter(
     (sym) => scope === 'all' || CATALOG[sym.code] !== undefined,
   );
@@ -80,8 +80,7 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
     byGroup.set(sym.group, list);
   }
   // Categorías plegadas: con el catálogo completo la lista no entra de una vista.
-  const [open, setOpen] = useState<string[]>(['fav']);
-  /** Categorías desplegadas en la barra horizontal; arrancan todas plegadas. */
+  // El mismo estado sirve a las dos orientaciones; arrancan todas plegadas.
   const [openCats, setOpenCats] = useState<string[]>([]);
   const [favorites, setFavorites] = useState<number[]>(readFavorites);
 
@@ -112,6 +111,12 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
     // Con «Auto cierre» prendido queda abierto sólo el último panel elegido; apagado,
     // se abren varios a la vez como siempre.
     setOpenCats((prev) => nextOpenCats(prev, key, autoCierre));
+  };
+
+  // El acordeón entrega el conjunto abierto después del clic; el auto cierre se
+  // resuelve igual que en la barra horizontal.
+  const changeAccordion = (values: string[]): void => {
+    setOpenCats((prev) => nextOpenAccordion(prev, values, autoCierre));
   };
 
   // Estilo CADe_SIMU: una categoría por ícono; se despliega al hacer clic.
@@ -187,49 +192,33 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
     <aside className="relative z-10 flex min-h-0 w-[232px] shrink-0 flex-col border-r border-border bg-card shadow-chrome-right">
       <PanelHead>Insertar componente</PanelHead>
 
+      {/*
+        La paleta ocupa el mismo lugar del layout que la barra horizontal, un
+        contenedor sin altura propia: la zona plegable lleva su altura acotada
+        para poder scrollear sin empujar el lienzo.
+      */}
       <ScrollArea className="min-h-0 flex-1">
         <div className="px-1.5 pb-3">
-          <Accordion type="multiple" value={open} onValueChange={setOpen}>
-            {favSymbols.length > 0 && (
-              <AccordionItem value="fav" className="border-border/60">
+          <Accordion type="multiple" value={openCats} onValueChange={changeAccordion}>
+            {categories.map((cat) => (
+              <AccordionItem key={cat.key} value={cat.key} className="border-border/60">
                 <AccordionTrigger className="items-center gap-1.5 px-1.5 py-1.5 text-[10px] font-semibold tracking-[0.5px] text-muted-foreground uppercase hover:text-foreground hover:no-underline">
-                  <StarIcon className="size-3 shrink-0 fill-current text-[var(--tone-senalizacion)]" />
-                  <span className="truncate">Favoritos</span>
+                  {cat.key === 'fav' ? (
+                    <StarIcon className="size-3 shrink-0 fill-current text-[var(--tone-senalizacion)]" />
+                  ) : (
+                    <span className="size-1.5 shrink-0 rounded-full" style={{ background: cat.tone }} />
+                  )}
+                  <span className="truncate">{cat.label}</span>
                   <Badge variant="ghost" className="ml-auto h-4 shrink-0 px-1 font-mono text-[10px] font-normal">
-                    {favSymbols.length}
+                    {cat.syms.length}
                   </Badge>
                 </AccordionTrigger>
                 <AccordionContent className="pt-0.5 pb-1">
-                  {favSymbols.map((sym) => (
+                  {cat.syms.map((sym) => (
                     <SymbolRow
                       key={sym.code}
                       sym={sym}
                       group={sym.group}
-                      active={placing === sym.code}
-                      favorite
-                      onPick={onPick}
-                      onToggleFavorite={toggleFavorite}
-                    />
-                  ))}
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {GROUP_ORDER.filter((g) => byGroup.has(g)).map((group) => (
-              <AccordionItem key={group} value={group} className="border-border/60">
-                <AccordionTrigger className="items-center gap-1.5 px-1.5 py-1.5 text-[10px] font-semibold tracking-[0.5px] text-muted-foreground uppercase hover:text-foreground hover:no-underline">
-                  <span className="size-1.5 shrink-0 rounded-full" style={{ background: GROUP_TONE[group] }} />
-                  <span className="truncate">{GROUP_LABEL[group]}</span>
-                  <Badge variant="ghost" className="ml-auto h-4 shrink-0 px-1 font-mono text-[10px] font-normal">
-                    {byGroup.get(group)!.length}
-                  </Badge>
-                </AccordionTrigger>
-                <AccordionContent className="pt-0.5 pb-1">
-                  {byGroup.get(group)!.map((sym) => (
-                    <SymbolRow
-                      key={sym.code}
-                      sym={sym}
-                      group={group}
                       active={placing === sym.code}
                       favorite={favorites.includes(sym.code)}
                       onPick={onPick}

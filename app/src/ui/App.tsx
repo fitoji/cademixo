@@ -1150,9 +1150,12 @@ export function App(): JSX.Element {
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          {palette}
+          {/* La paleta va arriba en horizontal y a la izquierda del lienzo en
+              vertical: es la misma pieza, cambia sólo dónde se monta. */}
+          {settings.paneles === 'horizontal' && palette}
           <div className="flex min-h-0 flex-1">
 
+            {settings.paneles === 'vertical' && palette}
             <Canvas
             records={records}
             selection={selection}

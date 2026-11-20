@@ -18,6 +18,7 @@ import {
   getSettings,
   setSettings,
   subscribeSettings,
+  type Paneles,
   type PinSize,
   type WireWidth,
 } from './settings.ts';
@@ -97,6 +98,29 @@ export function SettingsDialog({
             </ToggleGroup>
             <FieldDescription className="font-mono text-[11px]">
               Ancho de todos los conductores, incluidos los de tensión y los seleccionados.
+            </FieldDescription>
+          </Field>
+
+          <Field>
+            <FieldLabel>Paneles de componentes</FieldLabel>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={settings.paneles}
+              onValueChange={(value) => {
+                if (value) setSettings({ paneles: value as Paneles });
+              }}
+            >
+              <ToggleGroupItem value="horizontal" aria-label="Paneles de componentes horizontales">
+                Horizontal
+              </ToggleGroupItem>
+              <ToggleGroupItem value="vertical" aria-label="Paneles de componentes verticales">
+                Vertical
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <FieldDescription className="font-mono text-[11px]">
+              La barra de componentes arriba, como siempre, o al costado en una columna plegable.
             </FieldDescription>
           </Field>
 
