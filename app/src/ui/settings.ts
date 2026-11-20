@@ -1,12 +1,13 @@
 /**
  * Ajustes de apariencia del simulador.
  *
- * Seis preferencias: cómo se dibuja el esquema y cómo se comporta la paleta —el
+ * Ocho preferencias: cómo se dibuja el esquema y cómo se comporta la paleta —el
  * tamaño de los bornes, el grosor de los cables, la orientación de los paneles
  * de componentes y el auto cierre— y qué suena (`sonidosInterfaz`,
- * `sonidosSimulacion`, S7) con su mute maestro (`silenciado`, S9). Viven fuera
- * de React para que el diálogo de configuración, el lienzo, la paleta y el motor
- * de sonido compartan el valor; la UI se suscribe con `useSyncExternalStore`.
+ * `sonidosSimulacion`, S7), con su mute maestro (`silenciado`, S9) y el zumbido
+ * del motor (`sonidoMotor`, S10). Viven fuera de React para que el diálogo de
+ * configuración, el lienzo, la paleta y el motor de sonido compartan el valor;
+ * la UI se suscribe con `useSyncExternalStore`.
  *
  * Sin `localStorage` disponible (tests en node, modo privado) todo cae a los
  * valores por defecto sin romper la aplicación.
@@ -32,6 +33,11 @@ export type Settings = {
    * reactivar.
    */
   silenciado: boolean;
+  /**
+   * Zumbido continuo del motor (S10). Interruptor propio y apagado por defecto:
+   * nunca es la única señal, el motor ya se ve girando.
+   */
+  sonidoMotor: boolean;
 };
 
 /**
@@ -39,7 +45,8 @@ export type Settings = {
  *
  * La interfaz suena de entrada; la simulación no, porque CADe_SIMU es mudo y la
  * desviación se elige, no se impone (S7). El mute arranca apagado por lo mismo:
- * se silencia cuando el usuario lo pide.
+ * se silencia cuando el usuario lo pide, y el zumbido del motor también, porque
+ * el motor se ve girando (S10).
  */
 export const DEFAULT_SETTINGS: Settings = {
   pinSize: 'normal',
@@ -49,6 +56,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sonidosInterfaz: true,
   sonidosSimulacion: false,
   silenciado: false,
+  sonidoMotor: false,
 };
 
 export const SETTINGS_KEY = 'simuelectro:ajustes';
@@ -98,6 +106,8 @@ export function parseSettings(raw: string | null): Settings {
         : DEFAULT_SETTINGS.sonidosSimulacion,
     silenciado:
       typeof record.silenciado === 'boolean' ? record.silenciado : DEFAULT_SETTINGS.silenciado,
+    sonidoMotor:
+      typeof record.sonidoMotor === 'boolean' ? record.sonidoMotor : DEFAULT_SETTINGS.sonidoMotor,
   };
 }
 
@@ -110,6 +120,7 @@ export function serializeSettings(settings: Settings): string {
     sonidosInterfaz: settings.sonidosInterfaz,
     sonidosSimulacion: settings.sonidosSimulacion,
     silenciado: settings.silenciado,
+    sonidoMotor: settings.sonidoMotor,
   });
 }
 
@@ -140,7 +151,8 @@ export function setSettings(patch: Partial<Settings>): void {
     next.autoCierre === current.autoCierre &&
     next.sonidosInterfaz === current.sonidosInterfaz &&
     next.sonidosSimulacion === current.sonidosSimulacion &&
-    next.silenciado === current.silenciado
+    next.silenciado === current.silenciado &&
+    next.sonidoMotor === current.sonidoMotor
   ) {
     return;
   }

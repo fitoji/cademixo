@@ -112,8 +112,10 @@ import { Toaster } from '@/components/ui/sonner';
 import { SettingsDialog } from './SettingsDialog.tsx';
 import { SaveAsDialog } from './SaveAsDialog.tsx';
 import { getScope, setScope, subscribeScope } from '../symbols/scope.ts';
+import { resolveSymbol } from '../symbols/library.ts';
 import { getSettings, setSettings, subscribeSettings, wireStroke } from './settings.ts';
 import { armAudio, cue, unlockAudio, type SoundEvent } from './sound.ts';
+import { setMotorHum } from './motor-hum.ts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -691,6 +693,41 @@ export function App(): JSX.Element {
   }, [simulation, project]);
 
   /**
+   * Motores energizados (S10): los mismos que el lienzo dibuja girando.
+   *
+   * El zumbido es uno solo para todos, así que lo único que hace falta es la
+   * cantidad: la amplitud sale de ella y tiene techo.
+   */
+  const motoresEnergizados = useMemo(() => {
+    if (!project) return 0;
+    let motores = 0;
+    for (const rec of project.records) {
+      if (rec.kind !== 'component') continue;
+      if (!live.has(rec.id)) continue;
+      if (resolveSymbol(rec.code, rec.pins).group === 'motor') motores += 1;
+    }
+    return motores;
+  }, [project, live]);
+
+  /**
+   * Zumbido del motor (S10): se enciende en el flanco de un motor que pasa a
+   * estar energizado y baja a 0 cuando deja de haber alguno, cuando se detiene
+   * la simulación, con el mute maestro y con el interruptor propio apagado. La
+   * pestaña oculta la resuelve `motor-hum.ts`.
+   *
+   * `setMotorHum` es idempotente: repetir el mismo estado no reinicia el ataque
+   * ni hace clic, así que este efecto puede correr en cada frame sin sonar de
+   * más. No toca los cues ni pasa por el coalescer.
+   */
+  useEffect(() => {
+    setMotorHum({
+      motoresEnergizados,
+      simulando: running,
+      ajustes: { silenciado: settings.silenciado, sonidoMotor: settings.sonidoMotor },
+    });
+  }, [motoresEnergizados, running, settings.silenciado, settings.sonidoMotor]);
+
+  /**
    * Contactos cerrados en este estado: la hoja se dibuja apoyada.
    *
    * El solver informa los dispositivos que conducen, pero un contacto auxiliar
@@ -776,6 +813,7 @@ export function App(): JSX.Element {
     unlockAudio();
     if (running) {
       setRunning(false);
+      cue('simulación detiene');
       setStartPending(false);
       // Primero los timers: soltar un pulso que quedó agendado no puede
       // sobrevivir a la parada (S5).
@@ -792,6 +830,7 @@ export function App(): JSX.Element {
       return;
     }
     setRunning(true);
+    cue('simulación inicia');
     // El aviso lo da el efecto, con el primer paso del `useMemo`: el mismo
     // resultado que muestra el badge del pie.
     setStartPending(true);

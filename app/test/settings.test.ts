@@ -34,6 +34,7 @@ test('sin nada guardado valen los ajustes por defecto', () => {
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
 });
 
@@ -54,6 +55,7 @@ test('un objeto parcial completa cada campo con su default', () => {
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
   assert.deepEqual(parseSettings('{"autoCierre":true}'), {
     pinSize: 'normal',
@@ -63,6 +65,7 @@ test('un objeto parcial completa cada campo con su default', () => {
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
 });
 
@@ -76,6 +79,7 @@ test('un valor desconocido cae sólo al default de su campo', () => {
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
   assert.deepEqual(parseSettings('{"pinSize":"chico","wireWidth":"fino"}'), {
     pinSize: 'chico',
@@ -85,6 +89,7 @@ test('un valor desconocido cae sólo al default de su campo', () => {
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
 });
 
@@ -99,6 +104,7 @@ test('un tipo equivocado cae sólo al default de su campo', () => {
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
 });
 
@@ -118,6 +124,7 @@ test('serializar y volver a parsear devuelve los mismos ajustes', () => {
       sonidosInterfaz: false,
       sonidosSimulacion: true,
       silenciado: true,
+      sonidoMotor: true,
     },
     {
       pinSize: 'grande',
@@ -127,6 +134,7 @@ test('serializar y volver a parsear devuelve los mismos ajustes', () => {
       sonidosInterfaz: true,
       sonidosSimulacion: false,
       silenciado: false,
+      sonidoMotor: false,
     },
   ] as const;
   for (const settings of values) {
@@ -140,6 +148,7 @@ test('serializar y volver a parsear devuelve los mismos ajustes', () => {
     sonidosInterfaz: false,
     sonidosSimulacion: true,
     silenciado: true,
+    sonidoMotor: true,
   });
   assert.deepEqual(JSON.parse(text), {
     pinSize: 'grande',
@@ -149,6 +158,7 @@ test('serializar y volver a parsear devuelve los mismos ajustes', () => {
     sonidosInterfaz: false,
     sonidosSimulacion: true,
     silenciado: true,
+    sonidoMotor: true,
   });
 });
 
@@ -179,6 +189,7 @@ test('una orientación inválida cae a horizontal sin tocar los otros campos', (
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
 });
 
@@ -292,6 +303,7 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
   assert.equal(avisos, 1);
 
@@ -304,6 +316,7 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
   assert.equal(avisos, 2);
 
@@ -347,6 +360,7 @@ test('setSettings persiste el objeto mezclado bajo la clave y no escribe si nada
       sonidosInterfaz: true,
       sonidosSimulacion: false,
       silenciado: false,
+      sonidoMotor: false,
     });
     assert.equal(store.get(SETTINGS_KEY), serializeSettings(getSettings()));
 
@@ -412,6 +426,7 @@ test('un localStorage viejo sin los sonidos sigue funcionando con los defaults',
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
+    sonidoMotor: false,
   });
   // La interfaz suena de entrada; la simulación no, porque CADe_SIMU es mudo.
   assert.equal(parseSettings('{}').sonidosInterfaz, true);
@@ -429,6 +444,7 @@ test('un valor que no es booleano cae sólo al default de su campo de sonido', (
     sonidosInterfaz: false,
     sonidosSimulacion: true,
     silenciado: false,
+    sonidoMotor: false,
   });
   // El campo inválido no arrastra al otro: el que vale, se respeta.
   assert.deepEqual(parseSettings('{"sonidosInterfaz":null,"sonidosSimulacion":true}'), {
@@ -452,6 +468,7 @@ test('un localStorage sin el mute parsea con el sonido prendido', () => {
     sonidosInterfaz: false,
     sonidosSimulacion: true,
     silenciado: false,
+    sonidoMotor: false,
   });
 });
 
@@ -470,5 +487,44 @@ test('un valor que no es booleano en el mute cae sólo al default de ese campo',
     sonidosInterfaz: false,
     sonidosSimulacion: true,
     silenciado: false,
+    sonidoMotor: false,
+  });
+});
+
+// --- Zumbido del motor (S10) ----------------------------------------------
+
+test('un localStorage sin el zumbido del motor lo deja apagado', () => {
+  assert.equal(parseSettings(null).sonidoMotor, false);
+  assert.equal(parseSettings('{}').sonidoMotor, false);
+  const viejo =
+    '{"pinSize":"grande","wireWidth":"grueso","paneles":"vertical","autoCierre":true,"sonidosInterfaz":true,"sonidosSimulacion":false,"silenciado":false}';
+  assert.deepEqual(parseSettings(viejo), {
+    pinSize: 'grande',
+    wireWidth: 'grueso',
+    paneles: 'vertical',
+    autoCierre: true,
+    sonidosInterfaz: true,
+    sonidosSimulacion: false,
+    silenciado: false,
+    sonidoMotor: false,
+  });
+  // Y el interruptor guardado vuelve tal cual.
+  assert.equal(parseSettings('{"sonidoMotor":true}').sonidoMotor, true);
+});
+
+test('un valor que no es booleano en el zumbido cae sólo al default de ese campo', () => {
+  assert.deepEqual(parseSettings('{"sonidoMotor":"si"}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"sonidoMotor":1}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"sonidoMotor":null}'), DEFAULT_SETTINGS);
+  // El campo inválido no arrastra a los demás: el mute y los canales se respetan.
+  assert.deepEqual(parseSettings('{"sonidoMotor":"si","silenciado":true,"sonidosInterfaz":false}'), {
+    pinSize: 'normal',
+    wireWidth: 'normal',
+    paneles: 'horizontal',
+    autoCierre: false,
+    sonidosInterfaz: false,
+    sonidosSimulacion: false,
+    silenciado: true,
+    sonidoMotor: false,
   });
 });

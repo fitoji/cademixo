@@ -24,6 +24,7 @@ import {
   type PinSize,
   type WireWidth,
 } from './settings.ts';
+import { resumeMotorHum } from './motor-hum.ts';
 
 /**
  * Interruptor de dos estados.
@@ -204,6 +205,27 @@ export function SettingsDialog({
               <FieldDescription>
                 Los flancos del circuito con la simulación andando: bobinas que se energizan o se
                 desenergizan y protecciones que disparan.
+              </FieldDescription>
+            </FieldContent>
+          </Field>
+
+          <Field orientation="horizontal">
+            <Switch
+              id="ajustes-sonido-motor"
+              aria-label="Sonido del motor"
+              checked={settings.sonidoMotor}
+              onCheckedChange={(checked) => {
+                setSettings({ sonidoMotor: checked });
+                // El clic del interruptor es un gesto válido para crear el
+                // contexto del zumbido (S10), sin esperar al próximo Simular.
+                resumeMotorHum();
+              }}
+            />
+            <FieldContent>
+              <FieldLabel htmlFor="ajustes-sonido-motor">Sonido del motor</FieldLabel>
+              <FieldDescription>
+                Zumbido continuo mientras haya motores energizados. Apagado por defecto: el motor
+                igual se ve girando.
               </FieldDescription>
             </FieldContent>
           </Field>

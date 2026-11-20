@@ -32,6 +32,8 @@ const ESPERADOS: Readonly<Record<string, string>> = {
   'pulsador aprieta': 'tap',
   'pulsador suelta': 'tap',
   colocar: 'tap',
+  'simulación inicia': 'ready',
+  'simulación detiene': 'close',
   'bobina energizada': 'close',
   'bobina desenergizada': 'open',
   'protección disparada': 'warning',

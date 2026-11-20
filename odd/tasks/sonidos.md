@@ -41,6 +41,16 @@ contrato que hace verificable S1):
   Configuración conservan su preferencia y vuelven a valer al reactivar. Se
   persiste con los demás ajustes y se anuncia con `aria-pressed` y una etiqueta
   que diga la acción («Silenciar» / «Activar sonido»), no sólo el icono.
+- **S10 — Zumbido continuo del motor.** `cuelume` no tiene sonidos continuos
+  (API: `play`, `press`, `release`, `setEnabled`, `setTheme`, `setVolume`,
+  `unlock`, `bind`; todos los presets son golpes con decaimiento, y `loading`
+  «fades within about a second»), así que se **sintetiza con WebAudio**: sin
+  dependencia nueva y sin archivo de audio. Un **solo** zumbido compartido, no
+  uno por motor: la amplitud sube con la cantidad de motores energizados y tiene
+  techo. Se enciende y se apaga por **transición**, nunca por tick. Interruptor
+  propio «Sonido del motor», apagado por defecto. Nunca es la única señal: el
+  motor ya se ve girando. El `AudioContext` es propio —cuelume no expone el
+  suyo— y se crea o reanuda dentro de un gesto.
 
 ## Tasks
 
@@ -50,6 +60,8 @@ contrato que hace verificable S1):
 - T4 — Cues de interfaz en los puntos de S3. Specs S3-S4. Writer. commit: —
 - T5 — Cues de simulación por flancos con coalescencia. Specs S5-S6. Writer. commit: —
 - T6 — Botón de altavoz al lado de «Simular»: mute maestro persistido. Spec S9. Writer. commit: —
+- T7 — Cues de iniciar y detener la simulación. Spec S3. Inline. commit: —
+- T8 — Zumbido continuo del motor sintetizado, con interruptor propio. Spec S10. Writer. commit: —
 
 ## Log
 
@@ -83,3 +95,15 @@ contrato que hace verificable S1):
   afirma la forma exacta de `Settings`, así que cada campo nuevo obliga a
   actualizarlo — se acepta a cambio de que un campo sin default no pase
   inadvertido.
+- L8 — «agrega un sonido cuando hago play a simulacion y stop». Agrega
+  `simulación inicia` → `ready` y `simulación detiene` → `close`, ambos en el
+  canal **interfaz**: son gestos sobre el modo de la app y tienen que sonar
+  aunque «Sonidos de simulación» esté apagado, que es el default.
+- L9 — «hay algun sonido continuo para poner al motor cuando se activa?».
+  Respuesta verificada contra el paquete instalado: **no**, cuelume no expone
+  loop ni stop. El usuario elige construirlo con interruptor propio, apagado por
+  defecto.
+- L10 — Los cinco cortes del zumbido: sin motores energizados, simulación
+  detenida, mute maestro, «Sonido del motor» apagado y pestaña oculta (los
+  navegadores suspenden audio en segundo plano, así que hay que manejar
+  `visibilitychange` o queda sonando colgado).

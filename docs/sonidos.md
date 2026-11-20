@@ -17,7 +17,7 @@ Los presets que trae `cuelume@0.2.8`. «En uso» dice si alguna acción los disp
 | Preset | Qué sugiere | En uso | Dónde |
 | --- | --- | --- | --- |
 | `open` | abrir, desplegar | **sí** | abrir un archivo · bobina que se desenergiza |
-| `close` | cerrar, plegar | **sí** | bobina que se energiza |
+| `close` | cerrar, plegar | **sí** | bobina que se energiza · detener la simulación |
 | `success` | operación cumplida | **sí** | guardar · guardar como · proyecto nuevo |
 | `error` | algo falló | **sí** | los avisos de error |
 | `warning` | atención, regla | **sí** | el rechazo en simulación · protección disparada |
@@ -27,7 +27,7 @@ Los presets que trae `cuelume@0.2.8`. «En uso» dice si alguna acción los disp
 | `select` | elegir en una lista | no | — |
 | `navigate` | moverse entre secciones | no | — |
 | `loading` | en curso | no | — |
-| `ready` | listo para usar | no | — |
+| `ready` | listo para usar | **sí** | iniciar la simulación |
 | `attention` | reclama la mirada | no | — |
 | `count` | conteo, incremento | no | — |
 
@@ -55,11 +55,13 @@ Temas visuales del motor: `default`, `mech` (el que usa la app), `bubble`, `pres
 | Apretar un pulsador momentáneo | `pulsador aprieta` | `tap` | interfaz | `press` | `strikeMomentary` |
 | Soltar ese pulsador | `pulsador suelta` | `tap` | interfaz | `release` | fin del pulso de `strikeMomentary` |
 | Colocar un componente | `colocar` | `tap` | interfaz | `play` | `onPlace` (rama `addComponent`) |
+| Iniciar la simulación | `simulación inicia` | `ready` | interfaz | `play` | `toggleSimulation`, rama de arranque |
+| Detener la simulación | `simulación detiene` | `close` | interfaz | `play` | `toggleSimulation`, rama de parada |
 | Una bobina se energiza | `bobina energizada` | `close` | simulación | `play` | efecto de `lastEnergized`, por flanco |
 | Una bobina se desenergiza | `bobina desenergizada` | `open` | simulación | `play` | efecto de `lastEnergized`, por flanco |
 | Una protección dispara | `protección disparada` | `warning` | simulación | `play` | efecto de `lastEnergized`, por flanco |
 
-## Lo que no suena, a propósito
+## Los que no suenan, a propósito
 
 `SILENT_EVENTS` en `sound-cues.ts`: seleccionar, deseleccionar, hover, snap,
 paneo, zoom, marquesina, deshacer, rehacer, copiar y **el commit de cada cable**.
@@ -70,6 +72,32 @@ no es feedback, es ruido. Los eventos sin cue tampoco se pueden agregar por
 descuido: `SoundEvent` sale de las claves de `CUES`, así que un nombre nuevo en la
 tabla es lo único que compila.
 
+## Zumbido del motor (continuo)
+
+No es un cue y **no viene de `cuelume`**: esa biblioteca no tiene loop ni
+`stop` —su API pública es `play`, `press`, `release`, `setEnabled`,
+`setTheme`, `setVolume`, `unlock`, `bind`, y todos sus presets son golpes con
+decaimiento; el que más se le parece, `loading`, «fades within about a
+second»—. Así que se **sintetiza con WebAudio** en `app/src/ui/motor-hum.ts`.
+
+| | |
+| --- | --- |
+| Fuente | dos osciladores desafinados (~50 y 50,6 Hz) para el batido, armónico a 100 Hz, pasabajos 320 Hz |
+| Envolvente | ataque 250 ms, relajación 200 ms |
+| Cantidad | **un solo** zumbido para todos los motores; el nivel sale de cuántos están energizados y tiene techo a los 3 |
+| Disparo | por transición, nunca por tick: es un estado, no un evento |
+| Coalescencia | no pasa por el coalescer de cues |
+| Contexto | propio `AudioContext`, creado o reanudado dentro de un gesto |
+
+**Cinco cortes** (`humLevel`, puro y testeado): sin motores energizados,
+simulación detenida, mute maestro, «Sonido del motor» apagado, y pestaña oculta
+(`visibilitychange`: baja a 0 al ocultarse y se restaura al volver).
+
+Es el sonido más invasivo que puede tener la app, así que va con interruptor
+propio **apagado por defecto** y nunca es la única señal: el motor ya se ve
+girando. Los tres osciladores quedan andando con ganancia 0 en vez de arrancar y
+frenar en cada flanco, que haría clic.
+
 ## Controles
 
 | Control | Dónde | Qué hace |
@@ -77,10 +105,16 @@ tabla es lo único que compila.
 | 🔊 «Silenciar» / «Activar sonido» | barra, al lado de **Simular** | mute **maestro**: corta todo sin tocar las preferencias de canal |
 | «Sonidos de interfaz» | Configuración → Sonidos | activa el canal `interfaz` (por defecto **sí**) |
 | «Sonidos de simulación» | Configuración → Sonidos | activa el canal `simulacion` (por defecto **no**) |
+| «Sonido del motor» | Configuración → Sonidos | el zumbido continuo del motor (por defecto **no**) |
 
 La simulación viene apagada porque CADe_SIMU es mudo: la desviación se elige, no
 se impone. Silenciar corta en `cue()` **antes** del coalescer, así que no consume
 turnos ni despierta el `AudioContext`.
+
+Arrancar y detener van por el canal **interfaz**, no por el de simulación: son
+gestos del usuario sobre el modo de la app, así que suenan aunque «Sonidos de
+simulación» esté apagado. Detener reusa `close` (el mismo gesto sonoro de «se
+apaga») y arrancar usa `ready`, que no lo usaba ninguna otra acción.
 
 ## Reglas de emisión
 

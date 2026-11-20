@@ -60,6 +60,8 @@ export const CUES = {
   'pulsador aprieta': { preset: 'tap', channel: 'interfaz', layer: 'press' },
   'pulsador suelta': { preset: 'tap', channel: 'interfaz', layer: 'release' },
   colocar: { preset: 'tap', channel: 'interfaz', layer: 'play' },
+  'simulación inicia': { preset: 'ready', channel: 'interfaz', layer: 'play' },
+  'simulación detiene': { preset: 'close', channel: 'interfaz', layer: 'play' },
   'bobina energizada': { preset: 'close', channel: 'simulacion', layer: 'play' },
   'bobina desenergizada': { preset: 'open', channel: 'simulacion', layer: 'play' },
   'protección disparada': { preset: 'warning', channel: 'simulacion', layer: 'play' },

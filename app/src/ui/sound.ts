@@ -14,6 +14,7 @@
 
 import { Coalescer, cueOf, type SoundEvent } from './sound-cues.ts';
 import { getSettings } from './settings.ts';
+import { resumeMotorHum } from './motor-hum.ts';
 
 export type { SoundEvent } from './sound-cues.ts';
 
@@ -80,6 +81,9 @@ function load(): Promise<Engine | null> {
  * `unlock()` resuelve `false`, que es justo lo que ya contempla `cuelume`.
  */
 export function unlockAudio(): void {
+  // El zumbido del motor tiene su propio `AudioContext` —cuelume no expone el
+  // suyo— y también hay que crearlo o reanudarlo dentro de un gesto (S10).
+  resumeMotorHum();
   void load().then((module) => {
     if (!module) return;
     try {
