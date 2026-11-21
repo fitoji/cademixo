@@ -89,3 +89,20 @@ test('fuera del moderno sólo se suma lo que flota sobre el lienzo', () => {
     assert.ok(block(selector).includes('--elev-float: '), `${selector} no declara lo que flota`);
   }
 });
+
+test('cada familia importada está declarada y no queda peso muerto', () => {
+  const pkg = JSON.parse(readFileSync(join(HERE, '..', 'package.json'), 'utf8')) as {
+    dependencies: Record<string, string>;
+  };
+  const imported = [...CSS.matchAll(/@fontsource-variable\/([a-z-]+)/g)].map(
+    (match) => `@fontsource-variable/${match[1]}`,
+  );
+  assert.ok(imported.length > 0, 'no se importó ninguna familia');
+  for (const dep of imported) {
+    assert.ok(pkg.dependencies[dep], `${dep} se importa pero no está declarado`);
+  }
+  // Space Grotesk fue la voz del moderno anterior: si vuelve el import, vuelve
+  // también el peso de dos woff2 que ya nadie usa.
+  assert.ok(!CSS.includes('space-grotesk'), 'el @import de Space Grotesk volvió');
+  assert.ok(!('@fontsource-variable/space-grotesk' in pkg.dependencies), 'Space Grotesk volvió a package.json');
+});

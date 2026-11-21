@@ -332,10 +332,14 @@ test('el chrome flotante y el inspector plegable son del estilo moderno', async 
   await page.goto('/');
 
   // Clásico: sin dock flotante y sin secciones plegables. Es el panel de
-  // CADe_SIMU, donde todo está a la vista.
+  // CADe_SIMU, donde todo está a la vista: ni details ni summary, así que el
+  // teclado tampoco puede plegar nada.
   await expect(page.getByRole('button', { name: 'Grilla' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Alejar' })).toHaveCount(0);
+  const target = await findDraggableComponent(page);
+  await page.mouse.click(target.x, target.y);
   await expect(page.locator('details')).toHaveCount(0);
+  await expect(page.locator('summary')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
 
@@ -346,6 +350,16 @@ test('el chrome flotante y el inspector plegable son del estilo moderno', async 
   await expect(grid).toHaveAttribute('aria-pressed', 'false');
 
   await expect(page.getByRole('button', { name: 'Ajustar a la ventana' }).first()).toBeVisible();
+
+  // Y el inspector sí pliega sus grupos secundarios, con mouse y con teclado.
+  const section = page.locator('details').first();
+  await expect(section).toBeVisible();
+  await expect(section).toHaveAttribute('open', '');
+  await section.locator('summary').click();
+  await expect(section).not.toHaveAttribute('open', '');
+  await section.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(section).toHaveAttribute('open', '');
 });
 
 test('el zoom flotante del moderno mueve la escala del lienzo', async ({ page }) => {
