@@ -338,6 +338,60 @@
   scrollbar-width: thin;
 }
 
+/*
+ * Paleta del estilo moderno: Codia no grita. Los rótulos de panel son frases
+ * -13px, sin mayúsculas ni tracking-, los grupos bajan a 12.5px y el contador
+ * deja de ser una insignia para ser una cifra. La barra del clásico no se toca:
+ * todo esto cuelga de :root.moderno.
+ */
+:root.moderno [data-panel-head] {
+  padding: 10px 12px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+  color: var(--foreground);
+  text-transform: none;
+}
+
+:root.moderno [data-palette-group] {
+  padding: 6px 6px 2px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted-foreground);
+  text-transform: none;
+}
+
+:root.moderno [data-palette] [data-slot='accordion-trigger'] {
+  padding: 7px 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--foreground);
+  text-transform: none;
+}
+
+/* El contador se lee como dato, no como píldora. */
+:root.moderno [data-palette] [data-slot='badge'] {
+  padding: 0;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+/* El buscador es una superficie, no un campo con borde: el foco lo enciende. */
+:root.moderno [data-palette] input[data-slot='input'] {
+  height: 34px;
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  background: var(--muted);
+}
+
+:root.moderno [data-palette] input[data-slot='input']:focus-visible {
+  border-color: var(--ring);
+  background: var(--card);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

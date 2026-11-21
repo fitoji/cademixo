@@ -242,7 +242,10 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
 
   // El ancho lo lleva el panel redimensionable del App; acá sólo se llena.
   return (
-    <aside className="relative z-10 flex min-h-0 w-full flex-1 flex-col bg-card shadow-chrome-right">
+    <aside
+      data-palette=""
+      className="relative z-10 flex min-h-0 w-full flex-1 flex-col bg-card shadow-chrome-right"
+    >
       <PanelHead>Insertar componente</PanelHead>
 
       <div className="shrink-0 border-b border-border/60 px-1.5 py-1">
@@ -338,7 +341,12 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
       </ScrollArea>
 
       <div className="shrink-0 border-t border-border p-1.5">
-        <div className="px-1.5 pt-1 pb-1 text-[10px] tracking-[0.5px] text-muted-foreground uppercase">Hojas</div>
+        <div
+          data-palette-group=""
+          className="px-1.5 pt-1 pb-1 text-[10px] tracking-[0.5px] text-muted-foreground uppercase"
+        >
+          Hojas
+        </div>
         {sheets.map((sheet, i) => (
           <Button
             key={sheet.index}

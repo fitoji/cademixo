@@ -28,6 +28,9 @@ Rama: `feat/modo-moderno-codia`
 | T5 | Tests: mundos visuales (unit) + gate de estilo (e2e) | S2, S5 | inline | `e8053c9` |
 | T6 | Corregir el defecto de S2 que encontró la verificación | S2 | inline | `09c5b4a` |
 | T7 | Restituir el espaciado del clásico y cubrir el acordeón moderno | S2, S4 | inline | `22c0042` |
+| T8 | Paleta lateral del moderno: rótulos en frase, contador como cifra, buscador como superficie | S7 | inline | — |
+
+- **S7** — La columna de componentes del estilo moderno deja de gritar: los rótulos de panel y de grupo pasan a frase a 13/12.5px, el contador deja de ser insignia y el buscador pasa a ser una superficie que el foco enciende. Se aplica con un bloque `:root.moderno` sobre hooks `data-*`, porque la paleta vertical también la puede usar el clásico (hay preferencia de orientación).
 
 ## Risk
 
@@ -53,3 +56,5 @@ El eje que falló dos veces en verificación no es "dependencia" sino **"mundo c
 - **L10** (slices) — 608 líneas autoradas en 3 commits: `78a94b9` (tokens + docs), `09c5b4a` (estructura), `e8053c9` (tests). La suite e2e real tiene 13 casos, no 9 como decía el README.
 - **L11** (segunda verificación, sobre el estado final) — 634/634 unitarios, 13/13 e2e, build OK. Confirmó el fix del plegado por teclado, pero encontró un **residuo**: al no renderizar `<details>` en clásico, Avisos y Vértice heredaban el gap de 12px del shell donde `main` tenía 8px propios. Corregido en `22c0042` con `groupInClassic`, que reproduce la forma que cada grupo tenía.
 - **L12** (hueco de test, cerrado) — El e2e sólo afirmaba la mitad clásica del gate: pasaba igual con el acordeón muerto en moderno. Ahora selecciona un componente y exige que la sección exista, se pliegue al clic y se despliegue con Enter. El unitario además falla si una familia importada no está en `package.json` o si vuelve el import de Space Grotesk.
+- **L13** (decisión) — S4 se cierra sin los "inputs numéricos en pares": el único candidato real es la posición X/Y, y volverla editable es una feature que escribe geometría en el modelo, no piel. Los "grupos de iconos segmentados" ya existen con la forma correcta (selector de color de señalización: `role="group"` + `aria-pressed` + `disabled`), así que migrarlos a `ToggleGroup` sería churn.
+- **L14** (S7) — La paleta vertical **no** es exclusiva del moderno: hay preferencia de orientación, así que el rediseño se hizo con hooks `data-palette` / `data-panel-head` / `data-palette-group` más un bloque `:root.moderno`. Verificado por computed style en ambos mundos: clásico sigue con `text-transform: uppercase` y 10.5px.
