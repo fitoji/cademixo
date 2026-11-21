@@ -128,6 +128,7 @@ import {
   persistStyle,
   readMode,
   readStyle,
+  wireWidthForStyle,
   type Mode,
   type StyleMode,
 } from './appearance.ts';
@@ -306,11 +307,16 @@ export function App(): JSX.Element {
     persistStyle(styleMode);
   }, [mode, styleMode]);
 
-  // Cada estilo carga la paleta en su orientación natural. Se aplica al entrar
-  // y al cambiar de estilo; el ajuste manual de Configuración manda hasta el
+  // Cada estilo carga su paleta en la orientación natural y su grosor de cable:
+  // clásico imita el plano de obra de CADe_SIMU (paleta arriba, cable fino) y
+  // moderno usa la columna lateral con el trazo legible. Se aplica al entrar y
+  // al cambiar de estilo; el ajuste manual de Configuración manda hasta el
   // próximo cambio de estilo.
   useEffect(() => {
-    setSettings({ paneles: panelesForStyle(styleMode) });
+    setSettings({
+      paneles: panelesForStyle(styleMode),
+      wireWidth: wireWidthForStyle(styleMode),
+    });
   }, [styleMode]);
 
   /**

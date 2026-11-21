@@ -28,7 +28,7 @@ test('sin nada guardado valen los ajustes por defecto', () => {
   assert.deepEqual(parseSettings(''), DEFAULT_SETTINGS);
   assert.deepEqual(DEFAULT_SETTINGS, {
     pinSize: 'normal',
-    wireWidth: 'normal',
+    wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
@@ -49,7 +49,7 @@ test('la basura y el JSON roto caen a los valores por defecto', () => {
 test('un objeto parcial completa cada campo con su default', () => {
   assert.deepEqual(parseSettings('{"pinSize":"grande"}'), {
     pinSize: 'grande',
-    wireWidth: 'normal',
+    wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
@@ -59,7 +59,7 @@ test('un objeto parcial completa cada campo con su default', () => {
   });
   assert.deepEqual(parseSettings('{"autoCierre":true}'), {
     pinSize: 'normal',
-    wireWidth: 'normal',
+    wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: true,
     sonidosInterfaz: true,
@@ -73,7 +73,7 @@ test('un valor desconocido cae sólo al default de su campo', () => {
   const parsed = parseSettings('{"pinSize":"enorme","wireWidth":"gigante","autoCierre":true}');
   assert.deepEqual(parsed, {
     pinSize: 'normal',
-    wireWidth: 'normal',
+    wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: true,
     sonidosInterfaz: true,
@@ -183,7 +183,7 @@ test('una orientación inválida cae a horizontal sin tocar los otros campos', (
   assert.deepEqual(parseSettings('{"paneles":["vertical"]}'), DEFAULT_SETTINGS);
   assert.deepEqual(parseSettings('{"paneles":3,"pinSize":"grande"}'), {
     pinSize: 'grande',
-    wireWidth: 'normal',
+    wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
@@ -297,7 +297,7 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
   setSettings({ pinSize: 'grande' });
   assert.deepEqual(getSettings(), {
     pinSize: 'grande',
-    wireWidth: 'normal',
+    wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
@@ -438,7 +438,7 @@ test('un valor que no es booleano cae sólo al default de su campo de sonido', (
   assert.deepEqual(parseSettings('{"sonidosSimulacion":1}'), DEFAULT_SETTINGS);
   assert.deepEqual(parseSettings('{"sonidosInterfaz":false,"sonidosSimulacion":true}'), {
     pinSize: 'normal',
-    wireWidth: 'normal',
+    wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: false,
@@ -481,7 +481,7 @@ test('un valor que no es booleano en el mute cae sólo al default de ese campo',
   // Y un mute inválido no arrastra a los interruptores de canal.
   assert.deepEqual(parseSettings('{"silenciado":"si","sonidosInterfaz":false,"sonidosSimulacion":true}'), {
     pinSize: 'normal',
-    wireWidth: 'normal',
+    wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: false,
@@ -519,7 +519,7 @@ test('un valor que no es booleano en el zumbido cae sólo al default de ese camp
   // El campo inválido no arrastra a los demás: el mute y los canales se respetan.
   assert.deepEqual(parseSettings('{"sonidoMotor":"si","silenciado":true,"sonidosInterfaz":false}'), {
     pinSize: 'normal',
-    wireWidth: 'normal',
+    wireWidth: 'fino',
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: false,

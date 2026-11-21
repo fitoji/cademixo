@@ -93,11 +93,12 @@
 
   --wire: #0f9d63;
   /*
-   * Grosor de los conductores: el preset "Normal" de Configuración →
-   * Apariencia. La raíz de la app actualiza esta variable cuando se elige
-   * Fino (0,12) o Grueso (0,48); el lienzo sólo la consume.
+   * Grosor de los conductores: lo pone el estilo al entrar (clásico Fino 0,12,
+   * moderno Normal 0,34) y la raíz lo actualiza al cambiar de estilo o al
+   * elegir un preset en Configuración → Apariencia. Fino 0,12, Normal 0,34,
+   * Grueso 0,48; el lienzo sólo consume la variable.
    */
-  --wire-w: 0.34;
+  --wire-w: 0.12;
   --warn: #b97d05;
   --select: #2f6fd0;
 

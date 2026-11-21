@@ -50,7 +50,9 @@ export type Settings = {
  */
 export const DEFAULT_SETTINGS: Settings = {
   pinSize: 'normal',
-  wireWidth: 'normal',
+  // El estilo manda: clásico (el de arranque) dibuja el cable fino. La raíz
+  // aplica `wireWidthForStyle` al entrar y en cada cambio de estilo.
+  wireWidth: 'fino',
   paneles: 'horizontal',
   autoCierre: false,
   sonidosInterfaz: true,

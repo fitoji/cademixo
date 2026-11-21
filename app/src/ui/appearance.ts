@@ -70,6 +70,16 @@ export function panelesForStyle(style: StyleMode): 'horizontal' | 'vertical' {
 }
 
 /**
+ * Grosor de cable natural de cada estilo: el clásico imita el pelo de CADe_SIMU
+ * y el moderno usa el trazo legible. Mismo contrato que la paleta: se aplica al
+ * entrar y al cambiar de estilo, y el ajuste manual de Configuración manda
+ * hasta el próximo cambio de estilo.
+ */
+export function wireWidthForStyle(style: StyleMode): 'fino' | 'normal' {
+  return style === 'moderno' ? 'normal' : 'fino';
+}
+
+/**
  * Aplica los dos ejes al documento. Se llama en el arranque (antes de pintar)
  * y en cada cambio; el `toggle` con un booleano es idempotente.
  */

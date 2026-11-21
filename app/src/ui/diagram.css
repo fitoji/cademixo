@@ -265,7 +265,9 @@
  * producto: Normal vuelve a 0,34 y Grueso a 0,48 (el doble de aquellos
  * valores), con Fino en 0,12 como piso para documentos densos. No es desvío de
  * medición: es preferencia de lectura, y por eso el default de la variable vive
- * en `index.css` y no acá.
+ * en `index.css` y no acá. Ese default lo fija el estilo al entrar: clásico
+ * arranca en Fino y moderno en Normal (`wireWidthForStyle`), y un preset
+ * elegido a mano manda hasta el próximo cambio de estilo.
  */
 .wire {
   stroke: var(--wire);

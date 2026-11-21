@@ -314,13 +314,16 @@ test('the simulate control keeps its label only in the modern style', async ({ p
 test('the default wire thickness reaches the canvas', async ({ page }) => {
   await page.goto('/');
 
-  // Configuración → Grosor de cables arranca en Normal: 0,34 desde que el
-  // cable dejó de leerse como un pelo al lado de la tinta del símbolo.
-  // El path de un cable vertical tiene bbox de ancho 0, así que se espera
-  // adjunto y se lee el trazo computado en lugar de pedir visibilidad.
+  // El grosor por defecto lo pone el estilo: clásico arranca en Fino (0,12) y
+  // moderno en Normal (0,34), que desde el ajuste dejó de leerse como un pelo
+  // al lado de la tinta del símbolo. El path de un cable vertical tiene bbox de
+  // ancho 0, así que se espera adjunto y se lee el trazo computado.
   const wire = page.locator('.wire').first();
   await wire.waitFor({ state: 'attached' });
-  await expect
-    .poll(async () => wire.evaluate((node) => parseFloat(getComputedStyle(node).strokeWidth)))
-    .toBeCloseTo(0.34, 3);
+  const strokeWidth = () => wire.evaluate((node) => parseFloat(getComputedStyle(node).strokeWidth));
+
+  await expect.poll(strokeWidth).toBeCloseTo(0.12, 3);
+
+  await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
+  await expect.poll(strokeWidth).toBeCloseTo(0.34, 3);
 });

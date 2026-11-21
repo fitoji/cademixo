@@ -9,6 +9,7 @@ import {
   MODE_KEY,
   STYLE_KEY,
   panelesForStyle,
+  wireWidthForStyle,
   parseMode,
   parseStyle,
   readMode,
@@ -60,4 +61,6 @@ test('los cuatro looks son combinaciones independientes', () => {
 test('cada estilo carga la paleta en su orientación natural', () => {
   assert.equal(panelesForStyle('clasico'), 'horizontal');
   assert.equal(panelesForStyle('moderno'), 'vertical');
+  assert.equal(wireWidthForStyle('clasico'), 'fino');
+  assert.equal(wireWidthForStyle('moderno'), 'normal');
 });
