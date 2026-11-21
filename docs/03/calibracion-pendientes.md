@@ -4,6 +4,7 @@ Informe generado el 2026-11-15. Alcance: unión de `docs/03/componentes01`+`comp
 
 - Mapeos de captura: comp01 `S=4, OX=-17, OY=-101`; comp02 `S=4, OX=-2, OY=-60`.
 - Gate de calibración: `stray=0` en `overlay-diff` (`refOnly` aceptable), con tests/`tsc`/suite verdes.
+- **Marco del gate para símbolos anclados al origen:** la tinta medida va corrida `+12` en `y` para que los bornes del archivo (filas 0 y 12) caigan sobre ella, así que el gate corre con `oy = y_registro − 12` (`bornes-grilla-del-archivo`, L9). Correrlo en la fila cruda del registro no prueba nada: el 5000 da `stray=0` en `oy=45` y `stray=271` en `oy=57`.
 - Rama al momento del informe: `main` en `f961287`.
 
 ## Resumen

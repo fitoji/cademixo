@@ -129,3 +129,13 @@ a la posición de los bornes.
     Diferencial de tinta base-vs-árbol: 5 de 232 códigos cambiados (5000, 5002,
     5001, 5003, 8017); el 9004 no aparece. Hash nuevo de `rest-ink`:
     `5d1b1d68c92439b801a5cfcc19f6ffca289e60b548cc9db37ffd8b57f95d90ac`.
+- L10: 5000 y 5002 completan la regla de L9. El L8 sólo estiró el ramal inferior
+  0,25 y dejó la tinta medida en la banda −12..−0,25, así que el cuerpo se
+  dibujaba una fila arriba del origen del registro con 9,25u de hueco: por eso
+  seguían viéndose rotos con el anclaje ya hecho. Ahora la tinta va corrida +12
+  en `y` y cada polo lleva conductor continuo de 0 a 12. Gate comp02 con
+  `oy = y_registro − 12`: 5000 (15,45) **stray=0** y 5002 (54,45) **stray=0**;
+  en la fila cruda `oy=57` el 5000 da `stray=271`, que es la prueba del
+  desplazamiento. La frase de L7 («sólo el borne inferior queda 0,25 afuera»)
+  queda superada. Hash nuevo de `rest-ink`:
+  `ec11f4cfb09a3023afb7a4cbc8cad3a30491a297a4e6992c4e097095717213db`.
