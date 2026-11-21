@@ -86,7 +86,8 @@ El repo es un workspace de pnpm: los scripts se corren **desde la raíz** y se e
 pnpm install
 
 pnpm dev        # abre la app en http://localhost:5187
-pnpm test       # 153 tests: formato, cables, símbolos y simulación
+pnpm test       # 614 tests: formato, cables, símbolos y simulación
+pnpm test:e2e   # 9 smoke tests del editor en Chrome (Playwright)
 pnpm build      # typecheck + bundle de producción
 
 # inventario de códigos de un archivo
