@@ -408,3 +408,27 @@ test('el inspector recuerda qué secciones plegaste', async ({ page }) => {
   await expect(again).toHaveCount(1);
   await expect(again).not.toHaveAttribute('open', '');
 });
+
+test('la apertura de secciones se anima sólo en el moderno', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
+
+  const target = await findDraggableComponent(page);
+  await page.mouse.click(target.x, target.y);
+
+  // `::details-content` es lo único que se puede animar sin medir alturas a
+  // mano: si el navegador no soporta `interpolate-size`, la duración vuelve a
+  // 0s y el plegado abre de golpe, como antes.
+  const duration = await page
+    .locator('details')
+    .first()
+    .evaluate((el) => getComputedStyle(el, '::details-content').transitionDuration);
+  expect(duration).toContain('0.18s');
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const reduced = await page
+    .locator('details')
+    .first()
+    .evaluate((el) => getComputedStyle(el, '::details-content').transitionDuration);
+  expect(reduced).toBe('0s');
+});
