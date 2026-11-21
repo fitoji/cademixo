@@ -199,11 +199,17 @@ export function pinStroke(size: PinSize): number {
   return 0.42;
 }
 
-/** Ancho de trazo de todos los conductores del lienzo. */
+/**
+ * Ancho de trazo de todos los conductores del lienzo.
+ *
+ * Normal y grueso duplican su valor anterior (0,17 → 0,34 y 0,24 → 0,48): los
+ * cables se leían demasiado finos al lado de la tinta del símbolo. Fino queda
+ * en 0,12, que es el piso para no perder el hilo en documentos densos.
+ */
 export function wireStroke(width: WireWidth): number {
   if (width === 'fino') return 0.12;
-  if (width === 'grueso') return 0.24;
-  return 0.17;
+  if (width === 'grueso') return 0.48;
+  return 0.34;
 }
 
 /**

@@ -258,10 +258,14 @@
 /*
  * Conductor.
  *
- * El grosor es el de CADeSimu: un pelo de un píxel sobre la captura real
- * (`data/samples/tests01/test01.png`, 6 px por unidad del archivo) son 0,17
- * unidades de plano. Antes se dibujaba con 0,34, el doble. El valor sale de la
- * preferencia de Apariencia a través de `--wire-w`, cuyo default es 0,17.
+ * El grosor sale de la preferencia de Apariencia a través de `--wire-w`. La
+ * captura de CADeSimu mide el pelo del cable en un píxel, que sobre 6 px por
+ * unidad del archivo son 0,17 de plano; se dibujó así un tiempo, pero el
+ * cable se leía demasiado fino al lado de la tinta del símbolo. Decisión de
+ * producto: Normal vuelve a 0,34 y Grueso a 0,48 (el doble de aquellos
+ * valores), con Fino en 0,12 como piso para documentos densos. No es desvío de
+ * medición: es preferencia de lectura, y por eso el default de la variable vive
+ * en `index.css` y no acá.
  */
 .wire {
   stroke: var(--wire);

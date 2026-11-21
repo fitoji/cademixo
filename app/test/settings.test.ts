@@ -246,10 +246,9 @@ test('el reducer no modifica el arreglo que recibe', () => {
 
 // --- Derivaciones ---------------------------------------------------------
 
-test('Normal reproduce las geometrías de hoy', () => {
+test('Normal conserva los radios de hoy', () => {
   assert.equal(pinRadius('normal'), 1.4);
   assert.equal(attachPinRadius('normal'), 0.9);
-  assert.equal(wireStroke('normal'), 0.17);
 });
 
 test('el tamaño y el grosor crecen en los dos sentidos', () => {
@@ -264,7 +263,8 @@ test('el tamaño y el grosor crecen en los dos sentidos', () => {
   assert.equal(attachPinRadius('chico'), 0.7);
   assert.equal(attachPinRadius('grande'), 1.2);
   assert.equal(wireStroke('fino'), 0.12);
-  assert.equal(wireStroke('grueso'), 0.24);
+  assert.equal(wireStroke('normal'), 0.34);
+  assert.equal(wireStroke('grueso'), 0.48);
 });
 
 test('el trazo del borne crece con el radio y en Normal conserva 0,42', () => {
@@ -276,9 +276,9 @@ test('el trazo del borne crece con el radio y en Normal conserva 0,42', () => {
 });
 
 test('el ancho duplicado de tensión y selección sale del ancho normal', () => {
-  assert.equal(wireStroke('normal') * 2, 0.34);
+  assert.equal(wireStroke('normal') * 2, 0.68);
   assert.equal(wireStroke('fino') * 2, 0.24);
-  assert.equal(wireStroke('grueso') * 2, 0.48);
+  assert.equal(wireStroke('grueso') * 2, 0.96);
 });
 
 // --- Store ---------------------------------------------------------------
