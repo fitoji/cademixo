@@ -297,3 +297,16 @@ test('a canvas drag can be undone back to the original component position', asyn
   await page.getByRole('button', { name: 'Deshacer' }).click();
   await expect(component).toHaveAttribute('transform', originalTransform ?? '');
 });
+
+test('the simulate control keeps its label only in the modern style', async ({ page }) => {
+  await page.goto('/');
+
+  // Clásico es el estilo por defecto: el control es sólo icono y el nombre
+  // accesible lo aporta el aria-label.
+  const simulate = page.getByRole('button', { name: 'Simular' });
+  await expect(simulate).toBeVisible();
+  await expect(simulate).toHaveText('');
+
+  await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
+  await expect(simulate).toHaveText('Simular');
+});

@@ -1355,7 +1355,7 @@ export function App(): JSX.Element {
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                size="sm"
+                size={styleMode === 'moderno' ? 'sm' : 'icon-sm'}
                 className={cn(
                   running
                     ? 'bg-red-500/15 text-red-700 hover:bg-red-500/25 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300'
@@ -1365,8 +1365,18 @@ export function App(): JSX.Element {
                 aria-label={running ? 'Detener simulación' : 'Simular'}
                 onClick={toggleSimulation}
               >
-                {running ? <SquareIcon data-icon="inline-start" /> : <PlayIcon data-icon="inline-start" />}
-                {running ? 'Detener' : 'Simular'}
+                {/* En clásico el chrome imita CADe: el control es sólo el icono y el
+                    rótulo lo da el tooltip + aria-label. En moderno lleva texto. */}
+                {styleMode === 'moderno' ? (
+                  <>
+                    {running ? <SquareIcon data-icon="inline-start" /> : <PlayIcon data-icon="inline-start" />}
+                    {running ? 'Detener' : 'Simular'}
+                  </>
+                ) : running ? (
+                  <SquareIcon />
+                ) : (
+                  <PlayIcon />
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent>{running ? 'Detener la simulación' : 'Simular con la alimentación indicada'}</TooltipContent>
