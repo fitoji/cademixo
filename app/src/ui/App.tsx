@@ -71,6 +71,8 @@ import {
 import { changeoverPositions, linkedProtection } from '../sim/apparatus.ts';
 import type { Point } from '../editor/pins.ts';
 import { Canvas } from './Canvas.tsx';
+// Esquinas redondeadas: sólo pintado, y sólo en el estilo moderno (S3).
+import { WIRE_CORNER_RADIUS } from './wire-corner.ts';
 import { Palette } from './Palette.tsx';
 import { Inspector } from './Inspector.tsx';
 import { SAMPLES, loadSample, loadFile, downloadCade } from './samples.ts';
@@ -1491,6 +1493,7 @@ export function App(): JSX.Element {
                 reversedWires={reversedWires}
                 closedContacts={closedContacts}
                 simulating={running}
+                cornerRadius={styleMode === 'moderno' ? WIRE_CORNER_RADIUS : 0}
                 highlight={highlight}
                 onZoom={setZoom}
                 onInsertVertex={onInsertVertex}

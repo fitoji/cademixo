@@ -18,6 +18,7 @@ import { SymbolGlyph } from './SymbolGlyph.tsx';
 import { attachPinRadius, getSettings, pinStroke, subscribeSettings } from './settings.ts';
 import { isProtection } from '../model/component-spec.ts';
 import type { VisualState } from '../sim/visual.ts';
+import { WIRE_CORNER_TOL, wireCornerPaths, type WireSegment } from './wire-corner.ts';
 
 export interface View {
   x: number;
@@ -51,6 +52,12 @@ interface Props {
   closedContacts: Set<number>;
   /** Durante la simulación, un clic sobre un pulsador ya seleccionado lo aprieta. */
   simulating: boolean;
+  /**
+   * Radio de esquina de los cables, en unidades de plano. Lo decide el estilo:
+   * el moderno pasa `WIRE_CORNER_RADIUS` y el clásico 0, que deja el quiebre
+   * seco de CADe_SIMU. El valor viaja como prop y no se lee del DOM.
+   */
+  cornerRadius: number;
   /** Registros y punto marcados como falla desde un aviso. */
   highlight: { ids: number[]; at: Point | null } | null;
   onZoom: (k: number) => void;
@@ -119,6 +126,7 @@ export function Canvas(props: Props): JSX.Element {
     reversedWires,
     closedContacts,
     simulating,
+    cornerRadius,
     highlight,
     onZoom,
     onInsertVertex,
@@ -251,6 +259,43 @@ export function Canvas(props: Props): JSX.Element {
   // Contexto de cableado de la hoja: alimenta el snap priorizado y el hit-test.
   const wiring = useMemo(() => snapContext(network, records, sheet), [network, records, sheet]);
   const hitCtx = useMemo(() => hitContext(network, records, sheet), [network, records, sheet]);
+
+  /**
+   * Puntos que no se pueden redondear: donde el empalme tiene que leerse recto.
+   * Son los que el lienzo ya conoce —unión 4001, borne de componente y el punto
+   * donde otro tramo pasa de largo (derivación en T)—, no una geometría nueva.
+   */
+  const hardPoints = useMemo<Point[]>(() => {
+    const out: Point[] = [];
+    for (const n of network.nodes.values()) {
+      if (n.junction || n.pin || n.through.length > 0) out.push({ x: n.x, y: n.y });
+    }
+    return out;
+  }, [network]);
+
+  const isPinnedPoint = useCallback(
+    (x: number, y: number): boolean =>
+      hardPoints.some((p) => Math.abs(p.x - x) < WIRE_CORNER_TOL && Math.abs(p.y - y) < WIRE_CORNER_TOL),
+    [hardPoints],
+  );
+
+  /**
+   * El `d` de cada cable, con las esquinas redondeadas. Es sólo pintado (S1): se
+   * calcula una vez por conjunto de cables y no toca los registros. Con radio 0
+   * no hay pase y el cable usa el camino de siempre.
+   */
+  const wirePaths = useMemo(() => {
+    if (!(cornerRadius > 0)) return null;
+    const segments: WireSegment[] = [];
+    for (const rec of records) {
+      if (rec.kind !== 'connection') continue;
+      const pts = wirePoints(rec);
+      if (!pts) continue;
+      segments.push({ id: rec.id, sheet: rec.sheet, ...pts });
+    }
+    return wireCornerPaths(segments, cornerRadius, isPinnedPoint);
+  }, [records, cornerRadius, isPinnedPoint]);
+
   const [snapMark, setSnapMark] = useState<Point | null>(null);
 
   /** Snap priorizado del cableado: borne → junction → derivación en T → grilla. */
@@ -661,6 +706,7 @@ export function Canvas(props: Props): JSX.Element {
                   live={liveWires.has(rec.id)}
                   reverse={reversedWires?.has(rec.id) ?? false}
                   tone={conductorToneOf(rec.code)}
+                  path={wirePaths?.get(rec.id)}
                 />
               );
             if (rec.kind !== 'component') return null;
@@ -907,12 +953,15 @@ function Wire({
   live,
   reverse,
   tone,
+  path,
 }: {
   rec: CadeRecordModel;
   selected: boolean;
   live: boolean;
   reverse?: boolean;
   tone: ConductorTone;
+  /** Camino con esquinas redondeadas; ausente en el estilo clásico. */
+  path?: string;
 }): JSX.Element | null {
   const pts = wirePoints(rec);
   if (!pts) return null;
@@ -934,7 +983,7 @@ function Wire({
       data-id={rec.id}
       data-wire={rec.id}
       className={cls.join(' ')}
-      d={`M${pts.x1} ${pts.y1}L${pts.x2} ${pts.y2}`}
+      d={path ?? `M${pts.x1} ${pts.y1}L${pts.x2} ${pts.y2}`}
     />
   );
 }
