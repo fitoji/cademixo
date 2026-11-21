@@ -352,31 +352,6 @@ export function App(): JSX.Element {
   }, [state, openText, flash]);
 
   /**
-   * Abrir: con selectores se conserva el handle para poder reescribir después
-   * ese mismo archivo. Sin soporte queda el input oculto de siempre.
-   *
-   * Cancelar es silencio; que el selector no se pueda abrir es otra cosa y se
-   * avisa, porque si no el usuario ve que no pasa nada y no sabe por qué.
-   */
-  const openDocument = useCallback(async (): Promise<void> => {
-    if (!hasFileSystemAccess()) {
-      fileInput.current?.click();
-      return;
-    }
-    let picked: Awaited<ReturnType<typeof pickOpenHandle>>;
-    try {
-      picked = await pickOpenHandle();
-    } catch {
-      flash('no se pudo abrir el selector de archivos', 'error');
-      return;
-    }
-    if (!picked) return;
-    const { text, name } = await loadFile(picked.file);
-    openText(text, name, picked.handle);
-    cue('abrir archivo');
-  }, [openText, flash]);
-
-  /**
    * Escribe `text` en `handle` y deja la aplicación conforme: ese archivo pasa a
    * ser el actual, la cabecera muestra su nombre y el documento queda limpio.
    * Si la escritura falla no se adopta nada: el documento sigue sucio.
@@ -467,6 +442,49 @@ export function App(): JSX.Element {
     [state, fileName, flash, writeDocument],
   );
 
+  const canOpenFile = useCallback(
+    async (name: string): Promise<boolean> => {
+      if (state !== null && state.dirty) {
+        const wantsSave = window.confirm(
+          `Hay cambios sin guardar en «${fileName}». ¿Guardar antes de abrir «${name}»?`,
+        );
+        if (!wantsSave) return false;
+        if (!(await saveDocument('save'))) {
+          flash('no se cargó: el proyecto no se guardó', 'error');
+          return false;
+        }
+      }
+      return true;
+    },
+    [state, fileName, saveDocument, flash],
+  );
+
+  /**
+   * Abrir: con selectores se conserva el handle para poder reescribir después
+   * ese mismo archivo. Sin soporte queda el input oculto de siempre.
+   *
+   * Cancelar es silencio; que el selector no se pueda abrir es otra cosa y se
+   * avisa, porque si no el usuario ve que no pasa nada y no sabe por qué.
+   */
+  const openDocument = useCallback(async (): Promise<void> => {
+    if (!hasFileSystemAccess()) {
+      fileInput.current?.click();
+      return;
+    }
+    let picked: Awaited<ReturnType<typeof pickOpenHandle>>;
+    try {
+      picked = await pickOpenHandle();
+    } catch {
+      flash('no se pudo abrir el selector de archivos', 'error');
+      return;
+    }
+    if (!picked) return;
+    if (!(await canOpenFile(picked.file.name))) return;
+    const { text, name } = await loadFile(picked.file);
+    openText(text, name, picked.handle);
+    cue('abrir archivo');
+  }, [openText, flash, canOpenFile]);
+
   /**
    * Drop de un `.cad` sobre la app (S1).
    *
@@ -482,22 +500,13 @@ export function App(): JSX.Element {
         flash('no se cargó: tiene que ser un archivo .cad', 'error');
         return;
       }
-      if (state !== null && state.dirty) {
-        const wantsSave = window.confirm(
-          `Hay cambios sin guardar en «${fileName}». ¿Guardar antes de abrir «${file.name}»?`,
-        );
-        if (!wantsSave) return;
-        if (!(await saveDocument('save'))) {
-          flash('no se cargó: el proyecto no se guardó', 'error');
-          return;
-        }
-      }
+      if (!(await canOpenFile(file.name))) return;
       const { text, name } = await loadFile(file);
       openText(text, name);
       cue('abrir archivo');
       toast(`abierto ${name}`);
     },
-    [state, fileName, flash, saveDocument, openText],
+    [flash, canOpenFile, openText],
   );
 
   /**
@@ -1296,10 +1305,12 @@ export function App(): JSX.Element {
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              void loadFile(file).then(({ text, name }) => {
+              void (async () => {
+                if (!(await canOpenFile(file.name))) return;
+                const { text, name } = await loadFile(file);
                 openText(text, name);
                 cue('abrir archivo');
-              });
+              })();
               e.target.value = '';
             }}
           />

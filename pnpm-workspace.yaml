@@ -11,3 +11,7 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@ui-sdk/core@0.1.0-beta.13'
   - '@ui-sdk/react@0.1.0-beta.13'
+
+permissions:
+  '@ui-sdk/core':
+    skills: true
