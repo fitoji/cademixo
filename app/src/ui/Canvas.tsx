@@ -20,6 +20,7 @@ import { attachPinRadius, getSettings, pinStroke, subscribeSettings } from './se
 import { isProtection } from '../model/component-spec.ts';
 import type { VisualState } from '../sim/visual.ts';
 import { WIRE_CORNER_TOL, wireCornerPaths, type WireSegment } from './wire-corner.ts';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 export interface View {
   x: number;
@@ -872,7 +873,12 @@ export function Canvas(props: Props): JSX.Element {
           icon={<MagnetIcon className="size-3.5" />}
         />
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
-        <DockButton onClick={onFit} label="Ajustar a la ventana" icon={<MaximizeIcon className="size-3.5" />} />
+        <DockButton
+          onClick={onFit}
+          label="Ajustar a la ventana"
+          shortcut="⌘0"
+          icon={<MaximizeIcon className="size-3.5" />}
+        />
         <DockButton
           pressed={hintsOpen}
           onClick={() => setHintsOpen((open) => !open)}
@@ -907,33 +913,46 @@ export function Canvas(props: Props): JSX.Element {
  * Botón del dock flotante. `pressed` lo convierte en interruptor: grilla e imán
  * no son acciones sino estados, así que se anuncian con `aria-pressed` y se
  * pintan con la superficie de control, no con un borde.
+ *
+ * El nombre accesible va en `aria-label` y la pista visual en la tooltip: el
+ * `title` nativo tardaba un segundo y no podía mostrar el atajo al costado.
  */
 function DockButton({
   pressed,
   onClick,
   label,
+  shortcut,
   icon,
 }: {
   pressed?: boolean;
   onClick: () => void;
   label: string;
+  /** Atajo real de la acción, si lo tiene. No se inventa uno por simetría. */
+  shortcut?: string;
   icon: JSX.Element;
 }): JSX.Element {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={pressed}
-      title={label}
-      onClick={onClick}
-      className={`grid size-7 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none ${
-        pressed === true
-          ? 'bg-secondary text-secondary-foreground'
-          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-      }`}
-    >
-      {icon}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          aria-pressed={pressed}
+          onClick={onClick}
+          className={`grid size-7 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none ${
+            pressed === true
+              ? 'bg-secondary text-secondary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          }`}
+        >
+          {icon}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="flex items-center gap-1.5">
+        {label}
+        {shortcut !== undefined && <span className="font-mono text-[10px] text-muted-foreground">{shortcut}</span>}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
