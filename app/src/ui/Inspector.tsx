@@ -175,20 +175,32 @@ function Section({
   title,
   children,
   collapsible,
+  groupInClassic = true,
   defaultOpen = true,
 }: {
   title: ReactNode;
   children: ReactNode;
   collapsible: boolean;
+  /**
+   * En el clásico la sección era -o rótulo y contenido sueltos, o un grupo con
+   * su propio gap. Se replica tal cual: el espaciado del panel de CADe_SIMU no
+   * cambia porque el mundo moderno necesite otra cosa.
+   */
+  groupInClassic?: boolean;
   defaultOpen?: boolean;
 }): JSX.Element {
   /*
    * Un `<details>` que no se puede abrir sería una mentira del DOM, y frenar el
    * mouse no alcanza: el `summary` sigue siendo enfocable y Enter lo pliega.
-   * En el clásico vuelve a ser el rótulo pelado que era antes.
+   * En el clásico vuelve a ser el rótulo que era antes.
    */
   if (!collapsible) {
-    return (
+    return groupInClassic ? (
+      <div className="flex flex-col gap-2">
+        <SectionLabel>{title}</SectionLabel>
+        {children}
+      </div>
+    ) : (
       <>
         <SectionLabel>{title}</SectionLabel>
         {children}
@@ -372,7 +384,7 @@ function Single({
             <Row label="Registro" value={`#${rec.id}`} />
           </dl>
 
-          <Section title={`Bornes (${rec.pins.length})`} collapsible={collapsibleSections}>
+          <Section title={`Bornes (${rec.pins.length})`} collapsible={collapsibleSections} groupInClassic={false}>
             <div className="flex flex-wrap gap-1">
               {rec.pins.map((pin, i) => (
                 <Badge key={`${pin}-${i}`} variant="outline" className="h-5 px-1.5 font-mono text-[10.5px] font-normal">
