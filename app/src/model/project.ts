@@ -39,9 +39,9 @@ export const GEOMETRY = {
   height: 15,
   /**
    * Orientación del componente: bitfield `giro | espejo` (ver `transform.ts`).
-   * Es el campo 11 del registro y el número 18 del bloque. Sólo se LEE: escribir
-   * este slot está bloqueado por S3 mientras no se conozcan las métricas de
-   * `geometry[12..15]` que CADe_SIMU guarda por variante.
+   * Es el campo 11 del registro y el número 18 del bloque. Se escribe junto con
+   * `geometry[12..15]` para los códigos con tabla verificada (`orientation.ts`);
+   * un slot sin sus métricas deja la pieza in-seleccionable en CADe.
    */
   transform: 17,
 } as const;

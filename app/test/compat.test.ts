@@ -71,17 +71,13 @@ test('el documento nuevo también es estable al reabrir', () => {
 });
 
 /**
- * Ley de oro: lo que CADe_SIMU no puede leer no se escribe. La orientación sí
- * vive en el archivo (`geometry[17]`, interpretada por `model/transform.ts`) y
- * ahora se lee y se dibuja, pero ESCRIBIR ese slot está bloqueado por S3 de
- * `odd/tasks/orientacion-componentes.md`: faltan las métricas de
- * `geometry[12..15]` que CADe guarda por variante, y sin ellas el componente
- * queda in-seleccionable allá. Mientras dure el bloqueo, la rotación de la app
- * es una capa visual encima de la del archivo y girar todos los componentes
- * tiene que dejar el archivo byte a byte igual: si algún día alguien "persiste"
- * el giro sin resolver S3, este test lo frena.
+ * Ley de oro: lo que CADe_SIMU no puede leer no se escribe. La orientación se
+ * escribe con las métricas `geometry[12..15]` que CADe guarda por variante
+ * (`model/orientation.ts`), medidas en archivos reales. Cuatro giros consecutivos
+ * vuelven al slot original, así que el documento tiene que quedar byte a byte
+ * igual. Si una tabla estuviera mal, el ciclo no cerraría y este test lo frena.
  */
-test('rotar componentes no cambia un byte del archivo (escritura bloqueada por S3)', () => {
+test('cuatro giros sobre todos los componentes restauran el archivo byte a byte', () => {
   for (const { name, text } of realFiles) {
     const ids = buildProject(parse(text))
       .records.filter((r) => r.kind === 'component')

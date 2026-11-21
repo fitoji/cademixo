@@ -12,10 +12,11 @@
  *    tocó.
  *
  * La rotación visual del editor (`rotation`, por id) es una capa ENCIMA de la
- * orientación que trae el archivo: el archivo manda (S6) y lo que se gira acá
- * todavía no se guarda. Escribir el slot `geometry[17]` está bloqueado por S3
- * (faltan las métricas de `geometry[12..15]` que CADe_SIMU guarda por variante),
- * así que girar sigue sin tocar el texto y el registro se preserva intacto.
+ * orientación que trae el archivo (S6). Al girar, esa capa se pliega en el slot
+ * `geometry[17]` y se escriben también las métricas `geometry[12..15]` de la
+ * tabla medida en CADe (`model/orientation.ts`). Sólo los códigos con tabla
+ * verificada se escriben; el resto sigue siendo capa visual porque un slot sin
+ * sus métricas deja el componente in-seleccionable en CADe.
  */
 
 import { parse } from '../format/cade.ts';
@@ -38,6 +39,7 @@ import {
   type Project,
 } from '../model/project.ts';
 import { hasColorSlot } from '../model/component-spec.ts';
+import { metricsFor, nextWrittenSlot } from '../model/orientation.ts';
 import type { Rotation } from '../model/transform.ts';
 import { CABLE_NUMBER_INDEX, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
 import type { Point } from './pins.ts';
@@ -51,8 +53,8 @@ export interface EditorState {
   /** ids de registros seleccionados */
   selection: number[];
   /**
-   * Rotación visual por id, sumada a la del archivo. NO se guarda: escribir
-   * `geometry[17]` está pendiente (bloqueado por S3).
+   * Rotación visual por id, sumada a la del archivo. Se pliega en `geometry[17]`
+   * al girar un código con tabla verificada; en los demás sigue sin guardarse.
    */
   rotation: Record<number, Rotation>;
   clipboard: string[];
@@ -250,17 +252,41 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
 }
 
 /**
- * Gira 90° la selección. Es visual: la capa se compone con la orientación que
- * trae el archivo y NO se escribe en `geometry[17]` (bloqueado por S3).
+ * Gira 90° la selección.
+ *
+ * Para los códigos con tabla verificada escribe la orientación en el archivo:
+ * `geometry[17]` y las métricas `geometry[12..15]` que CADe guarda por slot.
+ * La capa visual se pliega en el slot nuevo y se limpia, para que el dibujo no
+ * gire dos veces. Los códigos sin tabla siguen en la capa visual: escribir un
+ * slot sin sus métricas deja el componente in-seleccionable en CADe.
  */
 export function rotateSelection(state: EditorState): EditorState {
   if (state.selection.length === 0) return state;
+  const project = projectOf(state);
+  const selected = new Set(state.selection);
   const rotation = { ...state.rotation };
-  for (const id of state.selection) {
-    const current = rotation[id] ?? 0;
-    rotation[id] = (((current + 90) % 360) as Rotation);
+  const edits = new Map<number, string>();
+
+  for (const { index, rec } of indexed(project)) {
+    if (!selected.has(rec.id) || rec.kind !== 'component') continue;
+    if (metricsFor(rec.code, 0) === null || rec.geometry.length <= GEOMETRY.transform) {
+      rotation[rec.id] = (((rotation[rec.id] ?? 0) + 90) % 360) as Rotation;
+      continue;
+    }
+    const slot = nextWrittenSlot(rec.transform, rotation[rec.id] ?? 0);
+    const m = metricsFor(rec.code, slot)!;
+    const geometry = [...rec.geometry];
+    geometry[GEOMETRY.offsetX] = m[0];
+    geometry[GEOMETRY.offsetY] = m[1];
+    geometry[GEOMETRY.width] = m[2];
+    geometry[GEOMETRY.height] = m[3];
+    geometry[GEOMETRY.transform] = slot;
+    edits.set(index, withGeometry(rec, geometry));
+    delete rotation[rec.id];
   }
-  return { ...state, rotation, dirty: true };
+
+  if (edits.size === 0) return { ...state, rotation, dirty: true };
+  return commit({ ...state, rotation }, serializeWith(project, edits));
 }
 
 export function deleteSelection(state: EditorState): EditorState {
