@@ -2,7 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
-@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/dm-sans';
 @import '@fontsource-variable/jetbrains-mono';
 
 @custom-variant dark (&:is(.dark *));
@@ -56,6 +56,7 @@
   --shadow-chrome-up: var(--elev-up);
   --shadow-chrome-right: var(--elev-right);
   --shadow-chrome-left: var(--elev-left);
+  --shadow-float: var(--elev-float);
 }
 
 /*
@@ -147,6 +148,8 @@
   --elev-up: 0 -1px 2px rgb(22 32 44 / 0.06), 0 -3px 8px rgb(22 32 44 / 0.05);
   --elev-right: 1px 0 2px rgb(22 32 44 / 0.06), 3px 0 8px rgb(22 32 44 / 0.05);
   --elev-left: -1px 0 2px rgb(22 32 44 / 0.06), -3px 0 8px rgb(22 32 44 / 0.05);
+  /* Lo único que se separa por sombra: lo que flota sobre el lienzo. */
+  --elev-float: 0 4px 6px -1px rgb(22 32 44 / 0.1), 0 2px 4px -2px rgb(22 32 44 / 0.1);
 }
 
 .dark {
@@ -213,6 +216,7 @@
   --elev-up: 0 -1px 2px rgb(0 0 0 / 0.5), 0 -4px 12px rgb(0 0 0 / 0.35);
   --elev-right: 1px 0 2px rgb(0 0 0 / 0.5), 4px 0 12px rgb(0 0 0 / 0.35);
   --elev-left: -1px 0 2px rgb(0 0 0 / 0.5), -4px 0 12px rgb(0 0 0 / 0.35);
+  --elev-float: 0 4px 8px -2px rgb(0 0 0 / 0.55), 0 12px 28px rgb(0 0 0 / 0.45);
 }
 
 /*
@@ -224,13 +228,18 @@
  * Los cuatro looks son la combinación de estos dos bloques con :root / .dark.
  */
 :root.moderno {
-  --font-ui: 'Space Grotesk Variable', 'Avenir Next', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  /* Codia: DM Sans gobierna la interfaz; la mono queda para cifras y datos. */
+  --font-ui: 'DM Sans Variable', 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   --font-data: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', 'Consolas', monospace;
 
-  /* Radios un paso más blandos: la herramienta sigue siendo instrumento, no tarjeta. */
-  --radius: 0.75rem;
+  /*
+   * 8px es el radio de control de Codia, y acá también el `lg`. Los paneles
+   * suben a 11.2 (`xl`) y sólo las insignias contadoras usan píldora. Los
+   * radios miden, no decoran: la herramienta sigue siendo instrumento.
+   */
+  --radius: 0.5rem;
 
-  --background: #f4f4f5;
+  --background: #f6f6f7;
   --foreground: #18181b;
   --card: #ffffff;
   --card-foreground: #18181b;
@@ -238,70 +247,95 @@
   --popover-foreground: #18181b;
   --primary: #4f46e5;
   --primary-foreground: #ffffff;
-  --secondary: #eef2ff;
-  --secondary-foreground: #3730a3;
-  --muted: #f4f4f5;
-  --muted-foreground: #52525b;
-  --accent: #f4f4f5;
+  --secondary: #ececef;
+  --secondary-foreground: #27272a;
+  --muted: #f1f1f3;
+  --muted-foreground: #5c5c66;
+  --accent: #ececef;
   --accent-foreground: #18181b;
   --destructive: #dc2626;
-  --border: #e4e4e7;
-  --input: #d4d4d8;
-  --ring: #6366f1;
+  /* El borde insinúa; el escalón de superficie es el que separa. */
+  --border: rgb(24 24 27 / 0.08);
+  --input: rgb(24 24 27 / 0.14);
+  --ring: #4f46e5;
 
-  /* Misma dirección y mismo blur corto; sólo baja la opacidad y sube el alcance. */
-  --elev-down: 0 1px 2px rgb(24 24 27 / 0.05), 0 6px 16px rgb(24 24 27 / 0.05);
-  --elev-up: 0 -1px 2px rgb(24 24 27 / 0.05), 0 -6px 16px rgb(24 24 27 / 0.05);
-  --elev-right: 2px 0 3px rgb(24 24 27 / 0.04), 8px 0 18px rgb(24 24 27 / 0.05);
-  --elev-left: -2px 0 3px rgb(24 24 27 / 0.04), -8px 0 18px rgb(24 24 27 / 0.05);
+  /*
+   * Codia declara la elevación una sola vez: borde. Por eso el chrome pierde
+   * sus cuatro sombras direccionales y sólo lo que flota sobre el lienzo
+   * conserva una.
+   */
+  --elev-down: none;
+  --elev-up: none;
+  --elev-right: none;
+  --elev-left: none;
+  --elev-float: 0 1px 2px rgb(24 24 27 / 0.06), 0 8px 24px rgb(24 24 27 / 0.1);
 }
 
 .dark.moderno {
   color-scheme: dark;
 
+  /* Tres charcos, medidos en Codia: fondo, panel y control. */
   --background: #18181b;
-  --foreground: #fafafa;
-  --card: #232326;
-  --card-foreground: #fafafa;
-  --popover: #27272a;
-  --popover-foreground: #fafafa;
+  --foreground: #ededf0;
+  --card: #242429;
+  --card-foreground: #ededf0;
+  --popover: #2a2a30;
+  --popover-foreground: #ededf0;
   --primary: #4f46e5;
   --primary-foreground: #ffffff;
-  --secondary: #3f3f46;
-  --secondary-foreground: #e0e7ff;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --accent: #3f3f46;
-  --accent-foreground: #fafafa;
+  /* Lo que se pulsa vive un escalón por encima del panel. */
+  --secondary: #333338;
+  --secondary-foreground: #e7e7ea;
+  --muted: #1d1d20;
+  --muted-foreground: #9b9ba4;
+  --accent: #333338;
+  --accent-foreground: #f4f4f6;
   --destructive: #fb7185;
-  --border: #3f3f46;
-  --input: #52525b;
+  --border: rgb(255 255 255 / 0.07);
+  --input: rgb(255 255 255 / 0.12);
   --ring: #818cf8;
 
-  --elev-down: 0 1px 3px rgb(0 0 0 / 0.4), 0 6px 18px rgb(0 0 0 / 0.3);
-  --elev-up: 0 -1px 3px rgb(0 0 0 / 0.4), 0 -6px 18px rgb(0 0 0 / 0.3);
-  --elev-right: 2px 0 3px rgb(0 0 0 / 0.4), 8px 0 18px rgb(0 0 0 / 0.3);
-  --elev-left: -2px 0 3px rgb(0 0 0 / 0.4), -8px 0 18px rgb(0 0 0 / 0.3);
+  --elev-down: none;
+  --elev-up: none;
+  --elev-right: none;
+  --elev-left: none;
+  --elev-float: 0 2px 6px rgb(0 0 0 / 0.5), 0 10px 28px rgb(0 0 0 / 0.4);
 }
 
 /*
- * El cambio de familia por sí solo no se veía: Geist y Manrope son ambas sans
- * geométricas casi idénticas a 13px. Space Grotesk tiene formas propias y acá
- * se refuerza con cuerpo más grande, tracking cerrado y pesos más altos, para
- * que el estilo moderno se lea de un vistazo sin tocar la tinta del dibujo.
+ * DM Sans es una geométrica humanista: a 13px lee tranquila y no necesita
+ * tracking negativo para parecer intencional. La escala es la de Codia -12 en
+ * rótulos, 13 en cuerpo, 16 en títulos- y la jerarquía la hace el peso, no el
+ * tamaño. La tinta del dibujo no se toca: el esquema significa lo mismo.
  */
 :root.moderno body {
-  font-size: 14px;
-  letter-spacing: -0.012em;
+  font-size: 13px;
+  letter-spacing: -0.006em;
 }
 
 :root.moderno :is(button, [data-slot='menubar-trigger'], [data-slot='menubar-item'], [data-slot='toggle-group-item']) {
-  font-weight: 550;
-  letter-spacing: -0.015em;
+  font-weight: 500;
+  letter-spacing: -0.008em;
 }
 
 :root.moderno :is([data-slot='badge'], .font-mono) {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Superficies del navegador: selección, cursor y scrollbar no vienen con el
+ * diseño de nadie. Son la señal más barata de que algo se construyó y no se
+ * ensambló, y en un editor se tocan a diario.
+ */
+:root.moderno ::selection {
+  background: color-mix(in oklab, var(--primary) 38%, transparent);
+  color: var(--foreground);
+}
+
+:root.moderno {
+  caret-color: var(--primary);
+  scrollbar-color: var(--input) transparent;
+  scrollbar-width: thin;
 }
 
 @layer base {

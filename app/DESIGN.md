@@ -28,15 +28,17 @@ colors:
   day-wire: "#0f9d63"
   day-warn: "#b97d05"
   day-select: "#2f6fd0"
-  moderno-bg: "#f4f4f5"
+  moderno-bg: "#f6f6f7"
   moderno-card: "#ffffff"
-  moderno-border: "#e4e4e7"
+  moderno-control: "#ececef"
+  moderno-border: "rgb(24 24 27 / 0.08)"
   moderno-text: "#18181b"
   moderno-primary: "#4f46e5"
-  moderno-ring: "#6366f1"
+  moderno-ring: "#4f46e5"
   moderno-night-bg: "#18181b"
-  moderno-night-card: "#232326"
-  moderno-night-border: "#3f3f46"
+  moderno-night-card: "#242429"
+  moderno-night-control: "#333338"
+  moderno-night-border: "rgb(255 255 255 / 0.07)"
   moderno-night-primary: "#4f46e5"
 typography:
   body:
@@ -73,11 +75,11 @@ typography:
     lineHeight: "16px"
     fontFeature: "tnum"
   moderno-body:
-    fontFamily: "Space Grotesk Variable, Avenir Next, Segoe UI Variable, Segoe UI, system-ui, sans-serif"
-    fontSize: "14px"
-    fontWeight: 550
+    fontFamily: "DM Sans Variable, Inter, Segoe UI Variable, Segoe UI, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
     lineHeight: 1.5
-    letterSpacing: "-0.012em"
+    letterSpacing: "-0.006em"
   moderno-data:
     fontFamily: "JetBrains Mono Variable, ui-monospace, Cascadia Code, Consolas, monospace"
     fontSize: "11px"
@@ -95,6 +97,14 @@ rounded:
   xl: "9.8px"
   2xl: "12.6px"
   pill: "18.2px"
+# El mundo moderno corre un paso más blando: 8px es su radio de control.
+moderno-rounded:
+  sm: "4.8px"
+  md: "6.4px"
+  lg: "8px"
+  xl: "11.2px"
+  2xl: "14.4px"
+  pill: "9999px"
 spacing:
   xs: "4px"
   sm: "6px"
@@ -180,23 +190,25 @@ components:
 <!-- impeccable:design-map -->
 Name: Electro-Simulador
 Colors: primary: plano-primary #2c4a7c; secondary: plano-secondary #24344d; tertiary: plano-warn #f0b429; neutral: plano-bg #0e1116; primary: plano-primary-ink #dce9ff; primary: plano-select #5b9dff (+20 more in the sidecar)
-Fonts: Geist Variable (body, wordmark, menu, button, label); ui-monospace (data); Space Grotesk Variable (moderno-body); JetBrains Mono Variable (moderno-data); Arial (designator)
+Fonts: Geist Variable (body, wordmark, menu, button, label); ui-monospace (data); DM Sans Variable (moderno-body); JetBrains Mono Variable (moderno-data); Arial (designator)
 Spacing: xs 4px, sm 6px, md 8px, lg 12px, xl 16px
-Radius: sm 4.2px, md 5.6px, lg 7px, xl 9.8px, 2xl 12.6px, pill 18.2px
-North Star: "El plano de obra"
+Radius: clásico sm 4.2px, md 5.6px, lg 7px, xl 9.8px, 2xl 12.6px, pill 18.2px · moderno sm 4.8px, md 6.4px, lg 8px, xl 11.2px, 2xl 14.4px, pill 9999px
+North Star: "El plano de obra" en el mundo clásico; "charcos y bordes" en el moderno
 Elevation:
 - Banda inferior: 0 1px 2px rgb(0 0 0 / 0.5), 0 4px 12px rgb(0 0 0 / 0.35)
 - Banda superior: 0 -1px 2px …, 0 -4px 12px …
 - Panel izquierdo: 1px 0 2px …, 4px 0 12px …
 - Panel derecho: -1px 0 2px …, -4px 0 12px …
 - Flotante: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)
+- Bandas del chrome, mundo moderno: none — las separa el borde
+- Flotante del lienzo, mundo moderno: 0 2px 6px rgb(0 0 0 / 0.5), 0 10px 28px rgb(0 0 0 / 0.4)
 Don't:
-- Don't convertir esto en un dashboard SaaS: sin tarjetas flotantes, sin métricas grandes, sin gradientes, sin KPIs.
-- Don't pintar un control de chrome con la tinta del dibujo, ni un cable con el gris del chrome.
-- Don't pasar de 7px de radio en un control, ni usar píldoras fuera de las insignias contadoras.
-- Don't agregar sombras fuera de las cinco direccionales documentadas, ni subir el blur de 12px.
+- Don't convertir el mundo clásico en un dashboard SaaS: sin tarjetas flotantes, sin métricas grandes, sin gradientes, sin KPIs.
+- Don't pintar un control de chrome con la tinta del dibujo, ni un cable con el gris del chrome. Vale en los dos mundos.
+- Don't pasar de 7px de radio en un control del mundo clásico; en el moderno el techo son 8px, y las píldoras siguen reservadas a las insignias contadoras.
+- Don't agregar sombras fuera de las documentadas: cuatro bandas direccionales más el flotante en el clásico; ninguna en el chrome del moderno, donde sólo flota el chrome del lienzo.
 - Don't usar mayúsculas fuera de los rótulos de 10px.
-- Don't introducir violeta, glassmorphism, blur decorativo ni transparencias fuera de los `color-mix` de estado del lienzo.
+- Don't introducir violeta ni glassmorphism en el mundo clásico. El moderno sí escalona superficies de control (`#333338`) y baja el borde a blanco al 7%; nunca usa blur decorativo.
 - Don't ocultar un ítem deshabilitado: se muestra al 50% para que la acción siga siendo descubrible.
 Do:
 - Do separar zonas con 1px de `{colors.plano-border}` antes de recurrir a una sombra.
@@ -207,4 +219,28 @@ Do:
 - Do limitar el botón primario a una sola instancia visible por pantalla.
 - Do nombrar las acciones con palabras en los menús, con el atajo en mono a la derecha.
 - Do dejar el foco visible con borde de anillo más halo de 3px, en ambos temas.
+- Do cambiar de estilo sin cambiar el significado del esquema: la tinta del dibujo, el archivo y el round-trip no dependen del mundo visual.
+
+## Los dos mundos
+
+El estilo no es un tema: son dos mundos visuales que comparten la misma tinta de
+dibujo, el mismo archivo y el mismo contrato de round-trip.
+
+| | Clásico | Moderno |
+|---|---|---|
+| North Star | El plano de obra | Charcos y bordes |
+| Tipografía | Geist 13px | DM Sans 13px |
+| Radio de control | 7px | 8px |
+| Separación | Borde 1px + sombra direccional | Charcos de superficie + borde al 7% |
+| Paleta | Sobre el header | Al costado |
+| Chrome del lienzo | Barras del editor | Flotante: zoom a la izquierda, herramientas al centro |
+
+Reglas que valen en los dos: la tinta del esquema (`--wire`, `--warn`, `--ink`,
+`--grid-*`) no se reescribe nunca; el estilo cambia el chrome, no el dibujo. El
+mundo moderno toma sus valores de Codia Studio -tres charcos, borde al 7%, radio
+de 8px, DM Sans- y los aplica sólo al chrome.
+
+El inspector pliega únicamente los grupos secundarios -vértice, bornes, avisos-.
+Lo que describe al componente o a la selección se lee sin abrir nada: es el
+motivo por el que el inspector está abierto.
 Full: .impeccable/design-full.md (read a section when you need its detail)

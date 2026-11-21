@@ -21,10 +21,10 @@
     "qet:sheet": "node scripts/qet-sheet.ts"
   },
   "dependencies": {
+    "@fontsource-variable/dm-sans": "^5.3.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/manrope": "^5.3.0",
-    "@fontsource-variable/space-grotesk": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@ui-sdk/core": "0.1.0-beta.13",
     "@ui-sdk/react": "0.1.0-beta.13",
