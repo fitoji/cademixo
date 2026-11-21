@@ -27,6 +27,13 @@ Rama: `feat/modo-moderno-codia`
 | T4 | `DESIGN.md` con los dos mundos + `Don't` del eje moderno | S6 | inline | `78a94b9` |
 | T5 | Tests: mundos visuales (unit) + gate de estilo (e2e) | S2, S5 | inline | `e8053c9` |
 | T6 | Corregir el defecto de S2 que encontró la verificación | S2 | inline | `09c5b4a` |
+| T7 | Restituir el espaciado del clásico y cubrir el acordeón moderno | S2, S4 | inline | `22c0042` |
+
+## Risk
+
+**Risk: item 5** — dependencia agregada (`@fontsource-variable/dm-sans`) y retirada (`space-grotesk`).
+
+El eje que falló dos veces en verificación no es "dependencia" sino **"mundo clásico tocado"**. Ningún ítem de la lista lo nombra literalmente; se trata como ítem 3, porque el look de CADe_SIMU es un contrato que el usuario ya consume. Queda cubierto por `app/test/estilo-mundos.test.ts` y por el e2e del gate de estilo.
 
 ## Log
 
@@ -44,3 +51,5 @@ Rama: `feat/modo-moderno-codia`
 - **L8** (verificación independiente) — `gentle-ai-verify`: 629/630 unitarios, 11/11 e2e de entonces, build OK, `git diff main -- src/format src/model src/sim` vacío. El único fallo es `parse-perf.test.ts`, un test de tiempos de pared en milisegundos de un dígito: 3/3 verde aislado y con el parser byte-idéntico a `main`. Es flake de medición, no regresión; no se toca.
 - **L9** (defecto real, corregido) — La verificación encontró que en clásico el plegado se apagaba sólo para el mouse: `pointer-events: none` deja el `<summary>` enfocable y **Enter lo cerraba**. Se abandonó el hack CSS: en clásico no se renderiza un `<details>` que no puede abrirse, se vuelve al rótulo pelado vía `collapsibleSections`. De paso se quitó el padding que el clásico había ganado y el `@import` muerto de Space Grotesk (22 + 19 kB que ya nadie usaba).
 - **L10** (slices) — 608 líneas autoradas en 3 commits: `78a94b9` (tokens + docs), `09c5b4a` (estructura), `e8053c9` (tests). La suite e2e real tiene 13 casos, no 9 como decía el README.
+- **L11** (segunda verificación, sobre el estado final) — 634/634 unitarios, 13/13 e2e, build OK. Confirmó el fix del plegado por teclado, pero encontró un **residuo**: al no renderizar `<details>` en clásico, Avisos y Vértice heredaban el gap de 12px del shell donde `main` tenía 8px propios. Corregido en `22c0042` con `groupInClassic`, que reproduce la forma que cada grupo tenía.
+- **L12** (hueco de test, cerrado) — El e2e sólo afirmaba la mitad clásica del gate: pasaba igual con el acordeón muerto en moderno. Ahora selecciona un componente y exige que la sección exista, se pliegue al clic y se despliegue con Enter. El unitario además falla si una familia importada no está en `package.json` o si vuelve el import de Space Grotesk.
