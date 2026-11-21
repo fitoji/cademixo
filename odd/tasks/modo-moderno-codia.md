@@ -1,0 +1,42 @@
+# Modo moderno estilo Codia
+
+Reemplaza el mundo visual del estilo **moderno** por el de Codia Studio (medido en su DOM real), y le suma el chrome flotante y el inspector en acordeones. El estilo **clásico** y la tinta del dibujo no se tocan.
+
+Rama: `feat/modo-moderno-codia`
+
+## Specs
+
+- **S1** — El estilo moderno adopta el mundo de Codia: superficies por escalón (`#18181b` fondo, `#242429` panel, `#333338` control), borde blanco al 6–9%, radio 8px dominante (10/12 en paneles, píldora en chips), DM Sans con escala 12/14/16, y jerarquía por borde en vez de sombra.
+  > "me gusta mucho ese estilo para nuestra app en modo moderno usa la skill de impeccable si crees apropiado"
+- **S2** — El estilo clásico y la tinta del dibujo quedan intactos: `--wire`, `--warn`, `--ink`, `--grid-*` y la grilla del lienzo siguen siendo el mundo "plano de obra". El cambio no alcanza el esquema.
+- **S3** — Chrome flotante sobre el lienzo: zoom abajo-izquierda y dock de herramientas flotante, sobre el canvas, en vez de barras del chrome.
+  > "piel mas estructura"
+- **S4** — El inspector pasa a secciones colapsables, con inputs numéricos en pares y grupos de iconos segmentados.
+  > "piel mas estructura"
+- **S5** — Compatibilidad CADe_SIMU intacta: parser, serializador, modelo de dominio, netlist y solver sin cambios de contrato; el round-trip byte a byte sigue pasando.
+  > "recuerda no romper nada de compatibilidad con cadesimu"
+- **S6** — `DESIGN.md` documenta los dos mundos y reescribe los `Don't` para el eje moderno, sin romper las reglas del clásico.
+
+## Tasks
+
+| ID | Tarea | Spec | Ruta | Commit |
+|---|---|---|---|---|
+| T1 | Dependencia DM Sans self-hosted + tokens del estilo moderno | S1, S2 | inline | — |
+| T2 | Chrome flotante del lienzo: zoom y dock de herramientas | S3, S2 | inline | — |
+| T3 | Inspector en secciones colapsables | S4 | inline | — |
+| T4 | `DESIGN.md` con los dos mundos + `Don't` del eje moderno | S6 | inline | — |
+| T5 | Tests: apariencia, e2e de smoke, y suite completa como prueba de compatibilidad | S2, S5 | inline | — |
+
+## Log
+
+- **L1** — "revisa esta app: https://codia.ai/studio/session/4aec84c3-c777-4f52-8913-0e32ef2e969b que podemos adaptar para nuestra app en el modo moderno"
+- **L2** — "revisa la ui/ux"
+- **L3** — "me gusta mucho ese estilo para nuestra app en modo moderno usa la skill de impeccable si crees apropiado"
+- **L4** — "piel mas estructura, pero recuerda no romper nada de compatibilidad con cadesimu"
+- **L5** (evidencia) — La sesión de Codia no es pública: `/studio/session/<id>` redirige a `/studio` sin sesión iniciada, y `/share/<token>` da 404. Se inspeccionó autenticada vía la ventana de automatización. Tokens medidos con `getComputedStyle` sobre el DOM real:
+  - fuentes: `-apple-system, "DM Sans", Inter, system-ui…` (46 nodos de texto)
+  - fondos: `rgba(69,69,74,.6)` ×13, `rgb(51,51,56)` ×11, `rgb(29,29,32)` ×3, `rgb(36,36,41)` ×2
+  - radios: `8px` ×58, `10px` ×16, `12px` ×13, `9999px` ×12
+  - cuerpos de texto: `12px` ×25, `16px` ×21, `14px` ×14
+- **L6** (decisión) — Alcance: piel + estructura, no solo tokens. Restricción dura: nada de compatibilidad CADe_SIMU.
+- **L7** (decisión) — El moderno es un mundo reemplazado, no un retoque: los `Don't` de `DESIGN.md` sobre píldoras, violeta, radios y sombras pertenecen al mundo clásico y se reescriben para el eje moderno, no se rompen en silencio.
