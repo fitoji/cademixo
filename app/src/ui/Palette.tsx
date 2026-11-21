@@ -1,6 +1,6 @@
 import type { CSSProperties, JSX } from 'react';
 import { useState, useSyncExternalStore } from 'react';
-import { BoxesIcon, ChevronDownIcon, HistoryIcon, SearchIcon, StarIcon, XIcon } from 'lucide-react';
+import { BoxesIcon, ChevronDownIcon, SearchIcon, StarIcon, XIcon } from 'lucide-react';
 import { lineList, symbolList, type SymbolDef, type SymbolGroup } from '../symbols/library.ts';
 import { CATALOG } from '../symbols/catalog.ts';
 import { searchSymbols } from '../symbols/search.ts';
@@ -242,7 +242,10 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
 
   // El ancho lo lleva el panel redimensionable del App; acá sólo se llena.
   return (
-    <aside className="relative z-10 flex min-h-0 w-full flex-1 flex-col bg-card shadow-chrome-right">
+    <aside
+      data-palette=""
+      className="relative z-10 flex min-h-0 w-full flex-1 flex-col bg-card shadow-chrome-right"
+    >
       <PanelHead>Insertar componente</PanelHead>
 
       <div className="shrink-0 border-b border-border/60 px-1.5 py-1">
@@ -291,17 +294,16 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
               {categories.map((cat) => (
                 <AccordionItem key={cat.key} value={cat.key} className="border-border/60">
                   <AccordionTrigger className="items-center gap-1.5 px-1.5 py-1.5 text-[10px] font-semibold tracking-[0.5px] text-muted-foreground uppercase hover:text-foreground hover:no-underline">
-                    {cat.key === 'fav' ? (
-                      <StarIcon className="size-3 shrink-0 fill-current text-[var(--tone-senalizacion)]" />
-                    ) : cat.key === 'recent' ? (
-                      <HistoryIcon className="size-3 shrink-0" style={{ color: cat.tone }} />
-                    ) : (
-                      <span className="size-1.5 shrink-0 rounded-full" style={{ background: cat.tone }} />
-                    )}
-                    <span className="truncate">{cat.label}</span>
-                    <Badge variant="ghost" className="ml-auto h-4 shrink-0 px-1 font-mono text-[10px] font-normal">
+                    {/*
+                      La cifra va antes del nombre: se compara de un vistazo hacia
+                      abajo y deja una sola columna de texto alineada. Sin punto de
+                      color ni adorno por grupo: el nombre ya dice cuál es cuál, y
+                      los que se distinguen -favoritos, recientes- lo dicen también.
+                    */}
+                    <Badge variant="ghost" className="shrink-0 px-1 font-mono text-[10px] font-normal">
                       {cat.syms.length}
                     </Badge>
+                    <span className="truncate">{cat.label}</span>
                   </AccordionTrigger>
                   <AccordionContent className="pt-0.5 pb-1">
                     {cat.syms.map((sym) => (
@@ -338,7 +340,12 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
       </ScrollArea>
 
       <div className="shrink-0 border-t border-border p-1.5">
-        <div className="px-1.5 pt-1 pb-1 text-[10px] tracking-[0.5px] text-muted-foreground uppercase">Hojas</div>
+        <div
+          data-palette-group=""
+          className="px-1.5 pt-1 pb-1 text-[10px] tracking-[0.5px] text-muted-foreground uppercase"
+        >
+          Hojas
+        </div>
         {sheets.map((sheet, i) => (
           <Button
             key={sheet.index}
