@@ -243,4 +243,34 @@ de 8px, DM Sans- y los aplica sólo al chrome.
 El inspector pliega únicamente los grupos secundarios -vértice, bornes, avisos-.
 Lo que describe al componente o a la selección se lee sin abrir nada: es el
 motivo por el que el inspector está abierto.
+
+## Contraste
+
+`app/test/contraste.test.ts` resuelve los tokens de `index.css` para los cuatro
+mundos y calcula ratios WCAG. Si un token se mueve y deja de cumplir, el test lo
+dice con el par y el número en la mano. No se estima a ojo: un texto puede verse
+bien en una captura y estar en 3.9:1.
+
+Medido al cierre de este trabajo:
+
+| Qué | Clásico día | Clásico noche | Moderno día | Moderno noche | Mínimo |
+|---|---|---|---|---|---|
+| Texto sobre panel | 16.44 | 14.43 | 17.72 | 13.22 | 4.5 |
+| Texto secundario sobre panel | 5.51 | 6.97 | 6.61 | 5.60 | 4.5 |
+| Botón primario | 6.21 | 7.21 | 6.29 | 6.29 | 4.5 |
+| Destructivo sobre panel | 5.46 | 6.41 | 4.83 | 5.74 | 4.5 |
+| Foco | 4.88 | 6.53 | 6.29 | 5.18 | 3 |
+| Borde de campo | 1.51 | 1.38 | 3.00 | 3.16 | 3 |
+
+### Dos excepciones declaradas
+
+1. **El borde de campo del clásico queda bajo 3:1 a propósito.** Cumplirlo obliga
+a un contorno muy visible que rompe el look de CADe_SIMU, y ese look es un
+contrato del mundo clásico. Es una deuda conocida y medida, no un descuido: si
+se decide pagarla, se cambia el token `--input` del clásico y el test se extiende
+a ese mundo.
+2. **`--border` no llega a 3:1 y no tiene por qué.** WCAG 1.4.11 pide contraste
+para lo que identifica un componente; un separador separa zonas. Por eso el
+moderno puede tener zonas de 7% y campos de 35%: son dos trabajos distintos y
+ahora usan tokens distintos.
 Full: .impeccable/design-full.md (read a section when you need its detail)

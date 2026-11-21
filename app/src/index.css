@@ -256,7 +256,12 @@
   --destructive: #dc2626;
   /* El borde insinúa; el escalón de superficie es el que separa. */
   --border: rgb(24 24 27 / 0.08);
-  --input: rgb(24 24 27 / 0.14);
+  /*
+   * `--input` no es un separador: es el límite de un campo, la única señal de
+   * que ahí se escribe. WCAG 1.4.11 le pide 3:1 contra el panel, así que este
+   * token es mucho más fuerte que `--border` y no sigue la estética de Codia.
+   */
+  --input: rgb(24 24 27 / 0.46);
   --ring: #4f46e5;
 
   /*
@@ -292,7 +297,7 @@
   --accent-foreground: #f4f4f6;
   --destructive: #fb7185;
   --border: rgb(255 255 255 / 0.07);
-  --input: rgb(255 255 255 / 0.12);
+  --input: rgb(255 255 255 / 0.35);
   --ring: #818cf8;
 
   --elev-down: none;
@@ -379,10 +384,12 @@
   background: transparent;
 }
 
-/* El buscador es una superficie, no un campo con borde: el foco lo enciende. */
+/*
+ * El buscador es una superficie, no un campo de dos tonos; el foco lo enciende.
+ * El borde queda: con `--input` a 3:1 es lo que hace visible que ahí se escribe.
+ */
 :root.moderno [data-palette] input[data-slot='input'] {
   height: 34px;
-  border-color: transparent;
   border-radius: var(--radius-lg);
   background: var(--muted);
 }
