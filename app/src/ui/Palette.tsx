@@ -33,19 +33,7 @@ const GROUP_LABEL: Record<SymbolGroup, string> = {
   otro: 'Otros',
 };
 
-const GROUP_ORDER: SymbolGroup[] = [
-  'alimentacion',
-  'motor',
-  'potencia',
-  'proteccion',
-  'mando',
-  'senalizacion',
-  'sensor',
-  'linea',
-  'carga',
-  'borne',
-  'otro',
-];
+import { GROUP_ORDER } from './palette-order.ts';
 
 /** Tono por familia: pinta las miniaturas, no el esquema. */
 const GROUP_TONE: Record<SymbolGroup, string> = {

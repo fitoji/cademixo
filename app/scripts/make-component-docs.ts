@@ -20,6 +20,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CATALOG } from '../src/symbols/catalog.ts';
 import { shapesBounds } from '../src/symbols/draw.ts';
+import { GROUP_ORDER } from '../src/ui/palette-order.ts';
 import {
   lineList,
   resolveSymbol,
@@ -50,19 +51,8 @@ const LABEL: Record<SymbolGroup, string> = {
   otro: 'Otros',
 };
 
-const ORDER: SymbolGroup[] = [
-  'alimentacion',
-  'motor',
-  'potencia',
-  'proteccion',
-  'mando',
-  'senalizacion',
-  'sensor',
-  'linea',
-  'carga',
-  'borne',
-  'otro',
-];
+// Mismo orden que la paleta (menú «Barras» de CADe_SIMU V4).
+const ORDER = GROUP_ORDER;
 
 // --- dibujo -----------------------------------------------------------------
 // Mismos colores del tema día y mismos trazos que diagram.css: la miniatura es
