@@ -136,9 +136,9 @@ test('el relé térmico (6007) es el cuerpo rectangular de la captura real', () 
   assert.ok(ds.includes('M-1.5 3H13.5V9H-1.5Z'), 'falta el cuerpo rectangular');
   for (const x of [0, 6, 12]) {
     assert.ok(ds.includes(`M${x} 0L${x} 12`), `falta el conductor del polo ${x}`);
-    assert.ok(ds.includes(`M${x} 3L${x + 2.75} 3`), `falta el escalón alto del polo ${x}`);
-    assert.ok(ds.includes(`M${x + 2.75} 3L${x + 2.75} 6`), `falta el escalón vertical del polo ${x}`);
-    assert.ok(ds.includes(`M${x + 2.75} 6L${x} 6`), `falta el escalón bajo del polo ${x}`);
+    assert.ok(ds.includes(`M${x} 4L${x + 2.75} 4`), `falta el escalón alto del polo ${x}`);
+    assert.ok(ds.includes(`M${x + 2.75} 4L${x + 2.75} 7`), `falta el escalón vertical del polo ${x}`);
+    assert.ok(ds.includes(`M${x + 2.75} 7L${x} 7`), `falta el escalón bajo del polo ${x}`);
   }
   assert.equal(resolveSymbol(6007, []).shapes(21, 15).filter((s) => s.fill).length, 0, 'sin cuadros rellenos');
 });

@@ -1633,9 +1633,11 @@ const thermalRelay3: SymbolDef = {
       { d: rect(-1.5, 3, 15, 6) },
       ...[0, 6, 12].flatMap((x) => [
         { d: line(x, 0, x, 12) },
-        { d: line(x, 3, x + 2.75, 3) },
-        { d: line(x + 2.75, 3, x + 2.75, 6) },
-        { d: line(x + 2.75, 6, x, 6) },
+        // El escalón va DENTRO del rectángulo (y=4..7), no sobre su borde
+        // superior en y=3: si no, la tapa y el escalón se superponen.
+        { d: line(x, 4, x + 2.75, 4) },
+        { d: line(x + 2.75, 4, x + 2.75, 7) },
+        { d: line(x + 2.75, 7, x, 7) },
       ]),
     ];
   },
