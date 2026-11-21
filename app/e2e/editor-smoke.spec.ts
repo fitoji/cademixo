@@ -327,3 +327,43 @@ test('the default wire thickness reaches the canvas', async ({ page }) => {
   await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
   await expect.poll(strokeWidth).toBeCloseTo(0.34, 3);
 });
+
+test('el chrome flotante y el inspector plegable son del estilo moderno', async ({ page }) => {
+  await page.goto('/');
+
+  // Clásico: sin dock flotante y sin secciones plegables. Es el panel de
+  // CADe_SIMU, donde todo está a la vista.
+  await expect(page.getByRole('button', { name: 'Grilla' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Alejar' })).toHaveCount(0);
+  await expect(page.locator('details')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
+
+  // Moderno: grilla e imán son estados, no acciones.
+  const grid = page.getByRole('button', { name: 'Grilla' });
+  await expect(grid).toHaveAttribute('aria-pressed', 'true');
+  await grid.click();
+  await expect(grid).toHaveAttribute('aria-pressed', 'false');
+
+  await expect(page.getByRole('button', { name: 'Ajustar a la ventana' }).first()).toBeVisible();
+});
+
+test('el zoom flotante del moderno mueve la escala del lienzo', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
+
+  // La píldora de zoom de la esquina inferior derecha ya no existe: el
+  // porcentaje vive en el cluster flotante de abajo a la izquierda.
+  await expect(page.locator('div.right-3.bottom-3')).toHaveCount(0);
+  const zoom = page.locator('div.bottom-3.left-3 button').nth(1);
+  const original = await zoom.innerText();
+  await page.getByRole('button', { name: 'Acercar' }).click();
+  await expect.poll(() => zoom.innerText()).not.toBe(original);
+  await page.getByRole('button', { name: 'Alejar' }).click();
+  await expect.poll(() => zoom.innerText()).toBe(original);
+
+  // Las pistas dejaron de ser una barra fija: se piden desde el dock.
+  await expect(page.locator('div.bottom-14')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Atajos del lienzo' }).click();
+  await expect(page.locator('div.bottom-14')).toHaveCount(1);
+});
