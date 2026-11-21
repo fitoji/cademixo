@@ -8,6 +8,7 @@ import { resolveSymbol } from '../symbols/library.ts';
 import type { Rotation } from '../editor/state.ts';
 import { cableLength, cableNumberOf, cableSegments, type Finding, type Network } from '../editor/network.ts';
 import type { Point } from '../editor/pins.ts';
+import { setSectionOpen, subscribeSections, getSectionsSnapshot, type SectionId } from './section-state.ts';
 import { PanelHead } from './PanelHead.tsx';
 import { getFavorites, isFavorite, subscribeFavorites, toggleStoredFavorite } from './favorites.ts';
 import { cn } from '@/lib/utils';
@@ -62,7 +63,7 @@ export function Inspector(props: Props): JSX.Element {
     props;
 
   const vertexBlock = vertex ? (
-    <Section title="Vértice seleccionado" collapsible={collapsibleSections}>
+    <Section id="vertice" title="Vértice seleccionado" collapsible={collapsibleSections}>
       <dl className={DL}>
         <Row label="Posición" value={`${vertex.x}, ${vertex.y}`} />
       </dl>
@@ -172,12 +173,14 @@ function SectionLabel({ children }: { children: ReactNode }): JSX.Element {
  * motivo por el que está abierto el inspector.
  */
 function Section({
+  id,
   title,
   children,
   collapsible,
   groupInClassic = true,
-  defaultOpen = true,
 }: {
+  /** Clave con la que la sección recuerda si quedó plegada. */
+  id: SectionId;
   title: ReactNode;
   children: ReactNode;
   collapsible: boolean;
@@ -187,8 +190,10 @@ function Section({
    * cambia porque el mundo moderno necesite otra cosa.
    */
   groupInClassic?: boolean;
-  defaultOpen?: boolean;
 }): JSX.Element {
+  const open = useSyncExternalStore(subscribeSections, getSectionsSnapshot, getSectionsSnapshot);
+  const expanded = !open.split(',').includes(id);
+
   /*
    * Un `<details>` que no se puede abrir sería una mentira del DOM, y frenar el
    * mouse no alcanza: el `summary` sigue siendo enfocable y Enter lo pliega.
@@ -208,7 +213,11 @@ function Section({
     );
   }
   return (
-    <details open={defaultOpen} className="group/section -mx-1">
+    <details
+      open={expanded}
+      onToggle={(event) => setSectionOpen(id, event.currentTarget.open)}
+      className="group/section -mx-1"
+    >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1 py-1 text-[10px] font-semibold tracking-[0.7px] text-muted-foreground uppercase transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
         {title}
         <ChevronRightIcon className="size-3 shrink-0 transition-transform group-open/section:rotate-90" />
@@ -242,7 +251,7 @@ function Findings({
 }): JSX.Element | null {
   if (findings.length === 0) return null;
   return (
-    <Section title={`Avisos (${findings.length})`} collapsible={collapsible}>
+    <Section id="avisos" title={`Avisos (${findings.length})`} collapsible={collapsible}>
       {findings.slice(0, 10).map((f, i) => (
         <Alert
           key={`${f.code}-${i}`}
@@ -384,7 +393,12 @@ function Single({
             <Row label="Registro" value={`#${rec.id}`} />
           </dl>
 
-          <Section title={`Bornes (${rec.pins.length})`} collapsible={collapsibleSections} groupInClassic={false}>
+          <Section
+            id="bornes"
+            title={`Bornes (${rec.pins.length})`}
+            collapsible={collapsibleSections}
+            groupInClassic={false}
+          >
             <div className="flex flex-wrap gap-1">
               {rec.pins.map((pin, i) => (
                 <Badge key={`${pin}-${i}`} variant="outline" className="h-5 px-1.5 font-mono text-[10.5px] font-normal">

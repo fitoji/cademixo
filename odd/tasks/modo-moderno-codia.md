@@ -29,6 +29,9 @@ Rama: `feat/modo-moderno-codia`
 | T6 | Corregir el defecto de S2 que encontró la verificación | S2 | inline | `09c5b4a` |
 | T7 | Restituir el espaciado del clásico y cubrir el acordeón moderno | S2, S4 | inline | `22c0042` |
 | T8 | Paleta lateral del moderno: rótulos en frase, contador como cifra, buscador como superficie | S7 | inline | — |
+| T9 | Tooltips del dock con el atajo real + plegado del inspector recordado | S8 | inline | — |
+
+- **S8** — El dock muestra una tooltip con el nombre de la acción y su atajo cuando existe (no se inventa ninguno), y el inspector recuerda qué secciones quedaron plegadas entre selecciones y recargas.
 
 - **S7** — La columna de componentes del estilo moderno deja de gritar: los rótulos de panel y de grupo pasan a frase a 13/12.5px, el contador deja de ser insignia y el buscador pasa a ser una superficie que el foco enciende. Se aplica con un bloque `:root.moderno` sobre hooks `data-*`, porque la paleta vertical también la puede usar el clásico (hay preferencia de orientación).
 
@@ -58,3 +61,6 @@ El eje que falló dos veces en verificación no es "dependencia" sino **"mundo c
 - **L12** (hueco de test, cerrado) — El e2e sólo afirmaba la mitad clásica del gate: pasaba igual con el acordeón muerto en moderno. Ahora selecciona un componente y exige que la sección exista, se pliegue al clic y se despliegue con Enter. El unitario además falla si una familia importada no está en `package.json` o si vuelve el import de Space Grotesk.
 - **L13** (decisión) — S4 se cierra sin los "inputs numéricos en pares": el único candidato real es la posición X/Y, y volverla editable es una feature que escribe geometría en el modelo, no piel. Los "grupos de iconos segmentados" ya existen con la forma correcta (selector de color de señalización: `role="group"` + `aria-pressed` + `disabled`), así que migrarlos a `ToggleGroup` sería churn.
 - **L14** (S7) — La paleta vertical **no** es exclusiva del moderno: hay preferencia de orientación, así que el rediseño se hizo con hooks `data-palette` / `data-panel-head` / `data-palette-group` más un bloque `:root.moderno`. Verificado por computed style en ambos mundos: clásico sigue con `text-transform: uppercase` y 10.5px.
+- **L15** (S8) — Tooltips: sólo **Ajustar a la ventana** tiene atajo real (⌘0); Grilla e Imán no, así que se muestran sin atajo en vez de inventar uno simétrico. Verificado en el DOM: `role=tooltip` dice `Ajustar a la ventana⌘0`.
+- **L16** (S8) — El plegado se guarda fuera de React (`section-state.ts`, clave `simuelectro:secciones`) porque el inspector se remonta en cada selección. Se guarda sólo lo plegado: abierto es el estado natural. Un id desconocido se descarta al leer.
+- **L17** (test, corregido dos veces) — El primer e2e fallaba porque `details.first()` no era la misma sección tras remontar, y después porque el clic conservaba coordenadas de antes de cambiar de estilo (la paleta mueve el lienzo). Quedó ubicando la sección por texto y volviendo a buscar el componente.

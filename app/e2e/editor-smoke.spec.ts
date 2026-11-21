@@ -381,3 +381,30 @@ test('el zoom flotante del moderno mueve la escala del lienzo', async ({ page })
   await page.getByRole('button', { name: 'Atajos del lienzo' }).click();
   await expect(page.locator('div.bottom-14')).toHaveCount(1);
 });
+
+test('el inspector recuerda qué secciones plegaste', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
+
+  const target = await findDraggableComponent(page);
+  await page.mouse.click(target.x, target.y);
+
+  const bornes = page.locator('details').filter({ hasText: 'Bornes' });
+  await expect(bornes).toHaveAttribute('open', '');
+  await bornes.locator('summary').click();
+  await expect(bornes).not.toHaveAttribute('open', '');
+
+  // Cambiar de estilo desmonta el inspector entero; al volver, la sección sigue
+  // plegada, que es lo que el usuario pidió al plegarla.
+  await page.getByRole('button', { name: 'Activar estilo clásico' }).click();
+  await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
+
+  // El cambio de estilo mueve la paleta y con ella el lienzo, así que el punto
+  // del primer clic ya no sirve: se vuelve a buscar el componente.
+  const target2 = await findDraggableComponent(page);
+  await page.mouse.click(target2.x, target2.y);
+
+  const again = page.locator('details').filter({ hasText: 'Bornes' });
+  await expect(again).toHaveCount(1);
+  await expect(again).not.toHaveAttribute('open', '');
+});
