@@ -77,11 +77,18 @@ test('el dibujo en reposo de los 227 códigos es el calibrado', () => {
   // 6007, 6009): la lista pasa de 232 a 227 entradas porque esos cinco códigos
   // tenían una definición vieja y la generada desde los planos. La tinta de
   // cada código no cambió: sólo desaparecieron líneas repetidas del listado.
+  //
+  // Regenerada al completar el desplazamiento de 5000 y 5002 (L2/L3 de
+  // `fusibles-5000-5002`): el +12 ya no es sólo del ramal inferior, sino de
+  // toda la tinta medida —el cuerpo pasa a 3..9 y el conductor es continuo de
+  // 0 a 12, que subsume el vástago central—, igual que 5001, 5003 y 8017. El
+  // resto de los 227 códigos conserva la huella anterior (diferencial: 2 de
+  // 227 códigos).
   assert.equal(
     hash,
     // Regenerada al pasar la paleta del 8017 de catorce puntos a una cuña
     // rellena y al migrar el 6007 a la captura real de CADe (tres dados).
-    '2abcd8f686d6c873b6f1061f7440a885b85f27af7007ab747b5d3520ae4ed4b5',
+    'ec11f4cfb09a3023afb7a4cbc8cad3a30491a297a4e6992c4e097095717213db',
     `la tinta en reposo cambió (huella ${hash}): el dibujo sin simular ya no es el calibrado`,
   );
 });

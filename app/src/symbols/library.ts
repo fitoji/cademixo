@@ -990,12 +990,16 @@ const fuse5003: SymbolDef = {
  * Fusible monofásico (5000), anclado al origen.
  * Medido sobre `docs/03/componentes02.png` (S=4, OX=-2, OY=-60), en (15,57).
  *
- * El ramal inferior cierra en `y = 12`, que es la fila del borne 2 del archivo
- * (`bornes-grilla-del-archivo`, L8). Ojo: ese último tramo coincide con la
- * tinta que la captura dibuja en la banda del registro vecino —6000 en (15,78),
- * banda 66..77,75—, así que el `stray = 0` del gate NO prueba que el tramo sea
- * del 5000; sólo dice que no hay tinta suelta. Se estira igual porque el borne
- * está en la fila 12.
+ * La captura dibuja el símbolo en las 12 unidades que están POR ENCIMA de la
+ * fila del registro (banda −12..−0,25), pero los bornes del archivo son las
+ * filas 0 y 12. Por la regla de `bornes-grilla-del-archivo` (S1) mandan los
+ * bornes: la tinta medida va corrida +12 en `y`, el conductor se estira hasta
+ * las dos filas (0 y 12) y la forma no cambia. Prueba de que sólo se desplazó:
+ * el gate raster con `oy = y_registro − 12` (15,45) da `stray = 0`.
+ *
+ * El vástago central medido —x = −5,75, de −9 a −0,25— no necesita trazo
+ * propio: corrido +12 es la misma vertical que el conductor continuo de 0 a 12,
+ * que lo subsume.
  */
 const fuse1: SymbolDef = {
   code: 5000,
@@ -1010,16 +1014,14 @@ const fuse1: SymbolDef = {
   size: { w: 6, h: 15 },
   shapes() {
     return [
-      // Cuerpo rectangular medido en componentes02.png: tapa en y=-9,
-      // laterales en -7,25/-5,75/-4,75 y cierre en y=-3. El vástago central
-      // baja hasta el origen del registro.
-      { d: line(-7.25, -9, -7.25, -3) },
-      { d: line(-5.75, -9, -5.75, -0.25) },
-      { d: line(-4.75, -9, -4.75, -3) },
-      { d: line(-7.25, -9, -4.75, -9) },
-      { d: line(-7.25, -3, -4.75, -3) },
-      // Ramal inferior hasta la fila 12 (borne 2), estirado 0,25 sobre la medición.
-      { d: line(-5.75, 9, -5.75, 12) },
+      // Conductor de la fila 0 a la fila 12 (bornes 1 y 2).
+      { d: line(-5.75, 0, -5.75, 12) },
+      // Cuerpo rectangular medido (barras en 3 y 9, corrido +12):
+      // laterales en -7,25 y -4,75, tapas en 3 y 9.
+      { d: line(-7.25, 3, -7.25, 9) },
+      { d: line(-4.75, 3, -4.75, 9) },
+      { d: line(-7.25, 3, -4.75, 3) },
+      { d: line(-7.25, 9, -4.75, 9) },
     ];
   },
 };
@@ -1028,11 +1030,14 @@ const fuse1: SymbolDef = {
  * Fusible II (5002), anclado al origen.
  * Medido sobre `docs/03/componentes02.png` (S=4, OX=-2, OY=-60), en (54,57).
  *
- * Los dos ramales inferiores cierran en `y = 12`, la fila de los bornes 2 y 4
- * (`bornes-grilla-del-archivo`, L8). Igual que en el 5000, ese tramo coincide
- * con la tinta que la captura dibuja en la banda del registro vecino —6002 en
- * (54,78)—, así que el `stray = 0` del gate no prueba que el tramo sea propio:
- * el estiramiento se hace igual porque los bornes están en la fila 12.
+ * Misma regla que el 5000 (`bornes-grilla-del-archivo`, S1): la captura dibuja
+ * el símbolo en la banda −12..−0,25 y los bornes del archivo son las filas 0 y
+ * 12, así que la tinta medida va corrida +12 en `y` y cada polo lleva su
+ * conductor continuo de 0 a 12. El gate raster con `oy = y_registro − 12`
+ * (54,45) da `stray = 0`, que es la prueba de que sólo se desplazó.
+ *
+ * Los vástagos centrales medidos (x = −5,75 y 0,25, de −9 a −0,25) quedan
+ * subsumidos por los conductores de 0 a 12.
  */
 const fuse2: SymbolDef = {
   code: 5002,
@@ -1049,21 +1054,19 @@ const fuse2: SymbolDef = {
   size: { w: 12, h: 15 },
   shapes() {
     return [
-      // Dos cuerpos rectangulares medidos en componentes02.png (mismo patrón
-      // que el 5000): tapa en y=-9, cierre en y=-3 y vástagos al origen.
-      { d: line(-7.25, -9, -7.25, -3) },
-      { d: line(-5.75, -9, -5.75, -0.25) },
-      { d: line(-4.75, -9, -4.75, -3) },
-      { d: line(-7.25, -9, -4.75, -9) },
-      { d: line(-7.25, -3, -4.75, -3) },
-      { d: line(-1.25, -9, -1.25, -3) },
-      { d: line(0.25, -9, 0.25, -0.25) },
-      { d: line(1.5, -9, 1.5, -3) },
-      { d: line(-1.25, -9, 1.5, -9) },
-      { d: line(-1.25, -3, 1.5, -3) },
-      // Ramales inferiores hasta la fila 12 (bornes 2 y 4), estirados 0,25.
-      { d: line(-5.75, 9, -5.75, 12) },
-      { d: line(0.25, 9, 0.25, 12) },
+      // Conductores de los dos polos, de la fila 0 a la fila 12.
+      { d: line(-5.75, 0, -5.75, 12) },
+      { d: line(0.25, 0, 0.25, 12) },
+      // Cuerpo del polo izquierdo: rectángulo medido (barras en 3 y 9, corrido +12).
+      { d: line(-7.25, 3, -7.25, 9) },
+      { d: line(-4.75, 3, -4.75, 9) },
+      { d: line(-7.25, 3, -4.75, 3) },
+      { d: line(-7.25, 9, -4.75, 9) },
+      // Polo derecho: mismo cuerpo, medido en x = −1,25 y 1,5.
+      { d: line(-1.25, 3, -1.25, 9) },
+      { d: line(1.5, 3, 1.5, 9) },
+      { d: line(-1.25, 3, 1.5, 3) },
+      { d: line(-1.25, 9, 1.5, 9) },
     ];
   },
 };

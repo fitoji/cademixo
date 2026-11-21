@@ -175,8 +175,9 @@ test('el unipolar de la familia se dibuja en el origen, no en el centro de la ca
 });
 
 test('el fusible se dibuja vertical, con el cuerpo alrededor del conductor', () => {
-  // `docs/03/componentes02` (registro 15,57, S=4 OX=-2 OY=-60, gate stray=0):
-  // cuerpo superior y conductor medidos; mecanismo inferior refOnly.
+  // `docs/03/componentes02` (registro 15,45 = fila del registro − 12, S=4
+  // OX=-2 OY=-60, gate stray=0): la tinta medida va corrida +12, así que el
+  // conductor es continuo de la fila 0 a la 12 y el cuerpo cae en 3..9.
   const sym = resolveSymbol(5000, []);
   assert.ok(sym.size);
   const { w, h } = sym.size;
@@ -186,8 +187,8 @@ test('el fusible se dibuja vertical, con el cuerpo alrededor del conductor', () 
     { name: '2', x: -5.75, y: 12 },
   ]);
   const ds = sym.shapes(w, h).map((s) => s.d);
-  assert.ok(ds.includes('M-7.25 -9L-7.25 -3'), 'falta pata izquierda del cuerpo');
-  assert.ok(ds.includes('M-5.75 -9L-5.75 -0.25'), 'falta conductor superior');
-  assert.ok(ds.includes('M-7.25 -9L-4.75 -9'), 'falta la tapa del cuerpo');
-  assert.ok(ds.includes('M-5.75 9L-5.75 12'), 'falta conductor inferior');
+  assert.ok(ds.includes('M-7.25 3L-7.25 9'), 'falta pata izquierda del cuerpo');
+  assert.ok(ds.includes('M-5.75 0L-5.75 12'), 'falta el conductor continuo');
+  assert.ok(ds.includes('M-7.25 3L-4.75 3'), 'falta la tapa del cuerpo');
+  assert.ok(ds.includes('M-7.25 9L-4.75 9'), 'falta el cierre del cuerpo');
 });

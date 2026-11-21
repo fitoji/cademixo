@@ -24,6 +24,29 @@ const pins = attachPoints(project.records);
 
 const near = (a: number, b: number, tol = 0.05): boolean => Math.abs(a - b) <= tol;
 
+/** ¿El punto (x, y) cae sobre algún segmento de la tinta del def? */
+function inkCovers(shapes: ReadonlyArray<{ d: string }>, x: number, y: number, tol = 0.01): boolean {
+  const pairsOf = (d: string): Array<[number, number]> => {
+    const nums = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+    const out: Array<[number, number]> = [];
+    for (let i = 0; i + 1 < nums.length; i += 2) out.push([nums[i]!, nums[i + 1]!]);
+    return out;
+  };
+  return shapes.some((s) => {
+    const pts = pairsOf(s.d);
+    return pts.slice(1).some(([x2, y2], i) => {
+      const [x1, y1] = pts[i]!;
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len2 = dx * dx + dy * dy;
+      const t = len2 === 0 ? 0 : ((x - x1) * dx + (y - y1) * dy) / len2;
+      if (t < -tol || t > 1 + tol) return false;
+      const k = Math.min(1, Math.max(0, t));
+      return Math.hypot(x1 + dx * k - x, y1 + dy * k - y) <= tol;
+    });
+  });
+}
+
 
 test('el terminal de alimentación se dibuja anclado al origen, con su círculo encima', () => {
   for (const code of [3000, 3001]) {
@@ -598,9 +621,21 @@ test('el fusible monofásico (5000) va anclado al origen', () => {
     { name: '2', x: -5.75, y: 12 },
   ]);
   const sh = sym.shapes(6, 15);
-  assert.ok(sh.some((x) => x.d === 'M-5.75 -9L-5.75 -0.25'), '5000 stem');
-  // El ramal baja hasta la fila del borne 2 (12).
-  assert.ok(sh.some((x) => x.d === 'M-5.75 9L-5.75 12'), '5000 lower');
+  // La tinta medida en la captura va corrida +12: el conductor es continuo de
+  // la fila 0 a la 12 (bornes 1 y 2) y el cuerpo cae en 3..9.
+  assert.ok(sh.some((x) => x.d === 'M-5.75 0L-5.75 12'), '5000 conductor continuo');
+  assert.ok(sh.some((x) => x.d === 'M-7.25 3L-7.25 9'), '5000 lateral izquierdo del cuerpo');
+  assert.ok(sh.some((x) => x.d === 'M-4.75 3L-4.75 9'), '5000 lateral derecho del cuerpo');
+  assert.ok(sh.some((x) => x.d === 'M-7.25 3L-4.75 3'), '5000 tapa del cuerpo');
+  assert.ok(sh.some((x) => x.d === 'M-7.25 9L-4.75 9'), '5000 cierre del cuerpo');
+  const ink = shapesBounds(sh);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 12), `la 5000 mide ${ink.minY}..${ink.maxY} de alto`);
+  for (const pin of sym.originPins ?? []) {
+    assert.ok(
+      inkCovers(sh, pin.x, pin.y),
+      `5000: el borne ${pin.name} (${pin.x},${pin.y}) no cae sobre la tinta del símbolo`,
+    );
+  }
 });
 
 test('el fusible II (5002) va anclado al origen', () => {
@@ -613,11 +648,26 @@ test('el fusible II (5002) va anclado al origen', () => {
     { name: '4', x: 0.25, y: 12 },
   ]);
   const sh = sym.shapes(12, 15);
-  assert.ok(sh.some((x) => x.d === 'M-5.75 -9L-5.75 -0.25'), '5002 stem left');
-  assert.ok(sh.some((x) => x.d === 'M0.25 -9L0.25 -0.25'), '5002 stem right');
-  // Los dos ramales bajan hasta la fila de los bornes 2 y 4 (12).
-  assert.ok(sh.some((x) => x.d === 'M-5.75 9L-5.75 12'), '5002 lower left');
-  assert.ok(sh.some((x) => x.d === 'M0.25 9L0.25 12'), '5002 lower right');
+  // Misma regla que el 5000: la tinta medida va corrida +12 y los dos
+  // conductores son continuos de la fila 0 a la 12 (bornes 2 y 4).
+  assert.ok(sh.some((x) => x.d === 'M-5.75 0L-5.75 12'), '5002 conductor izquierdo continuo');
+  assert.ok(sh.some((x) => x.d === 'M0.25 0L0.25 12'), '5002 conductor derecho continuo');
+  assert.ok(sh.some((x) => x.d === 'M-7.25 3L-7.25 9'), '5002 lateral izquierdo del cuerpo 1');
+  assert.ok(sh.some((x) => x.d === 'M-4.75 3L-4.75 9'), '5002 lateral derecho del cuerpo 1');
+  assert.ok(sh.some((x) => x.d === 'M-7.25 3L-4.75 3'), '5002 tapa del cuerpo 1');
+  assert.ok(sh.some((x) => x.d === 'M-7.25 9L-4.75 9'), '5002 cierre del cuerpo 1');
+  assert.ok(sh.some((x) => x.d === 'M-1.25 3L-1.25 9'), '5002 lateral izquierdo del cuerpo 2');
+  assert.ok(sh.some((x) => x.d === 'M1.5 3L1.5 9'), '5002 lateral derecho del cuerpo 2');
+  assert.ok(sh.some((x) => x.d === 'M-1.25 3L1.5 3'), '5002 tapa del cuerpo 2');
+  assert.ok(sh.some((x) => x.d === 'M-1.25 9L1.5 9'), '5002 cierre del cuerpo 2');
+  const ink = shapesBounds(sh);
+  assert.ok(near(ink.minY, 0) && near(ink.maxY, 12), `la 5002 mide ${ink.minY}..${ink.maxY} de alto`);
+  for (const pin of sym.originPins ?? []) {
+    assert.ok(
+      inkCovers(sh, pin.x, pin.y),
+      `5002: el borne ${pin.name} (${pin.x},${pin.y}) no cae sobre la tinta del símbolo`,
+    );
+  }
 });
 
 
