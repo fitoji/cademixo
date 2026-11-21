@@ -128,18 +128,19 @@ test('las siete protecciones de la fábrica CADeSimu llevan cuchilla con metadat
   assert.ok(squares > 0, 'los cuadros de disparo también llevan metadato y se mueven');
 });
 
-test('el relé térmico (6007) replica la captura real de CADe', () => {
+test('el relé térmico (6007) es el cuerpo rectangular de la captura real', () => {
   const ds = paths(6007, [], 21);
-  // Cada polo lleva conductor superior, cuchilla inclinada y conductor inferior.
+  // CADe lo dibuja como un rectángulo con tres elementos escalonados dentro,
+  // NO como un automático III (cuchillas + cuadros de disparo). La captura
+  // limpia está en docs/cadesimu-svg/reference/cade-6007-vs-6003.png.
+  assert.ok(ds.includes('M-1.5 3H13.5V9H-1.5Z'), 'falta el cuerpo rectangular');
   for (const x of [0, 6, 12]) {
-    assert.ok(ds.includes(`M${x} 0.05L${x} 3`), `falta la conductora superior del polo ${x}`);
-    assert.ok(ds.includes(`M${x - 3} 3L${x} 9`), `falta la cuchilla del polo ${x}`);
-    assert.ok(ds.includes(`M${x} 9L${x} 12`), `falta la conductora inferior del polo ${x}`);
-    assert.ok(ds.includes(`M${x - 3.6} 5.7L${x - 1.7} 5.7`), `falta el guion del polo ${x}`);
+    assert.ok(ds.includes(`M${x} 0L${x} 12`), `falta el conductor del polo ${x}`);
+    assert.ok(ds.includes(`M${x} 3L${x + 2.75} 3`), `falta el escalón alto del polo ${x}`);
+    assert.ok(ds.includes(`M${x + 2.75} 3L${x + 2.75} 6`), `falta el escalón vertical del polo ${x}`);
+    assert.ok(ds.includes(`M${x + 2.75} 6L${x} 6`), `falta el escalón bajo del polo ${x}`);
   }
-  // El dado térmico es tinta rellena, igual que en la captura.
-  assert.equal(ds.filter((d) => d.endsWith('Z')).length, 3);
-  assert.equal(resolveSymbol(6007, []).shapes(21, 15).filter((s) => s.fill).length, 3);
+  assert.equal(resolveSymbol(6007, []).shapes(21, 15).filter((s) => s.fill).length, 0, 'sin cuadros rellenos');
 });
 
 test('el automático IN sigue anclado al origen con el cuadro sólo en el primer polo', () => {
@@ -185,7 +186,8 @@ test('el fusible se dibuja vertical, con el cuerpo alrededor del conductor', () 
     { name: '2', x: -5.75, y: 12 },
   ]);
   const ds = sym.shapes(w, h).map((s) => s.d);
-  assert.ok(ds.includes('M-7.25 -6L-7.25 -3'), 'falta pata izquierda del cuerpo');
-  assert.ok(ds.includes('M-5.75 -6L-5.75 -0.25'), 'falta conductor superior');
+  assert.ok(ds.includes('M-7.25 -9L-7.25 -3'), 'falta pata izquierda del cuerpo');
+  assert.ok(ds.includes('M-5.75 -9L-5.75 -0.25'), 'falta conductor superior');
+  assert.ok(ds.includes('M-7.25 -9L-4.75 -9'), 'falta la tapa del cuerpo');
   assert.ok(ds.includes('M-5.75 9L-5.75 12'), 'falta conductor inferior');
 });

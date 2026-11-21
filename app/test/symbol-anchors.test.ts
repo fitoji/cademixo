@@ -598,7 +598,7 @@ test('el fusible monofásico (5000) va anclado al origen', () => {
     { name: '2', x: -5.75, y: 12 },
   ]);
   const sh = sym.shapes(6, 15);
-  assert.ok(sh.some((x) => x.d === 'M-5.75 -6L-5.75 -0.25'), '5000 stem');
+  assert.ok(sh.some((x) => x.d === 'M-5.75 -9L-5.75 -0.25'), '5000 stem');
   // El ramal baja hasta la fila del borne 2 (12).
   assert.ok(sh.some((x) => x.d === 'M-5.75 9L-5.75 12'), '5000 lower');
 });
@@ -613,8 +613,8 @@ test('el fusible II (5002) va anclado al origen', () => {
     { name: '4', x: 0.25, y: 12 },
   ]);
   const sh = sym.shapes(12, 15);
-  assert.ok(sh.some((x) => x.d === 'M-5.75 -6L-5.75 -0.25'), '5002 stem left');
-  assert.ok(sh.some((x) => x.d === 'M0.25 -6L0.25 -0.25'), '5002 stem right');
+  assert.ok(sh.some((x) => x.d === 'M-5.75 -9L-5.75 -0.25'), '5002 stem left');
+  assert.ok(sh.some((x) => x.d === 'M0.25 -9L0.25 -0.25'), '5002 stem right');
   // Los dos ramales bajan hasta la fila de los bornes 2 y 4 (12).
   assert.ok(sh.some((x) => x.d === 'M-5.75 9L-5.75 12'), '5002 lower left');
   assert.ok(sh.some((x) => x.d === 'M0.25 9L0.25 12'), '5002 lower right');
@@ -650,12 +650,13 @@ test('el relé térmico tripolar (6007) va anclado al origen', () => {
     { name: '6', x: 12, y: 12 },
   ]);
   const sh = sym.shapes(21, 15);
-  assert.equal(sh.length, 15, 'cinco trazos por polo');
-  assert.equal(sh.filter((x) => x.fill).length, 3, 'un dado térmico relleno por polo');
-  assert.ok(sh.some((x) => x.d === 'M0 0.05L0 3'), 'conductor superior');
-  assert.ok(sh.some((x) => x.d === 'M12 9L12 12'), 'conductor inferior');
+  assert.equal(sh.length, 13, 'cuerpo + cuatro trazos por polo');
+  assert.equal(sh.filter((x) => x.fill).length, 0, 'sin dado de disparo magnético');
+  assert.ok(sh.some((x) => x.d === 'M-1.5 3H13.5V9H-1.5Z'), 'cuerpo rectangular');
+  assert.ok(sh.some((x) => x.d === 'M0 0L0 12'), 'conductor del primer polo');
+  assert.ok(sh.some((x) => x.d === 'M12 0L12 12'), 'conductor del tercer polo');
   const ink = shapesBounds(sh);
-  assert.equal(ink.minY, 0.05);
+  assert.equal(ink.minY, 0);
   assert.equal(ink.maxY, 12);
 });
 

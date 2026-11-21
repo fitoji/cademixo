@@ -41,7 +41,6 @@ import {
   pinsBoth,
   rect,
   right,
-  tiltedSquare,
 } from './draw.ts';
 import { FAMILY_SYMBOLS, LINE_SYMBOLS, polesInCadeOrder } from './families.ts';
 import { QET_SYMBOLS } from './qet.ts';
@@ -1012,10 +1011,13 @@ const fuse1: SymbolDef = {
   size: { w: 6, h: 15 },
   shapes() {
     return [
-      // Cuerpo superior y conductor (medidos en comp02; mecanismo inferior refOnly)
-      { d: line(-7.25, -6, -7.25, -3) },
-      { d: line(-5.75, -6, -5.75, -0.25) },
-      { d: line(-4.5, -6, -4.5, -3) },
+      // Cuerpo rectangular medido en componentes02.png: tapa en y=-9,
+      // laterales en -7,25/-5,75/-4,75 y cierre en y=-3. El vástago central
+      // baja hasta el origen del registro.
+      { d: line(-7.25, -9, -7.25, -3) },
+      { d: line(-5.75, -9, -5.75, -0.25) },
+      { d: line(-4.75, -9, -4.75, -3) },
+      { d: line(-7.25, -9, -4.75, -9) },
       { d: line(-7.25, -3, -4.75, -3) },
       // Ramal inferior hasta la fila 12 (borne 2), estirado 0,25 sobre la medición.
       { d: line(-5.75, 9, -5.75, 12) },
@@ -1048,15 +1050,18 @@ const fuse2: SymbolDef = {
   size: { w: 12, h: 15 },
   shapes() {
     return [
-      // Cuerpos superiores y conductores (medidos en comp02; mecanismo inferior refOnly)
-      { d: line(-7.25, -6, -7.25, -3) },
-      { d: line(-5.75, -6, -5.75, -0.25) },
-      { d: line(-4.5, -6, -4.5, -3) },
-      { d: line(-1.25, -6, -1.25, -3) },
-      { d: line(0.25, -6, 0.25, -0.25) },
-      { d: line(1.5, -6, 1.5, -3) },
+      // Dos cuerpos rectangulares medidos en componentes02.png (mismo patrón
+      // que el 5000): tapa en y=-9, cierre en y=-3 y vástagos al origen.
+      { d: line(-7.25, -9, -7.25, -3) },
+      { d: line(-5.75, -9, -5.75, -0.25) },
+      { d: line(-4.75, -9, -4.75, -3) },
+      { d: line(-7.25, -9, -4.75, -9) },
       { d: line(-7.25, -3, -4.75, -3) },
-      { d: line(-1.25, -3, 1.25, -3) },
+      { d: line(-1.25, -9, -1.25, -3) },
+      { d: line(0.25, -9, 0.25, -0.25) },
+      { d: line(1.5, -9, 1.5, -3) },
+      { d: line(-1.25, -9, 1.5, -9) },
+      { d: line(-1.25, -3, 1.5, -3) },
       // Ramales inferiores hasta la fila 12 (bornes 2 y 4), estirados 0,25.
       { d: line(-5.75, 9, -5.75, 12) },
       { d: line(0.25, 9, 0.25, 12) },
@@ -1619,13 +1624,20 @@ const thermalRelay3: SymbolDef = {
   ],
   size: { w: 21, h: 15 },
   shapes() {
-    return [0, 6, 12].flatMap((x) => [
-      { d: line(x, 0.05, x, 3) },
-      { d: line(x - 3, 3, x, 9) },
-      { d: tiltedSquare(x - 2.8, 5.15, 1.09, -74), fill: true },
-      { d: line(x - 3.6, 5.7, x - 1.7, 5.7) },
-      { d: line(x, 9, x, 12) },
-    ]);
+    // Captura limpia `cade-6007-vs-6003.png`: el térmico es un cuerpo
+    // rectangular con tres elementos térmicos escalonados en su interior.
+    // La calibración anterior tomó los píxeles del 6003 (automático III),
+    // que comparte el lugar en `arranque-paro-motor-3f.cad` y por eso se veía
+    // igual: cuchillas diagonales y cuadros de disparo magnético.
+    return [
+      { d: rect(-1.5, 3, 15, 6) },
+      ...[0, 6, 12].flatMap((x) => [
+        { d: line(x, 0, x, 12) },
+        { d: line(x, 3, x + 2.75, 3) },
+        { d: line(x + 2.75, 3, x + 2.75, 6) },
+        { d: line(x + 2.75, 6, x, 6) },
+      ]),
+    ];
   },
 };
 
