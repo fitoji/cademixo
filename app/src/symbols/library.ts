@@ -1630,7 +1630,10 @@ const thermalRelay3: SymbolDef = {
     // que comparte el lugar en `arranque-paro-motor-3f.cad` y por eso se veía
     // igual: cuchillas diagonales y cuadros de disparo magnético.
     return [
-      { d: rect(-1.5, 3, 15, 6) },
+      // El borde derecho llega a x=16: medido en CADe, queda ~1,25 unidades
+      // por detrás del tercer escalón (que termina en 14,75). Con 15 de ancho
+      // el tercer escalón se salía del cuerpo.
+      { d: rect(-1.5, 3, 17.5, 6) },
       ...[0, 6, 12].flatMap((x) => [
         { d: line(x, 0, x, 12) },
         // El escalón va DENTRO del rectángulo (y=4..7), no sobre su borde

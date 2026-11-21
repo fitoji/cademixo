@@ -81,7 +81,7 @@ test('el dibujo en reposo de los 227 códigos es el calibrado', () => {
     hash,
     // Regenerada al pasar la paleta del 8017 de catorce puntos a una cuña
     // rellena y al migrar el 6007 a la captura real de CADe (tres dados).
-    '76f1cfbb79089841ba35fcac9fc69df12840d198d061f1ccd3bebe74bb183f4a',
+    '6d41e22296485518a76b776c785a07175a515b2f5f1a2c2422e97f525fc543b9',
     `la tinta en reposo cambió (huella ${hash}): el dibujo sin simular ya no es el calibrado`,
   );
 });

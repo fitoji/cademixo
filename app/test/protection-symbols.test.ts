@@ -133,7 +133,7 @@ test('el relé térmico (6007) es el cuerpo rectangular de la captura real', () 
   // CADe lo dibuja como un rectángulo con tres elementos escalonados dentro,
   // NO como un automático III (cuchillas + cuadros de disparo). La captura
   // limpia está en docs/cadesimu-svg/reference/cade-6007-vs-6003.png.
-  assert.ok(ds.includes('M-1.5 3H13.5V9H-1.5Z'), 'falta el cuerpo rectangular');
+  assert.ok(ds.includes('M-1.5 3H16V9H-1.5Z'), 'falta el cuerpo rectangular');
   for (const x of [0, 6, 12]) {
     assert.ok(ds.includes(`M${x} 0L${x} 12`), `falta el conductor del polo ${x}`);
     assert.ok(ds.includes(`M${x} 4L${x + 2.75} 4`), `falta el escalón alto del polo ${x}`);

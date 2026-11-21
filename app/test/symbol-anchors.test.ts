@@ -652,7 +652,7 @@ test('el relé térmico tripolar (6007) va anclado al origen', () => {
   const sh = sym.shapes(21, 15);
   assert.equal(sh.length, 13, 'cuerpo + cuatro trazos por polo');
   assert.equal(sh.filter((x) => x.fill).length, 0, 'sin dado de disparo magnético');
-  assert.ok(sh.some((x) => x.d === 'M-1.5 3H13.5V9H-1.5Z'), 'cuerpo rectangular');
+  assert.ok(sh.some((x) => x.d === 'M-1.5 3H16V9H-1.5Z'), 'cuerpo rectangular');
   assert.ok(sh.some((x) => x.d === 'M0 0L0 12'), 'conductor del primer polo');
   assert.ok(sh.some((x) => x.d === 'M12 0L12 12'), 'conductor del tercer polo');
   const ink = shapesBounds(sh);
