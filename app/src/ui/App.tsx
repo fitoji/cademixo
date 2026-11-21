@@ -1499,6 +1499,10 @@ export function App(): JSX.Element {
                 onInsertVertex={onInsertVertex}
                 onVertexSelect={onVertexSelect}
                 onCancel={cancel}
+                onFit={() => setFitToken((t) => t + 1)}
+                onToggleGrid={() => setShowGrid((on) => !on)}
+                onToggleSnap={() => setSnap((on) => !on)}
+                floatingChrome={styleMode === 'moderno'}
               />
             </ResizablePanel>
 
@@ -1520,6 +1524,7 @@ export function App(): JSX.Element {
                 readOnly={running}
                 onAddJunction={(x, y) => setState(addJunction(state, x, y, JUNCTION_TEMPLATE ?? undefined))}
                 onFocusFinding={(f) => setHighlight({ ids: f.ids, at: f.at ?? null })}
+                collapsibleSections={styleMode === 'moderno'}
               />
             </ResizablePanel>
           </Resizable>

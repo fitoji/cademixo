@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
+import { Grid3x3Icon, KeyboardIcon, MagnetIcon, MaximizeIcon, MinusIcon, PlusIcon } from 'lucide-react';
 import { GEOMETRY, baseBoxOf, boundsOf, boxOf, wirePoints, type CadeRecordModel } from '../model/project.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
@@ -65,6 +66,16 @@ interface Props {
   onVertexSelect: (vertex: Point | null) => void;
   /** Cancela lo que esté en curso: selección, vértice enfocado y colocación. */
   onCancel: () => void;
+  /** Vuelve a encuadrar el proyecto; el mismo efecto que el atajo de centrar. */
+  onFit: () => void;
+  onToggleGrid: () => void;
+  onToggleSnap: () => void;
+  /**
+   * El estilo moderno flota el chrome sobre el dibujo; el clásico conserva las
+   * barras fijas del editor, que es el look de CADe_SIMU. No lo decide el
+   * lienzo: llega como prop, igual que `cornerRadius`.
+   */
+  floatingChrome: boolean;
 }
 
 const MIN_K = 0.25;
@@ -132,12 +143,18 @@ export function Canvas(props: Props): JSX.Element {
     onInsertVertex,
     onVertexSelect,
     onCancel,
+    onFit,
+    onToggleGrid,
+    onToggleSnap,
+    floatingChrome,
   } = props;
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   /** Botón con el que arrancó el paneo: el central soltado sin arrastre centra. */
   const panButton = useRef<number | null>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 4 });
+  /** Las pistas de teclado dejaron de ser una barra fija: se piden desde el dock. */
+  const [hintsOpen, setHintsOpen] = useState(false);
   // Un solo estado de gesto (máquina de wiring/controller.ts): paneo, marquee,
   // arrastre de selección, de vértice y de doblez. Escape y pointercancel
   // cancelan; un gesto confirmado entra una sola vez al historial.
@@ -214,6 +231,13 @@ export function Canvas(props: Props): JSX.Element {
     e.preventDefault();
     const rect = svgRef.current!.getBoundingClientRect();
     applyZoom(Math.exp(-e.deltaY * 0.0016), e.clientX - rect.left, e.clientY - rect.top);
+  };
+
+  /** Zoom por botón: escala alrededor del centro de la vista, igual que la rueda. */
+  const zoomByStep = (direction: 1 | -1): void => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    applyZoom(direction > 0 ? 1.25 : 0.8, rect.width / 2, rect.height / 2);
   };
 
   const step = snap ? 3 : 1;
@@ -798,14 +822,118 @@ export function Canvas(props: Props): JSX.Element {
         {notice}
       </div>
 
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-border/70 bg-background/85 px-2 py-1 text-[11px] text-muted-foreground backdrop-blur-sm">
-        arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
-        <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar
+      {/*
+       * Chrome flotante sobre el dibujo: el zoom en una esquina, las
+       * herramientas del lienzo al centro. Así el chrome del editor queda
+       * quieto y el área de dibujo no paga una barra más.
+       */}
+      {floatingChrome ? (
+        <>
+          <div className="absolute bottom-3 left-3 flex items-center rounded-lg border border-border bg-card shadow-float">
+        <button
+          type="button"
+          aria-label="Alejar"
+          title="Alejar"
+          onClick={() => zoomByStep(-1)}
+          className="grid size-7 place-items-center rounded-l-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <MinusIcon className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          title="Ajustar a la ventana"
+          onClick={onFit}
+          className="min-w-11 px-1 font-mono text-[11px] tabular-nums text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          {Math.round(view.k * 100)}%
+        </button>
+        <button
+          type="button"
+          aria-label="Acercar"
+          title="Acercar"
+          onClick={() => zoomByStep(1)}
+          className="grid size-7 place-items-center rounded-r-lg text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <PlusIcon className="size-3.5" />
+        </button>
       </div>
-      <div className="pointer-events-none absolute right-3 bottom-3 rounded-md border border-border/70 bg-background/85 px-2 py-0.5 font-mono text-[11px] text-muted-foreground backdrop-blur-sm">
-        {Math.round(view.k * 100)}%
+
+      <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 shadow-float">
+        <DockButton
+          pressed={showGrid}
+          onClick={onToggleGrid}
+          label="Grilla"
+          icon={<Grid3x3Icon className="size-3.5" />}
+        />
+        <DockButton
+          pressed={snap}
+          onClick={onToggleSnap}
+          label="Imán a bornes"
+          icon={<MagnetIcon className="size-3.5" />}
+        />
+        <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+        <DockButton onClick={onFit} label="Ajustar a la ventana" icon={<MaximizeIcon className="size-3.5" />} />
+        <DockButton
+          pressed={hintsOpen}
+          onClick={() => setHintsOpen((open) => !open)}
+          label="Atajos del lienzo"
+          icon={<KeyboardIcon className="size-3.5" />}
+        />
       </div>
+
+      {hintsOpen && (
+        <div className="absolute bottom-14 left-1/2 max-w-[min(640px,calc(100%-1.5rem))] -translate-x-1/2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] text-muted-foreground shadow-float">
+          arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
+          <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar
+        </div>
+      )}
+        </>
+      ) : (
+        <>
+          <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-border/70 bg-background/85 px-2 py-1 text-[11px] text-muted-foreground backdrop-blur-sm">
+            arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
+            <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar
+          </div>
+          <div className="pointer-events-none absolute right-3 bottom-3 rounded-md border border-border/70 bg-background/85 px-2 py-0.5 font-mono text-[11px] text-muted-foreground backdrop-blur-sm">
+            {Math.round(view.k * 100)}%
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+/**
+ * Botón del dock flotante. `pressed` lo convierte en interruptor: grilla e imán
+ * no son acciones sino estados, así que se anuncian con `aria-pressed` y se
+ * pintan con la superficie de control, no con un borde.
+ */
+function DockButton({
+  pressed,
+  onClick,
+  label,
+  icon,
+}: {
+  pressed?: boolean;
+  onClick: () => void;
+  label: string;
+  icon: JSX.Element;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={pressed}
+      title={label}
+      onClick={onClick}
+      className={`grid size-7 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none ${
+        pressed === true
+          ? 'bg-secondary text-secondary-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+      }`}
+    >
+      {icon}
+    </button>
   );
 }
 
