@@ -41,6 +41,7 @@ const LABEL: Record<SymbolGroup, string> = {
   alimentacion: 'Alimentación',
   motor: 'Motores',
   potencia: 'Potencia',
+  contactor: 'Contactores',
   fusible: 'Fusibles',
   proteccion: 'Automáticos',
   mando: 'Mando',
@@ -49,6 +50,7 @@ const LABEL: Record<SymbolGroup, string> = {
   linea: 'Líneas y cables',
   carga: 'Cargas',
   borne: 'Borneras',
+  neumatico: 'Actuadores neumáticos',
   otro: 'Otros',
 };
 

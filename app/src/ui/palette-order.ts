@@ -10,12 +10,14 @@ export const GROUP_ORDER: readonly SymbolGroup[] = [
   'alimentacion', // Barra de alimentaciones
   'fusible',      // Barra de fusibles (y seccionadores)
   'proteccion',   // Barra de automáticos
-  'potencia',     // Barras de contactores y de potencia
+  'contactor',    // Barra de contactores
   'motor',        // Barras de motores y de accionamientos
-  'mando',        // Barras de contactos, bobinas y relés electrónicos
+  'potencia',     // Barra de potencia (resistencias, arrancadores, variadores)
+  'mando',        // Barras de contactos, pulsadores, bobinas y relés electrónicos
   'sensor',       // Barra de detectores
   'senalizacion', // Barra de señalizaciones
-  'otro',         // Barras de lógica, ladder, grafcet, E/S y neumáticos
+  'otro',         // Barras de lógica, ladder, grafcet y E/S
+  'neumatico',    // Barra de actuadores neumáticos
   'linea',        // Barra de conexiones
   'carga',
   'borne',

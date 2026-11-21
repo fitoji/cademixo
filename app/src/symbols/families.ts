@@ -415,7 +415,7 @@ function actuator(code: number, _name: string, double: boolean): SymbolDef {
   const pins = double
     ? [left(0.25, 'A'), left(0.75, 'B')]
     : [left(0.5, 'A')];
-  return def(code, 'mando', pins, (w, h) => {
+  return def(code, 'neumatico', pins, (w, h) => {
     const body = [{ d: rect(w * 0.15, h * 0.25, w * 0.7, h * 0.5) }];
     const piston = [{ d: line(w * 0.85, h * 0.5, w, h * 0.5), thin: true }];
     return [...body, ...piston];
@@ -450,10 +450,10 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   // contactores e interruptores
   // 2000 («Contactor II») vive en `library.ts` calibrado contra
   // `componentes01`: anclado al origen, con la hoja y el guion medidos.
-  polesDevice(2003, 2, 'potencia'),
-  polesDevice(2004, 3, 'potencia'),
-  polesDevice(2006, 1, 'potencia'),
-  polesDevice(2007, 1, 'potencia'),
+  polesDevice(2003, 2, 'contactor'),
+  polesDevice(2004, 3, 'contactor'),
+  polesDevice(2006, 1, 'contactor'),
+  polesDevice(2007, 1, 'contactor'),
   // 2001 («Contactor III») vive en `library.ts` calibrado contra la captura
   // PR1, anclado al origen: la def anclada manda sobre la vieja proporcional.
   // 2002 («Contactor IIII») se queda en la geometría de `library.ts`: cuatro
@@ -544,14 +544,15 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   contactDevice(7020, 'NA', 'mando', true),
   contactDevice(7021, 'NA', 'mando', true),
 
-  // señalización y pulsadores
+  // Pulsadores e interruptores: van con los contactos de maniobra, igual que
+  // en la barra de CADe. Antes estaban repartidos entre mando y señalización.
   // 8003 («Contacto pulsador conmutado») vive en `library.ts` calibrado contra
   // la captura de pulsadores de CADe_SIMU, anclado al origen.
-  contactDevice(8006, 'NANC', 'senalizacion', false, { w: 6, h: 18 }),
-  contactDevice(8007, 'CO', 'senalizacion'),
-  contactDevice(8009, 'NC', 'senalizacion'),
-  contactDevice(8011, 'CO', 'senalizacion'),
-  contactDevice(8014, 'NANC', 'senalizacion', false, { w: 6, h: 18 }),
+  contactDevice(8006, 'NANC', 'mando', false, { w: 6, h: 18 }),
+  contactDevice(8007, 'CO', 'mando'),
+  contactDevice(8009, 'NC', 'mando'),
+  contactDevice(8011, 'CO', 'mando'),
+  contactDevice(8014, 'NANC', 'mando', false, { w: 6, h: 18 }),
   // 8015 («Conmutador 2 posiciones») vive en `library.ts` calibrado contra
   // `componentes01`, anclado al origen.
   contactDevice(8100, 'NA', 'senalizacion'),

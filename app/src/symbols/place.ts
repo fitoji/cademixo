@@ -40,6 +40,7 @@ const FLAG_SLOTS = 8;
 const GROUP_DESIGNATOR: Record<string, string> = {
   motor: '-M',
   potencia: '-KM',
+  contactor: '-KM',
   proteccion: '-F',
   fusible: '-F',
   mando: '-K',
@@ -48,6 +49,7 @@ const GROUP_DESIGNATOR: Record<string, string> = {
   sensor: '-B',
   borne: '-X',
   carga: '-R',
+  neumatico: '-A',
   otro: '',
 };
 

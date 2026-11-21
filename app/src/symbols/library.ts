@@ -16,6 +16,7 @@
 export type SymbolGroup =
   | 'motor'
   | 'potencia'
+  | 'contactor'
   | 'fusible'
   | 'proteccion'
   | 'mando'
@@ -25,6 +26,7 @@ export type SymbolGroup =
   | 'linea'
   | 'borne'
   | 'carga'
+  | 'neumatico'
   | 'otro';
 
 import {
@@ -223,7 +225,7 @@ const motor: SymbolDef = {
 const powerContact: SymbolDef = {
   code: 2001,
   name: 'Contactor III',
-  group: 'potencia',
+  group: 'contactor',
   pins: polesInCadeOrder(3, { w: 18, h: 15 }),
   anchor: 'origin',
   // Registro 31 del fixture PR1 (`*183*132*...*-12*-3*18*15*`): bornes 1-3-5
@@ -272,7 +274,7 @@ const powerContact: SymbolDef = {
 const powerContact2: SymbolDef = {
   code: 2000,
   name: 'Contactor II',
-  group: 'potencia',
+  group: 'contactor',
   pins: polesInCadeOrder(2, { w: 12, h: 15 }),
   anchor: 'origin',
   originPins: [
@@ -576,7 +578,7 @@ const auxCO7003: SymbolDef = {
 const selectorCO8015: SymbolDef = {
   code: 8015,
   name: 'Contacto final de carrera conmutado',
-  group: 'senalizacion',
+  group: 'mando',
   pins: [left(0.3, '11'), left(0.7, '12'), right(0.5, '14')],
   anchor: 'origin',
   originPins: [
@@ -1439,7 +1441,7 @@ const buzzer: SymbolDef = {
 const pushNANC: SymbolDef = {
   code: 8002,
   name: 'Contacto pulsador NA-NC',
-  group: 'senalizacion',
+  group: 'mando',
   pins: [left(0, '11'), left(0.6, '13'), right(0, '12'), right(0.6, '14')],
   anchor: 'origin',
   // Medido sobre docs/02/pulsadores.png (9 px/u), NA-NC en (528,198). Los
@@ -1493,7 +1495,7 @@ const pushNANC: SymbolDef = {
 const pushChangeover: SymbolDef = {
   code: 8003,
   name: 'Contacto pulsador conmutado',
-  group: 'senalizacion',
+  group: 'mando',
   pins: [left(0.25, '11'), right(0, '12'), right(0.5, '14')],
   anchor: 'origin',
   originPins: [
@@ -1540,7 +1542,7 @@ const pushChangeover: SymbolDef = {
 const mushroom = (code: number, name: string, nc: boolean): SymbolDef => ({
   code,
   name,
-  group: 'senalizacion',
+  group: 'mando',
   pins: nc ? [left(0.5, '11'), right(0.5, '12')] : [left(0.5, '13'), right(0.5, '14')],
   anchor: 'origin',
   originPins: nc
@@ -1633,7 +1635,7 @@ const mushroomNC: SymbolDef = mushroom(8005, 'Contacto pulsador seta NC', true);
 const switchNO: SymbolDef = {
   code: 8008,
   name: 'Contacto interruptor NA',
-  group: 'senalizacion',
+  group: 'mando',
   pins: [left(0.5, '13'), right(0.5, '14')],
   size: { w: 9, h: 15 },
   shapes(w, h) {
@@ -1645,7 +1647,7 @@ const switchNO: SymbolDef = {
 const switchNANC: SymbolDef = {
   code: 8010,
   name: 'Contacto interruptor NA-NC',
-  group: 'senalizacion',
+  group: 'mando',
   pins: [left(0.3, '13'), left(0.7, '11'), right(0.3, '14'), right(0.7, '12')],
   size: { w: 9, h: 15 },
   shapes(w, h) {

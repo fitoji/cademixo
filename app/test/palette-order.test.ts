@@ -8,12 +8,14 @@ test('el orden de la paleta sigue el menú Barras de CADe_SIMU V4', () => {
     'alimentacion', // Barra de alimentaciones
     'fusible',      // Barra de fusibles (y seccionadores)
     'proteccion',   // Barra de automáticos
-    'potencia',     // Barras de contactores y potencia
+    'contactor',    // Barra de contactores
     'motor',        // Barras de motores y accionamientos
-    'mando',        // Barras de contactos, bobinas y relés electrónicos
+    'potencia',     // Barra de potencia
+    'mando',        // Barras de contactos, pulsadores, bobinas y relés
     'sensor',       // Barra de detectores
     'senalizacion', // Barra de señalizaciones
-    'otro',         // Barras de lógica, ladder, grafcet, E/S y neumáticos
+    'otro',         // Barras de lógica, ladder, grafcet y E/S
+    'neumatico',    // Barra de actuadores neumáticos
     'linea',        // Barra de conexiones
     'carga',
     'borne',
