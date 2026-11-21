@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { JSX, ReactNode } from 'react';
-import { InfoIcon, MousePointerClickIcon, RotateCwIcon, StarIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import { ChevronRightIcon, InfoIcon, MousePointerClickIcon, RotateCwIcon, StarIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import { GEOMETRY, boxOf, wirePoints, LAMP_COLORS, type CadeRecordModel, type LampColor } from '../model/project.ts';
 import { isIdentity, type Transform } from '../model/transform.ts';
 import { hasColorSlot } from '../model/component-spec.ts';
@@ -50,14 +50,19 @@ interface Props {
   onDeleteVertex: () => void;
   /** En simulación el circuito es de solo lectura. */
   readOnly: boolean;
+  /**
+   * El plegado de secciones es del mundo moderno. En el clásico cada grupo se
+   * muestra entero, como en el panel de CADe_SIMU: ahí no se pliega nada.
+   */
+  collapsibleSections: boolean;
 }
 
 export function Inspector(props: Props): JSX.Element {
-  const { selected, findings, onAddJunction, onFocusFinding, vertex, onDeleteVertex, readOnly } = props;
+  const { selected, findings, onAddJunction, onFocusFinding, vertex, onDeleteVertex, readOnly, collapsibleSections } =
+    props;
 
   const vertexBlock = vertex ? (
-    <div className="flex flex-col gap-2">
-      <SectionLabel>Vértice seleccionado</SectionLabel>
+    <Section title="Vértice seleccionado" collapsible={collapsibleSections}>
       <dl className={DL}>
         <Row label="Posición" value={`${vertex.x}, ${vertex.y}`} />
       </dl>
@@ -65,7 +70,7 @@ export function Inspector(props: Props): JSX.Element {
         <Trash2Icon data-icon="inline-start" />
         Eliminar vértice (⌫)
       </Button>
-    </div>
+    </Section>
   ) : null;
 
   if (selected.length === 0) {
@@ -85,7 +90,7 @@ export function Inspector(props: Props): JSX.Element {
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
-        <Findings findings={findings} onAddJunction={onAddJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} />
+        <Findings findings={findings} onAddJunction={onAddJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} collapsible={collapsibleSections} />
       </InspectorShell>
     );
   }
@@ -133,7 +138,7 @@ export function Inspector(props: Props): JSX.Element {
             Borrar
           </Button>
         </div>
-        <Findings findings={findings} onAddJunction={onAddJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} />
+        <Findings findings={findings} onAddJunction={onAddJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} collapsible={collapsibleSections} />
       </InspectorShell>
     );
   }
@@ -159,6 +164,48 @@ function SectionLabel({ children }: { children: ReactNode }): JSX.Element {
   );
 }
 
+/**
+ * Sección plegable del inspector. El rótulo es el mando y el contenido se pide.
+ *
+ * Sólo se pliegan los grupos secundarios -vértice, bornes, avisos-: lo que
+ * describe al componente o a la selección se lee sin abrir nada, porque es el
+ * motivo por el que está abierto el inspector.
+ */
+function Section({
+  title,
+  children,
+  collapsible,
+  defaultOpen = true,
+}: {
+  title: ReactNode;
+  children: ReactNode;
+  collapsible: boolean;
+  defaultOpen?: boolean;
+}): JSX.Element {
+  /*
+   * Un `<details>` que no se puede abrir sería una mentira del DOM, y frenar el
+   * mouse no alcanza: el `summary` sigue siendo enfocable y Enter lo pliega.
+   * En el clásico vuelve a ser el rótulo pelado que era antes.
+   */
+  if (!collapsible) {
+    return (
+      <>
+        <SectionLabel>{title}</SectionLabel>
+        {children}
+      </>
+    );
+  }
+  return (
+    <details open={defaultOpen} className="group/section -mx-1">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-md px-1 py-1 text-[10px] font-semibold tracking-[0.7px] text-muted-foreground uppercase transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+        {title}
+        <ChevronRightIcon className="size-3 shrink-0 transition-transform group-open/section:rotate-90" />
+      </summary>
+      <div className="flex flex-col gap-2 pt-1.5">{children}</div>
+    </details>
+  );
+}
+
 function Row({ label, value }: { label: string; value: ReactNode }): JSX.Element {
   return (
     <>
@@ -173,16 +220,17 @@ function Findings({
   onAddJunction,
   onFocusFinding,
   readOnly,
+  collapsible,
 }: {
   findings: Finding[];
   onAddJunction: (x: number, y: number) => void;
   onFocusFinding: (finding: Finding) => void;
   readOnly: boolean;
+  collapsible: boolean;
 }): JSX.Element | null {
   if (findings.length === 0) return null;
   return (
-    <div className="flex flex-col gap-2">
-      <SectionLabel>Avisos ({findings.length})</SectionLabel>
+    <Section title={`Avisos (${findings.length})`} collapsible={collapsible}>
       {findings.slice(0, 10).map((f, i) => (
         <Alert
           key={`${f.code}-${i}`}
@@ -216,7 +264,7 @@ function Findings({
           </AlertDescription>
         </Alert>
       ))}
-    </div>
+    </Section>
   );
 }
 
@@ -244,6 +292,7 @@ function Single({
   onAddJunction,
   vertexBlock,
   readOnly,
+  collapsibleSections,
 }: Props & { rec: CadeRecordModel; vertexBlock: JSX.Element | null }): JSX.Element {
   const [draft, setDraft] = useState(rec.designator);
   const [cableDraft, setCableDraft] = useState(String(cableNumberOf(rec)));
@@ -323,19 +372,20 @@ function Single({
             <Row label="Registro" value={`#${rec.id}`} />
           </dl>
 
-          <SectionLabel>Bornes ({rec.pins.length})</SectionLabel>
-          <div className="flex flex-wrap gap-1">
-            {rec.pins.map((pin, i) => (
-              <Badge key={`${pin}-${i}`} variant="outline" className="h-5 px-1.5 font-mono text-[10.5px] font-normal">
-                {pin}
-              </Badge>
-            ))}
-            {rec.pins.length === 0 && (
-              <Badge variant="outline" className="h-5 px-1.5 text-[10.5px] font-normal">
-                sin bornes declarados
-              </Badge>
-            )}
-          </div>
+          <Section title={`Bornes (${rec.pins.length})`} collapsible={collapsibleSections}>
+            <div className="flex flex-wrap gap-1">
+              {rec.pins.map((pin, i) => (
+                <Badge key={`${pin}-${i}`} variant="outline" className="h-5 px-1.5 font-mono text-[10.5px] font-normal">
+                  {pin}
+                </Badge>
+              ))}
+              {rec.pins.length === 0 && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[10.5px] font-normal">
+                  sin bornes declarados
+                </Badge>
+              )}
+            </div>
+          </Section>
 
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={onRotate} disabled={readOnly}>
@@ -379,7 +429,7 @@ function Single({
         />
       )}
 
-      <Findings findings={findings} onAddJunction={onAddJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} />
+      <Findings findings={findings} onAddJunction={onAddJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} collapsible={collapsibleSections} />
     </InspectorShell>
   );
 }
