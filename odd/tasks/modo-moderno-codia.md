@@ -21,11 +21,12 @@ Rama: `feat/modo-moderno-codia`
 
 | ID | Tarea | Spec | Ruta | Commit |
 |---|---|---|---|---|
-| T1 | Dependencia DM Sans self-hosted + tokens del estilo moderno | S1, S2 | inline | — |
-| T2 | Chrome flotante del lienzo: zoom y dock de herramientas | S3, S2 | inline | — |
-| T3 | Inspector en secciones colapsables | S4 | inline | — |
-| T4 | `DESIGN.md` con los dos mundos + `Don't` del eje moderno | S6 | inline | — |
-| T5 | Tests: apariencia, e2e de smoke, y suite completa como prueba de compatibilidad | S2, S5 | inline | — |
+| T1 | Dependencia DM Sans self-hosted + tokens del estilo moderno | S1, S2 | inline | `78a94b9` |
+| T2 | Chrome flotante del lienzo: zoom y dock de herramientas | S3, S2 | inline | `09c5b4a` |
+| T3 | Inspector en secciones colapsables | S4 | inline | `09c5b4a` |
+| T4 | `DESIGN.md` con los dos mundos + `Don't` del eje moderno | S6 | inline | `78a94b9` |
+| T5 | Tests: mundos visuales (unit) + gate de estilo (e2e) | S2, S5 | inline | `e8053c9` |
+| T6 | Corregir el defecto de S2 que encontró la verificación | S2 | inline | `09c5b4a` |
 
 ## Log
 
@@ -40,3 +41,6 @@ Rama: `feat/modo-moderno-codia`
   - cuerpos de texto: `12px` ×25, `16px` ×21, `14px` ×14
 - **L6** (decisión) — Alcance: piel + estructura, no solo tokens. Restricción dura: nada de compatibilidad CADe_SIMU.
 - **L7** (decisión) — El moderno es un mundo reemplazado, no un retoque: los `Don't` de `DESIGN.md` sobre píldoras, violeta, radios y sombras pertenecen al mundo clásico y se reescriben para el eje moderno, no se rompen en silencio.
+- **L8** (verificación independiente) — `gentle-ai-verify`: 629/630 unitarios, 11/11 e2e de entonces, build OK, `git diff main -- src/format src/model src/sim` vacío. El único fallo es `parse-perf.test.ts`, un test de tiempos de pared en milisegundos de un dígito: 3/3 verde aislado y con el parser byte-idéntico a `main`. Es flake de medición, no regresión; no se toca.
+- **L9** (defecto real, corregido) — La verificación encontró que en clásico el plegado se apagaba sólo para el mouse: `pointer-events: none` deja el `<summary>` enfocable y **Enter lo cerraba**. Se abandonó el hack CSS: en clásico no se renderiza un `<details>` que no puede abrirse, se vuelve al rótulo pelado vía `collapsibleSections`. De paso se quitó el padding que el clásico había ganado y el `@import` muerto de Space Grotesk (22 + 19 kB que ya nadie usaba).
+- **L10** (slices) — 608 líneas autoradas en 3 commits: `78a94b9` (tokens + docs), `09c5b4a` (estructura), `e8053c9` (tests). La suite e2e real tiene 13 casos, no 9 como decía el README.
