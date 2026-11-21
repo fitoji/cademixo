@@ -86,25 +86,19 @@ test('el pulsador conmutado (8003) lleva la punta del tiro NC al NO al accionarl
 test('el auxiliar NC del térmico (8017) abre su cuchilla al abrir el contacto', () => {
   const blades = bladesOf(8017, ['95', '96'], 12, 15);
 
-  // La paleta es una cuña rellena: CADe la dibuja maciza y un único path con
-  // metadata `blade` gira entero sobre el pivote (S4). Antes eran catorce
-  // segmentos de un píxel que en el lienzo se veían punteados.
-  assert.equal(blades.length, 1, 'la paleta móvil es una sola cuña');
+  // La paleta es una cuchilla fina: un solo trazo diagonal con metadata
+  // `blade` que gira sobre el pivote (S4). Los catorce pares de puntos
+  // medidos seguían la diagonal, no los bordes de un sólido.
+  assert.equal(blades.length, 1, 'la paleta móvil es un solo trazo');
   const [first] = blades;
-  assert.equal(first!.fill, true, 'la paleta conserva la tinta maciza');
+  assert.equal(first!.fill, undefined, 'la paleta es trazo, no relleno');
   assert.ok(near(first!.blade!.px, -3.25) && near(first!.blade!.py, 3.75), 'el pivote va en el extremo de la barra fija');
 
   assert.equal(bladeAngle(first.blade!, { closed: true }), 0, 'cerrado se dibuja como está');
   assert.ok(bladeAngle(first.blade!, { closed: false }) < -20, 'abierto gira y se separa del conductor');
 
-  // La tinta es la del dibujo calibrado: los trazos conservan su peso (el
-  // `path` fusionado los adelgazaba) y se emiten separados, en el orden medido.
   assert.equal(blades.filter((s) => s.thin).length, 0, 'la paleta conserva el peso calibrado');
-  assert.equal(
-    first!.d,
-    'M-2.75 3L-3 3.25L-3.25 3.75L-3.5 4.25L-3.75 4.75L-4 5.25L-4.25 5.75L-4.5 6.25L-4.75 6.75L-5 7.25L-5.25 7.75L-5.5 8.25L-5.75 8.75L-5.75 9L-5.5 8.75L-5.25 8.25L-5 7.75L-4.75 7.25L-4.5 6.75L-4.25 6.25L-4 5.75L-3.75 5.25L-3.5 4.75L-3.25 4L-3 3.25L-2.75 3Z',
-    'la cuña sigue los catorce pares de puntos medidos',
-  );
+  assert.equal(first!.d, 'M-2.75 3L-5.75 9', 'la cuchilla sigue la diagonal medida');
 
   // La barra fija no acompaña el giro: no lleva metadata.
   const fixed = resolveSymbol(8017, ['95', '96']).shapes(12, 15).filter((s) => !s.blade);

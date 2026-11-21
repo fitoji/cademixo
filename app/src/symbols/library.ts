@@ -866,11 +866,10 @@ const thermalContact: SymbolDef = {
       // bordes. Como un solo path relleno gira entero sobre el pivote de
       // `blade` (S4), en vez de catorce puntos redondos que en el lienzo se
       // veían punteados y casi desaparecían con el trazo de 0,26 unidades.
-      {
-        d: 'M-2.75 3L-3 3.25L-3.25 3.75L-3.5 4.25L-3.75 4.75L-4 5.25L-4.25 5.75L-4.5 6.25L-4.75 6.75L-5 7.25L-5.25 7.75L-5.5 8.25L-5.75 8.75L-5.75 9L-5.5 8.75L-5.25 8.25L-5 7.75L-4.75 7.25L-4.5 6.75L-4.25 6.25L-4 5.75L-3.75 5.25L-3.5 4.75L-3.25 4L-3 3.25L-2.75 3Z',
-        fill: true,
-        blade: PALETA_TERMICO,
-      },
+      // La paleta es una cuchilla fina (un trazo), no una cuña rellena: los
+      // catorce pares de puntos medidos seguían la diagonal, no dos bordes de
+      // un sólido. Rellenarla la convertía en un triángulo negro.
+      { d: line(-2.75, 3, -5.75, 9), blade: PALETA_TERMICO },
       // Elemento térmico
       { d: line(-2, 4, -2, 5) },
       { d: line(-2, 5, -0.75, 5) },
