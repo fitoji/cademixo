@@ -34,6 +34,7 @@ import {
   left,
   line,
   MOTOR_BODY_RATIO,
+  octagon,
   pinsBoth,
   rect,
   right,
@@ -1220,7 +1221,10 @@ const feedTerminal = (code: number, name: string, letter: string): SymbolDef => 
   anchor: 'origin',
   size: { w: 6, h: 3 },
   shapes() {
-    return [{ d: circle(0, -3.2, 1) }, { d: line(0, -2.2, 0, 0) }];
+    // Octágono cerrado medido en componentes01.png (S=4, OX=-17, OY=-101):
+    // centro (-0,125, -3,125), radio 1. Antes se usaba un arco suave que dejaba
+    // más tinta que la captura y no cerraba igual que el vástago.
+    return [{ d: octagon(-0.125, -3.125, 1) }, { d: line(0, -2.2, 0, 0) }];
   },
   labels() {
     return [{ x: 0, y: -4.9, value: letter, size: 2.4, anchor: 'middle' }];
@@ -1243,9 +1247,9 @@ const feedTerminalCols = (code: number, name: string, cols: number[]): SymbolDef
   size: { w: Math.max(6, cols.length * 6), h: 3 },
   shapes() {
     return cols.flatMap((x) => [
-      // Círculo pequeño medido: tapa en y=-3, lados en -2.75/-2.5, cierre en -2.25.
-      { d: `M${x - 1} -3L${x - 0.75} -2.75L${x - 0.75} -2.5L${x - 0.25} -2.25` },
-      { d: `M${x + 0.75} -3L${x + 0.5} -2.75L${x + 0.5} -2.5L${x} -2.25` },
+      // Octágono cerrado, el mismo que CADe dibuja en el terminal de L/N.
+      // Antes eran dos polilíneas abiertas y el círculo se veía cortado.
+      { d: octagon(x - 0.125, -3.125, 1) },
       { d: line(x, -2, x, -0.25) },
     ]);
   },

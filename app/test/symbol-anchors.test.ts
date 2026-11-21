@@ -29,12 +29,14 @@ test('el terminal de alimentación se dibuja anclado al origen, con su círculo 
   for (const code of [3000, 3001]) {
     const sym = resolveSymbol(code, []);
     assert.equal(sym.anchor, 'origin', `${code} debe quedar anclado al origen`);
-    const ink = shapesBounds(sym.shapes(6, 3));
-    // Círculo de radio 1 con el centro 3,2 unidades por encima del origen, y
-    // un hilo que baja hasta el origen (el extremo del cable).
-    assert.ok(near(ink.minX, -1) && near(ink.maxX, 1), `el círculo del ${code} mide ${ink.minX}..${ink.maxX}`);
-    assert.ok(near(ink.minY, -4.2), `el ${code} sube hasta ${ink.minY}`);
+    const shapes = sym.shapes(6, 3);
+    const ink = shapesBounds(shapes);
+    // Octágono cerrado medido en componentes01.png: centro (-0,125, -3,125),
+    // radio 1, y un hilo que baja hasta el origen (el extremo del cable).
+    assert.ok(near(ink.minX, -1.05) && near(ink.maxX, 0.8), `el círculo del ${code} mide ${ink.minX}..${ink.maxX}`);
+    assert.ok(near(ink.minY, -4.05), `el ${code} sube hasta ${ink.minY}`);
     assert.ok(near(ink.maxY, 0), `el ${code} baja hasta ${ink.maxY}`);
+    assert.ok(shapes.some((s) => s.d.endsWith('Z')), `${code}: la circunferencia debe estar cerrada`);
   }
 });
 
@@ -728,7 +730,15 @@ test('las alimentaciones 3002,3003,3004,3005,3011 van ancladas al origen con ter
     for (const c of cols) {
       assert.ok(shapes.some((s) => s.d === `M${c} -2L${c} -0.25`), `${code} stem ${c}`);
     }
-    assert.equal(shapes.length, cols.length * 3, `${code} shapes`);
+    // Un octágono cerrado y un vástago por columna: antes eran dos polilíneas
+    // abiertas y el círculo se veía cortado.
+    assert.equal(shapes.length, cols.length * 2, `${code} shapes`);
+    for (const c of cols) {
+      assert.ok(
+        shapes.some((s) => s.d.startsWith(`M${c + 0.8} `) && s.d.endsWith('Z')),
+        `${code}: círculo cerrado en ${c}`,
+      );
+    }
   };
   check(3002, [0], 6);
   check(3003, [0, 6], 12);

@@ -17,6 +17,19 @@ export const circle = (cx: number, cy: number, r: number): string =>
   `M${round(cx - r)} ${round(cy)}a${round(r)} ${round(r)} 0 1 0 ${round(r * 2)} 0a${round(r)} ${round(r)} 0 1 0 ${round(-r * 2)} 0Z`;
 
 /**
+ * Octágono cerrado: es como CADe dibuja el círculo pequeño de las alimentaciones.
+ * `circle()` usa arcos suaves y deja más tinta; acá van ocho segmentos rectos,
+ * que además garantizan que no quede ningún hueco entre la tapa y el vástago.
+ */
+export const octagon = (cx: number, cy: number, r: number): string => {
+  const pts = Array.from({ length: 8 }, (_, i) => {
+    const a = ((22.5 + i * 45) * Math.PI) / 180;
+    return `${round(cx + r * Math.cos(a))} ${round(cy + r * Math.sin(a))}`;
+  });
+  return `M${pts.join('L')}Z`;
+};
+
+/**
  * Giro que deja vertical la cuchilla de un polo dibujado abierto, en grados.
  *
  * Lo usan el polo de CADeSimu (`cadesimuPole`) y el contacto de potencia
