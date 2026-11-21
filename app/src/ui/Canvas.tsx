@@ -890,7 +890,8 @@ export function Canvas(props: Props): JSX.Element {
       {hintsOpen && (
         <div className="absolute bottom-14 left-1/2 max-w-[min(640px,calc(100%-1.5rem))] -translate-x-1/2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] text-muted-foreground shadow-float">
           arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
-          <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar
+          <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar ·{' '}
+          <b>espacio</b> simula y detiene
         </div>
       )}
         </>
@@ -898,7 +899,8 @@ export function Canvas(props: Props): JSX.Element {
         <>
           <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-border/70 bg-background/85 px-2 py-1 text-[11px] text-muted-foreground backdrop-blur-sm">
             arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
-            <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar
+            <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar ·{' '}
+            <b>espacio</b> simula y detiene
           </div>
           <div className="pointer-events-none absolute right-3 bottom-3 rounded-md border border-border/70 bg-background/85 px-2 py-0.5 font-mono text-[11px] text-muted-foreground backdrop-blur-sm">
             {Math.round(view.k * 100)}%

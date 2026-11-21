@@ -82,10 +82,10 @@ import {
   pickOpenHandle,
   pickSaveHandle,
   planSaveAction,
-  saveShortcutOf,
   suggestedSaveName,
   writeHandle,
 } from './files.ts';
+import { isTypingTarget, ownsSpaceKey, useShortcut, useShortcutHint } from './shortcuts.ts';
 import { JUNCTION_TEMPLATE, WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { templateForPlacement } from '../symbols/place.ts';
 import { blankDocument } from '../format/blank.ts';
@@ -977,66 +977,81 @@ export function App(): JSX.Element {
 
   // --- atajos ---------------------------------------------------------------
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      const el = e.target as HTMLElement | null;
-      const typing = el !== null && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
-      const mod = e.metaKey || e.ctrlKey;
+  // Todos los atajos globales se registran en el registro compartido de ui-sdk
+  // (`./shortcuts.ts` es la puerta). Los handlers y los `when` se leen siempre
+  // frescos, así que pueden ser flechas inline: no hay que volver a registrar
+  // nada cuando cambia el estado.
+  //
+  // Reparto de guardas, el de siempre: guardar, cancelar y espacio valen también
+  // con la simulación en marcha —no escriben el circuito, y espacio es
+  // justamente el atajo que la corta—; el resto es sólo de edición, y ninguna
+  // tecla que escriba le gana al campo de texto que tiene el foco.
+  const editable = (): boolean => !running && !isTypingTarget(document.activeElement);
 
-      if (e.key === 'Escape') {
-        cancel();
-        return;
-      }
-      if (typing) return;
-      // Guardar se permite también con la simulación en marcha: escribir el
-      // archivo no edita el documento.
-      const shortcut = saveShortcutOf(e);
-      if (shortcut) {
-        e.preventDefault();
-        void saveDocument(shortcut);
-        return;
-      }
-      // Durante la simulación el circuito es de solo lectura: nada de
-      // deshacer, pegar, borrar ni rotar.
-      if (running) return;
+  const deleteSelected = (): void =>
+    setState((s) => {
+      if (!s) return s;
+      // Con un vértice enfocado se borra el vértice; si no, la selección.
+      return s.vertex ? deleteVertex(s, s.vertex) : deleteSelection(s);
+    });
 
-      if (mod && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        setState((s) => (s ? (e.shiftKey ? redo(s) : undo(s)) : s));
-        return;
-      }
-      if (mod && e.key.toLowerCase() === 'c') {
-        e.preventDefault();
-        setState((s) => (s ? copySelection(s) : s));
-        flash('copiado');
-        return;
-      }
-      if (mod && e.key.toLowerCase() === 'v') {
-        e.preventDefault();
-        setState((s) => (s ? paste(s) : s));
-        return;
-      }
-      if (mod && e.key === '0') {
-        e.preventDefault();
-        setFitToken((t) => t + 1);
-        return;
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        setState((s) => {
-          if (!s) return s;
-          // Con un vértice enfocado se borra el vértice; si no, la selección.
-          return s.vertex ? deleteVertex(s, s.vertex) : deleteSelection(s);
-        });
-        return;
-      }
-      if (e.key.toLowerCase() === 'r') {
-        setState((s) => (s ? (e.shiftKey ? rotateLeftSelection(s) : rotateSelection(s)) : s));
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [flash, cancel, running, saveDocument]);
+  useShortcut('escape', cancel, {
+    allowInInput: true,
+    description: 'Cancelar lo que esté en curso',
+  });
+  useShortcut('space', () => toggleSimulation(), {
+    // Un control con foco ya usa la barra espaciadora: se deja pasar para que la
+    // resuelva él, una sola vez.
+    when: () => !ownsSpaceKey(document.activeElement),
+    description: 'Simular o detener la simulación',
+  });
+  useShortcut('mod+s', () => void saveDocument('save'), { description: 'Guardar' });
+  useShortcut('mod+shift+s', () => void saveDocument('save-as'), { description: 'Guardar como…' });
+  useShortcut('mod+z', () => setState((s) => (s ? undo(s) : s)), {
+    when: editable,
+    description: 'Deshacer',
+  });
+  useShortcut('mod+shift+z', () => setState((s) => (s ? redo(s) : s)), {
+    when: editable,
+    description: 'Rehacer',
+  });
+  useShortcut(
+    'mod+c',
+    () => {
+      setState((s) => (s ? copySelection(s) : s));
+      flash('copiado');
+    },
+    { when: editable, description: 'Copiar la selección' },
+  );
+  useShortcut('mod+v', () => setState((s) => (s ? paste(s) : s)), {
+    when: editable,
+    description: 'Pegar',
+  });
+  useShortcut('mod+0', () => setFitToken((t) => t + 1), {
+    when: editable,
+    description: 'Encuadrar el dibujo',
+  });
+  useShortcut('delete', deleteSelected, { when: editable, description: 'Borrar la selección' });
+  useShortcut('backspace', deleteSelected, { when: editable, description: 'Borrar la selección' });
+  useShortcut('r', () => setState((s) => (s ? rotateSelection(s) : s)), {
+    when: editable,
+    description: 'Rotar 90°',
+  });
+  useShortcut('shift+r', () => setState((s) => (s ? rotateLeftSelection(s) : s)), {
+    when: editable,
+    description: 'Rotar −90°',
+  });
+
+  // Hints por plataforma —⌘S en Apple, Ctrl+S en el resto— derivados de las
+  // mismas teclas que registran los atajos: no pueden desincronizarse.
+  const hintSave = useShortcutHint('mod+s').text;
+  const hintSaveAs = useShortcutHint('mod+shift+s').text;
+  const hintUndo = useShortcutHint('mod+z').text;
+  const hintRedo = useShortcutHint('mod+shift+z').text;
+  const hintCopy = useShortcutHint('mod+c').text;
+  const hintPaste = useShortcutHint('mod+v').text;
+  const hintRotateLeft = useShortcutHint('shift+r').text;
+  const hintFit = useShortcutHint('mod+0').text;
 
   if (!state || !project) {
     return (
@@ -1149,12 +1164,12 @@ export function App(): JSX.Element {
                   <MenubarItem onSelect={() => void saveDocument('save')}>
                     <SaveIcon />
                     Guardar
-                    <MenubarShortcut>⌘S</MenubarShortcut>
+                    <MenubarShortcut>{hintSave}</MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem onSelect={() => void saveDocument('save-as')}>
                     <SaveAllIcon />
                     Guardar como…
-                    <MenubarShortcut>⇧⌘S</MenubarShortcut>
+                    <MenubarShortcut>{hintSaveAs}</MenubarShortcut>
                   </MenubarItem>
                 </MenubarGroup>
               </MenubarContent>
@@ -1167,12 +1182,12 @@ export function App(): JSX.Element {
                   <MenubarItem disabled={running || state.past.length === 0} onSelect={() => setState(undo(state))}>
                     <Undo2Icon />
                     Deshacer
-                    <MenubarShortcut>⌘Z</MenubarShortcut>
+                    <MenubarShortcut>{hintUndo}</MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem disabled={running || state.future.length === 0} onSelect={() => setState(redo(state))}>
                     <Redo2Icon />
                     Rehacer
-                    <MenubarShortcut>⇧⌘Z</MenubarShortcut>
+                    <MenubarShortcut>{hintRedo}</MenubarShortcut>
                   </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />
@@ -1186,12 +1201,12 @@ export function App(): JSX.Element {
                   >
                     <CopyIcon />
                     Copiar
-                    <MenubarShortcut>⌘C</MenubarShortcut>
+                    <MenubarShortcut>{hintCopy}</MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem disabled={running} onSelect={() => setState((s) => (s ? paste(s) : s))}>
                     <ClipboardPasteIcon />
                     Pegar
-                    <MenubarShortcut>⌘V</MenubarShortcut>
+                    <MenubarShortcut>{hintPaste}</MenubarShortcut>
                   </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />
@@ -1204,7 +1219,7 @@ export function App(): JSX.Element {
                   <MenubarItem disabled={running} onSelect={() => setState((s) => (s ? rotateLeftSelection(s) : s))}>
                     <RotateCcwIcon />
                     Girar a la izquierda
-                    <MenubarShortcut>⇧R</MenubarShortcut>
+                    <MenubarShortcut>{hintRotateLeft}</MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem disabled={running} onSelect={() => setState((s) => (s ? mirrorSelection(s, 'v') : s))}>
                     <FlipVertical2Icon />
@@ -1238,7 +1253,7 @@ export function App(): JSX.Element {
                   <MenubarItem onSelect={() => setFitToken((t) => t + 1)}>
                     <Maximize2Icon />
                     Encuadrar
-                    <MenubarShortcut>⌘0</MenubarShortcut>
+                    <MenubarShortcut>{hintFit}</MenubarShortcut>
                   </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />
@@ -1299,6 +1314,7 @@ export function App(): JSX.Element {
                   >
                     {running ? <SquareIcon /> : <PlayIcon />}
                     {running ? 'Detener simulación' : 'Simular'}
+                    <span className="ml-auto pl-4 font-mono text-[11px] text-muted-foreground">espacio</span>
                   </MenubarItem>
                 </MenubarGroup>
               </MenubarContent>
@@ -1339,7 +1355,7 @@ export function App(): JSX.Element {
                 <Undo2Icon />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Deshacer (⌘Z)</TooltipContent>
+            <TooltipContent>Deshacer ({hintUndo})</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -1354,7 +1370,7 @@ export function App(): JSX.Element {
                 <Redo2Icon />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Rehacer (⇧⌘Z)</TooltipContent>
+            <TooltipContent>Rehacer ({hintRedo})</TooltipContent>
           </Tooltip>
 
           <Separator orientation="vertical" className="mx-0.5 h-5" />
@@ -1387,7 +1403,7 @@ export function App(): JSX.Element {
                 )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{running ? 'Detener la simulación' : 'Simular con la alimentación indicada'}</TooltipContent>
+            <TooltipContent>{running ? 'Detener la simulación (espacio)' : 'Simular con la alimentación indicada (espacio)'}</TooltipContent>
           </Tooltip>
 
           {/* S9: mute maestro de todo el sonido, pegado al botón Simular. */}

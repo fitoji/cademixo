@@ -20,7 +20,6 @@ import {
   pickOpenHandle,
   pickSaveHandle,
   planSaveAction,
-  saveShortcutOf,
   suggestedSaveName,
   writeHandle,
 } from '../src/ui/files.ts';
@@ -119,25 +118,6 @@ test('el nombre escrito se normaliza a la extensión .cad', () => {
 
 test('los espacios de los costados no llegan al nombre del archivo', () => {
   assert.equal(normalizeSaveName('  mi plano  '), 'mi plano.cad');
-});
-
-test('⌘S guarda y ⇧⌘S guarda como', () => {
-  assert.equal(saveShortcutOf({ metaKey: true, key: 's' }), 'save');
-  assert.equal(saveShortcutOf({ metaKey: true, shiftKey: true, key: 'S' }), 'save-as');
-});
-
-test('en Windows y Linux el atajo lleva Ctrl', () => {
-  assert.equal(saveShortcutOf({ ctrlKey: true, key: 's' }), 'save');
-  assert.equal(saveShortcutOf({ ctrlKey: true, shiftKey: true, key: 's' }), 'save-as');
-});
-
-test('una s suelta no es atajo de guardado', () => {
-  assert.equal(saveShortcutOf({ key: 's' }), null);
-});
-
-test('otros atajos no se confunden con guardar', () => {
-  assert.equal(saveShortcutOf({ altKey: true, key: 's' }), null);
-  assert.equal(saveShortcutOf({ metaKey: true, key: 'z' }), null);
 });
 
 // Guardia de la conducta de antes: `encodeLatin1` se movió desde `ui/samples.ts`

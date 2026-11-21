@@ -58,8 +58,8 @@ Inventario de todo lo que dibuja iconografía en la interfaz: qué ícono se usa
 
 | Ícono | Etiqueta | Para qué |
 | --- | --- | --- |
-| `PlayIcon` | Simular | Arrancar la simulación de contactores con la alimentación marcada. Si falta fase o neutro, avisa en lugar de simular. |
-| `SquareIcon` | Detener simulación | Cortar la simulación y limpiar el estado retenido de los contactores. Cuadrado = stop, el par convencional de play. |
+| `PlayIcon` | Simular (espacio) | Arrancar la simulación de contactores con la alimentación marcada. Si falta fase o neutro, avisa en lugar de simular. La barra espaciadora es el mismo comando. |
+| `SquareIcon` | Detener simulación (espacio) | Cortar la simulación y limpiar el estado retenido de los contactores. Cuadrado = stop, el par convencional de play. Un solo atajo, espacio, alterna los dos estados como el botón. |
 
 ## Barra de acciones (header, a la derecha)
 
@@ -67,7 +67,7 @@ Inventario de todo lo que dibuja iconografía en la interfaz: qué ícono se usa
 | --- | --- | --- |
 | `Undo2Icon` | Deshacer (icon-sm) | Mismo comando que el menú, con tooltip y atajo. Se deshabilita si no hay historial. |
 | `Redo2Icon` | Rehacer (icon-sm) | Ídem. |
-| `PlayIcon` / `SquareIcon` | Simular / Detener | Único botón de la barra con etiqueta visible; cambia de ícono y de variante según el estado. |
+| `PlayIcon` / `SquareIcon` | Simular / Detener | Único botón de la barra con etiqueta visible; cambia de ícono y de variante según el estado. Atajo: espacio. |
 | `SunIcon` / `MoonIcon` | Tema (icon-sm) | Muestra el modo **al que vas**, no en el que estás: en noche se ve sol, en día se ve luna. |
 | `SaveIcon` | Guardar (primario) | Remite al mismo comando que el menú (⌘S). «Guardar como…» vive en el menú con ⇧⌘S. |
 
@@ -135,12 +135,12 @@ Tampoco cuentan los tonos por familia de la paleta (`--tone-*`): son puntos de c
 | `MoonIcon` | `ui/App.tsx` | Modo noche. |
 | `MousePointerClickIcon` | `ui/Inspector.tsx` | Estado vacío del inspector. |
 | `OctagonXIcon` | `ui/sonner.tsx` | Toast de error. |
-| `PlayIcon` | `ui/App.tsx` | Simular. |
+| `PlayIcon` | `ui/App.tsx` | Simular (espacio). |
 | `Redo2Icon` | `ui/App.tsx` | Rehacer (⇧⌘Z). |
 | `RotateCwIcon` | `ui/App.tsx`, `ui/Inspector.tsx` | Rotar 90° (R). |
 | `SaveAllIcon` | `ui/App.tsx` | Guardar como… (⇧⌘S). |
 | `SaveIcon` | `ui/App.tsx` | Guardar. |
-| `SquareIcon` | `ui/App.tsx` | Detener simulación. |
+| `SquareIcon` | `ui/App.tsx` | Detener simulación (espacio). |
 | `StarIcon` | `ui/Palette.tsx` | Favoritos. |
 | `SunIcon` | `ui/App.tsx` | Modo día. |
 | `Trash2Icon` | `ui/App.tsx`, `ui/Inspector.tsx` | Borrar selección / vértice. |

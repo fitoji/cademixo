@@ -217,7 +217,7 @@ Do:
 - Do usar mono de 11px con `tabular-nums` para cualquier cifra que se compare verticalmente.
 - Do mantener el header en 46px y el footer en 26px: son las dos cotas que fijan la densidad.
 - Do limitar el botón primario a una sola instancia visible por pantalla.
-- Do nombrar las acciones con palabras en los menús, con el atajo en mono a la derecha.
+- Do nombrar las acciones con palabras en los menús, con el atajo en mono a la derecha, y sacar ese atajo de `useShortcutHint` sobre la misma tecla que registra el atajo: el registro de ui-sdk imprime ⌘ en Apple y Ctrl en el resto.
 - Do dejar el foco visible con borde de anillo más halo de 3px, en ambos temas.
 - Do cambiar de estilo sin cambiar el significado del esquema: la tinta del dibujo, el archivo y el round-trip no dependen del mundo visual.
 

@@ -298,6 +298,28 @@ test('a canvas drag can be undone back to the original component position', asyn
   await expect(component).toHaveAttribute('transform', originalTransform ?? '');
 });
 
+test('deshacer por teclado pasa por el registro de atajos', async ({ page }) => {
+  await page.goto('/');
+
+  const canvas = page.getByRole('application', { name: /Lienzo del esquema/ });
+  const component = canvas.locator('g[data-id]').first();
+  await expect(component).toBeVisible();
+  const originalTransform = await component.getAttribute('transform');
+  const bounds = await component.boundingBox();
+  if (!bounds) throw new Error('The first canvas component has no bounding box');
+
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width / 2 + 24, bounds.y + bounds.height / 2 + 18, { steps: 4 });
+  await page.mouse.up();
+  await expect(component).not.toHaveAttribute('transform', originalTransform ?? '');
+
+  // `mod` es ⌘ en Apple y Ctrl en el resto, igual que en el registro.
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+  await page.keyboard.press(`${mod}+z`);
+  await expect(component).toHaveAttribute('transform', originalTransform ?? '');
+});
+
 test('the simulate control keeps its label only in the modern style', async ({ page }) => {
   await page.goto('/');
 
@@ -309,6 +331,31 @@ test('the simulate control keeps its label only in the modern style', async ({ p
 
   await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
   await expect(simulate).toHaveText('Simular');
+});
+
+test('la barra espaciadora arranca y detiene la simulación', async ({ page }) => {
+  await page.goto('/');
+
+  const simulate = page.getByRole('button', { name: 'Simular' });
+  await expect(simulate).toHaveAttribute('aria-pressed', 'false');
+
+  // Con el foco fuera de los controles, la tecla llega al atajo global.
+  await page.keyboard.press('Space');
+  const stop = page.getByRole('button', { name: 'Detener simulación' });
+  await expect(stop).toHaveAttribute('aria-pressed', 'true');
+
+  await page.keyboard.press('Space');
+  await expect(simulate).toHaveAttribute('aria-pressed', 'false');
+
+  // Con el foco en el propio botón, la tecla es del botón: el navegador lo
+  // activa una vez y el atajo global no se suma, así que la simulación alterna
+  // una sola vez y no vuelve a arrancar.
+  await simulate.click();
+  const running = page.getByRole('button', { name: 'Detener simulación' });
+  await expect(running).toHaveAttribute('aria-pressed', 'true');
+  await running.focus();
+  await page.keyboard.press('Space');
+  await expect(simulate).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('the default wire thickness reaches the canvas', async ({ page }) => {

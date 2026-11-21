@@ -106,27 +106,6 @@ export function normalizeSaveName(input: string): string | null {
   return cadFileName(trimmed);
 }
 
-export type SaveShortcut = 'save' | 'save-as';
-
-/**
- * Atajo de guardado de un `keydown`: ⌘S / Ctrl+S guarda, con Shift guarda como.
- * Es puro para que el manejador de React quede en una línea.
- *
- * El tipo describe lo que se mira de un `KeyboardEvent`; `altKey` no participa,
- * así que Alt+S no es atajo.
- */
-export function saveShortcutOf(event: {
-  metaKey?: boolean;
-  ctrlKey?: boolean;
-  shiftKey?: boolean;
-  altKey?: boolean;
-  key: string;
-}): SaveShortcut | null {
-  if (!event.metaKey && !event.ctrlKey) return null;
-  if (event.key.toLowerCase() !== 's') return null;
-  return event.shiftKey ? 'save-as' : 'save';
-}
-
 // --- envoltorios de navegador ------------------------------------------------
 
 /**
