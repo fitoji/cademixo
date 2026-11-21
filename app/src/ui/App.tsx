@@ -15,7 +15,10 @@ import {
   PlayIcon,
   SparklesIcon,
   SquareIcon,
+  FlipHorizontal2Icon,
+  FlipVertical2Icon,
   Redo2Icon,
+  RotateCcwIcon,
   RotateCwIcon,
   SaveAllIcon,
   SaveIcon,
@@ -35,6 +38,8 @@ import {
   copySelection,
   paste,
   addComponent,
+  mirrorSelection,
+  rotateLeftSelection,
   rotateSelection,
   setDesignator,
   setLampColor,
@@ -1009,7 +1014,7 @@ export function App(): JSX.Element {
         return;
       }
       if (e.key.toLowerCase() === 'r') {
-        setState((s) => (s ? rotateSelection(s) : s));
+        setState((s) => (s ? (e.shiftKey ? rotateLeftSelection(s) : rotateSelection(s)) : s));
       }
     };
     window.addEventListener('keydown', onKey);
@@ -1176,8 +1181,21 @@ export function App(): JSX.Element {
                 <MenubarGroup>
                   <MenubarItem disabled={running} onSelect={() => setState(rotateSelection(state))}>
                     <RotateCwIcon />
-                    Rotar 90°
+                    Girar a la derecha
                     <MenubarShortcut>R</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem disabled={running} onSelect={() => setState((s) => (s ? rotateLeftSelection(s) : s))}>
+                    <RotateCcwIcon />
+                    Girar a la izquierda
+                    <MenubarShortcut>⇧R</MenubarShortcut>
+                  </MenubarItem>
+                  <MenubarItem disabled={running} onSelect={() => setState((s) => (s ? mirrorSelection(s, 'v') : s))}>
+                    <FlipVertical2Icon />
+                    Espejo vertical
+                  </MenubarItem>
+                  <MenubarItem disabled={running} onSelect={() => setState((s) => (s ? mirrorSelection(s, 'h') : s))}>
+                    <FlipHorizontal2Icon />
+                    Espejo horizontal
                   </MenubarItem>
                   <MenubarItem variant="destructive" disabled={running || state.selection.length === 0} onSelect={() => setState(deleteSelection(state))}>
                     <Trash2Icon />

@@ -14,9 +14,9 @@
  * La rotación visual del editor (`rotation`, por id) es una capa ENCIMA de la
  * orientación que trae el archivo (S6). Al girar, esa capa se pliega en el slot
  * `geometry[17]` y se escriben también las métricas `geometry[12..15]` de la
- * tabla medida en CADe (`model/orientation.ts`). Sólo los códigos con tabla
- * verificada se escriben; el resto sigue siendo capa visual porque un slot sin
- * sus métricas deja el componente in-seleccionable en CADe.
+ * fórmulas verificadas por descompilación (`model/orientation.ts`). Se escribe
+ * el slot junto con sus métricas: un slot sin éstas deja la pieza
+ * in-seleccionable en CADe.
  */
 
 import { parse } from '../format/cade.ts';
@@ -39,7 +39,13 @@ import {
   type Project,
 } from '../model/project.ts';
 import { hasColorSlot } from '../model/component-spec.ts';
-import { metricsFor, nextWrittenSlot } from '../model/orientation.ts';
+import {
+  hasOrientationFields,
+  type OrientationAction,
+  type OrientationMetrics,
+  nextMetrics,
+  nextSlot,
+} from '../model/orientation.ts';
 import type { Rotation } from '../model/transform.ts';
 import { CABLE_NUMBER_INDEX, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
 import type { Point } from './pins.ts';
@@ -54,7 +60,8 @@ export interface EditorState {
   selection: number[];
   /**
    * Rotación visual por id, sumada a la del archivo. Se pliega en `geometry[17]`
-   * al girar un código con tabla verificada; en los demás sigue sin guardarse.
+   * al aplicar giro o espejo; en registros sin bloque de geometría completo
+   * sigue sin guardarse.
    */
   rotation: Record<number, Rotation>;
   clipboard: string[];
@@ -252,15 +259,29 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
 }
 
 /**
- * Gira 90° la selección.
- *
- * Para los códigos con tabla verificada escribe la orientación en el archivo:
- * `geometry[17]` y las métricas `geometry[12..15]` que CADe guarda por slot.
- * La capa visual se pliega en el slot nuevo y se limpia, para que el dibujo no
- * gire dos veces. Los códigos sin tabla siguen en la capa visual: escribir un
- * slot sin sus métricas deja el componente in-seleccionable en CADe.
+ * Materializa la capa visual en slot + métricas. La capa visual gira en el
+ * espacio de la pantalla: sobre un componente con espejo eso equivale a girar
+ * a la IZQUIERDA en el archivo, porque `R(v)·Mx = Mx·R(−v)`.
  */
-export function rotateSelection(state: EditorState): EditorState {
+function materializeVisual(rec: CadeRecordModel, visual: Rotation): { slot: number; metrics: OrientationMetrics } {
+  let slot = Math.trunc(rec.geometry[GEOMETRY.transform] ?? 0) & 7;
+  let metrics: OrientationMetrics = [
+    rec.geometry[GEOMETRY.offsetX] ?? 0,
+    rec.geometry[GEOMETRY.offsetY] ?? 0,
+    rec.geometry[GEOMETRY.width] ?? 0,
+    rec.geometry[GEOMETRY.height] ?? 0,
+  ];
+  const steps = ((Math.round(visual / 90) % 4) + 4) % 4;
+  const fold: OrientationAction = (slot & 4) !== 0 ? 'rotate-left' : 'rotate-right';
+  for (let i = 0; i < steps; i++) {
+    slot = nextSlot(fold, slot);
+    metrics = nextMetrics(fold, metrics);
+  }
+  return { slot, metrics };
+}
+
+/** Aplica giro o espejo a la selección y lo escribe como lo haría CADe. */
+export function applyOrientation(state: EditorState, action: OrientationAction): EditorState {
   if (state.selection.length === 0) return state;
   const project = projectOf(state);
   const selected = new Set(state.selection);
@@ -269,17 +290,23 @@ export function rotateSelection(state: EditorState): EditorState {
 
   for (const { index, rec } of indexed(project)) {
     if (!selected.has(rec.id) || rec.kind !== 'component') continue;
-    if (metricsFor(rec.code, 0) === null || rec.geometry.length <= GEOMETRY.transform) {
-      rotation[rec.id] = (((rotation[rec.id] ?? 0) + 90) % 360) as Rotation;
+    if (!hasOrientationFields(rec.geometry.length)) {
+      // Sin bloque de geometría completo no hay nada que escribir. Sólo el giro
+      // tiene representación visual; el espejo no se puede dibujar sin slot.
+      if (action === 'rotate-right' || action === 'rotate-left') {
+        const step = action === 'rotate-right' ? 90 : -90;
+        rotation[rec.id] = ((((rotation[rec.id] ?? 0) + step) % 360 + 360) % 360) as Rotation;
+      }
       continue;
     }
-    const slot = nextWrittenSlot(rec.transform, rotation[rec.id] ?? 0);
-    const m = metricsFor(rec.code, slot)!;
+    const current = materializeVisual(rec, rotation[rec.id] ?? 0);
+    const slot = nextSlot(action, current.slot);
+    const metrics = nextMetrics(action, current.metrics);
     const geometry = [...rec.geometry];
-    geometry[GEOMETRY.offsetX] = m[0];
-    geometry[GEOMETRY.offsetY] = m[1];
-    geometry[GEOMETRY.width] = m[2];
-    geometry[GEOMETRY.height] = m[3];
+    geometry[GEOMETRY.offsetX] = metrics[0];
+    geometry[GEOMETRY.offsetY] = metrics[1];
+    geometry[GEOMETRY.width] = metrics[2];
+    geometry[GEOMETRY.height] = metrics[3];
     geometry[GEOMETRY.transform] = slot;
     edits.set(index, withGeometry(rec, geometry));
     delete rotation[rec.id];
@@ -287,6 +314,21 @@ export function rotateSelection(state: EditorState): EditorState {
 
   if (edits.size === 0) return { ...state, rotation, dirty: true };
   return commit({ ...state, rotation }, serializeWith(project, edits));
+}
+
+/** Giro horario (tecla R): mismo resultado que «Girar a la derecha» de CADe. */
+export function rotateSelection(state: EditorState): EditorState {
+  return applyOrientation(state, 'rotate-right');
+}
+
+/** Giro antihorario. */
+export function rotateLeftSelection(state: EditorState): EditorState {
+  return applyOrientation(state, 'rotate-left');
+}
+
+/** Espejo sobre el eje vertical / horizontal de CADe. */
+export function mirrorSelection(state: EditorState, axis: 'h' | 'v'): EditorState {
+  return applyOrientation(state, axis === 'h' ? 'mirror-h' : 'mirror-v');
 }
 
 export function deleteSelection(state: EditorState): EditorState {

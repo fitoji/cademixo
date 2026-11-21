@@ -195,19 +195,17 @@ test('addComponent: no repite el designador aunque la plantilla lo traiga usado'
   for (const d of added) assert.ok(!usados.has(d), `el designador ${d} ya existía`);
 });
 
-test('rotateSelection: rota 90 grados acumulativos sin tocar el archivo', () => {
-  // El motor (1000) no tiene tabla de métricas verificada, así que su giro
-  // sigue siendo una capa visual: no se escribe geometry[17] y el registro
-  // conserva la orientación que traía (acá, ninguna).
+test('rotateSelection: dos giros escriben 180° en el archivo', () => {
+  // La fórmula de CADe vale para cualquier código con bloque de geometría, no
+  // sólo para los medidos en la Parte A: el motor 1000 también se escribe.
   const motorId = idOf(1000);
   let s = select(createEditor(ARRANQUE), [motorId]);
   s = rotateSelection(s);
-  assert.equal(s.rotation[motorId], 90);
+  assert.notEqual(s.text, ARRANQUE, 'el giro se escribe en geometry[17]');
   s = rotateSelection(s);
-  assert.equal(s.rotation[motorId], 180);
-  assert.equal(s.text, ARRANQUE, 'un código sin tabla no debe escribir geometry[17]');
+  assert.equal(s.rotation[motorId], undefined, 'la capa visual se pliega y se limpia');
   const motor = projectOf(s).records.find((r) => r.id === motorId)!;
-  assert.deepEqual(motor.transform, { rotation: 0, mirror: false }, 'la capa visual no puede cambiar lo que dice el archivo');
+  assert.deepEqual(motor.transform, { rotation: 180, mirror: false });
 });
 
 test('setDesignator: cambia sólo el designador del registro indicado', () => {

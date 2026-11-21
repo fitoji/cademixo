@@ -1,7 +1,17 @@
 # Orientación de componentes — handoff para continuar en Windows
 
-> Fecha: 2026-11-20 · Estado: **leer y dibujar hecho y aceptado; escribir bloqueado**.
+> Fecha: 2026-11-20 · Estado: **leer, dibujar y escribir hechos y aceptados**.
 > Doc de la feature: `odd/tasks/orientacion-componentes.md` (specs S1-S7, tasks T1-T6, log L1-L12).
+>
+> **Cierre 2026-11-21:** el bloqueo de escritura quedó resuelto por dos vías que
+> se confirman entre sí. La Parte A entregó la tabla real de los 8 slots del 6001
+> (`app/samples/rotacion/manual/orientacion-8-variantes.cad`). La Parte B, con
+> Ghidra, descompiló los cuatro handlers de la barra de herramientas y mostró que
+> `geometry[12..15]` **sí es derivable**: al girar, `(offX, offY, w, h) →
+> (−h, offX, −offY, w)`; el espejo horizontal y el vertical tienen sus propias
+> fórmulas. El escritor de `model/orientation.ts` las aplica a **cualquier** código
+> con bloque de geometría, no sólo a los medidos. Verificado abriendo en CADe un
+> 6003 girado por la app: se dibuja y se puede seleccionar.
 
 ## 1. Qué quedó hecho
 
