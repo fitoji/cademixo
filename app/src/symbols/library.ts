@@ -16,6 +16,7 @@
 export type SymbolGroup =
   | 'motor'
   | 'potencia'
+  | 'fusible'
   | 'proteccion'
   | 'mando'
   | 'alimentacion'
@@ -930,7 +931,7 @@ const flashingLamp: SymbolDef = {
 const fuse5001: SymbolDef = {
   code: 5001,
   name: 'Fusible II',
-  group: 'proteccion',
+  group: 'fusible',
   pins: [left(0.3, '1'), left(0.7, '3'), right(0.3, '2'), right(0.7, '4')],
   anchor: 'origin',
   originPins: [
@@ -960,7 +961,7 @@ const fuse5001: SymbolDef = {
 const fuse5003: SymbolDef = {
   code: 5003,
   name: 'Fusible III',
-  group: 'proteccion',
+  group: 'fusible',
   pins: [left(0.18, '1'), left(0.5, '3'), left(0.82, '5'), right(0.18, '2'), right(0.5, '4'), right(0.82, '6')],
   anchor: 'origin',
   originPins: [
@@ -999,7 +1000,7 @@ const fuse5003: SymbolDef = {
 const fuse1: SymbolDef = {
   code: 5000,
   name: 'Fusible monofásico',
-  group: 'proteccion',
+  group: 'fusible',
   pins: [left(0.5, '1'), right(0.5, '2')],
   anchor: 'origin',
   originPins: [
@@ -1033,7 +1034,7 @@ const fuse1: SymbolDef = {
 const fuse2: SymbolDef = {
   code: 5002,
   name: 'Fusible II',
-  group: 'proteccion',
+  group: 'fusible',
   pins: [left(0.3, '1'), left(0.7, '3'), right(0.3, '2'), right(0.7, '4')],
   anchor: 'origin',
   originPins: [

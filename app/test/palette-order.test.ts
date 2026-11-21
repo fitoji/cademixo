@@ -6,7 +6,8 @@ import { symbolList, lineList } from '../src/symbols/library.ts';
 test('el orden de la paleta sigue el menú Barras de CADe_SIMU V4', () => {
   assert.deepEqual(GROUP_ORDER, [
     'alimentacion', // Barra de alimentaciones
-    'proteccion',   // Barras de fusibles y automáticos
+    'fusible',      // Barra de fusibles (y seccionadores)
+    'proteccion',   // Barra de automáticos
     'potencia',     // Barras de contactores y potencia
     'motor',        // Barras de motores y accionamientos
     'mando',        // Barras de contactos, bobinas y relés electrónicos

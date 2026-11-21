@@ -41,6 +41,7 @@ const GROUP_DESIGNATOR: Record<string, string> = {
   motor: '-M',
   potencia: '-KM',
   proteccion: '-F',
+  fusible: '-F',
   mando: '-K',
   alimentacion: '',
   senalizacion: '-S',

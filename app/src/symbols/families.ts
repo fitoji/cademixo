@@ -483,10 +483,10 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   // 5001 («Fusible II») vive en `library.ts` calibrado contra `componentes02` (stray=0).
   // 5002 calibrado y anclado en library.ts (docs/03, comp01).
   // 5003 («Fusible III») vive en `library.ts` calibrado contra `componentes02` (stray=0).
-  defPoles(5005, 'proteccion', 1, (w, h) => verticalPoles(w, h, 1), { w: 12, h: 15 }),
-  defPoles(5006, 'proteccion', 2, (w, h) => verticalPoles(w, h, 2), { w: 12, h: 15 }),
-  defPoles(5007, 'proteccion', 2, (w, h) => verticalPoles(w, h, 2), { w: 12, h: 15 }),
-  defPoles(5008, 'proteccion', 3, (w, h) => verticalPoles(w, h, 3), { w: 18, h: 15 }),
+  defPoles(5005, 'fusible', 1, (w, h) => verticalPoles(w, h, 1), { w: 12, h: 15 }),
+  defPoles(5006, 'fusible', 2, (w, h) => verticalPoles(w, h, 2), { w: 12, h: 15 }),
+  defPoles(5007, 'fusible', 2, (w, h) => verticalPoles(w, h, 2), { w: 12, h: 15 }),
+  defPoles(5008, 'fusible', 3, (w, h) => verticalPoles(w, h, 3), { w: 18, h: 15 }),
   // Protección 6000–6010 (S7): cada código con su propio dibujo, ninguno cae al
   // genérico. Caja medida en E8 cuando se indica; si no, se deriva con la
   // convención de las medidas (`n === 1 ? 12 : n * 6` de ancho, 15 de alto).

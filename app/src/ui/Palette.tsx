@@ -22,7 +22,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 const GROUP_LABEL: Record<SymbolGroup, string> = {
   motor: 'Motores',
   potencia: 'Potencia',
-  proteccion: 'Protección',
+  fusible: 'Fusibles',
+  proteccion: 'Automáticos',
   mando: 'Mando',
   alimentacion: 'Alimentación',
   senalizacion: 'Señalización y pulsadores',
@@ -40,6 +41,7 @@ const GROUP_TONE: Record<SymbolGroup, string> = {
   alimentacion: 'var(--tone-alimentacion)',
   motor: 'var(--tone-motor)',
   potencia: 'var(--tone-potencia)',
+  fusible: 'var(--tone-proteccion)',
   proteccion: 'var(--tone-proteccion)',
   mando: 'var(--tone-mando)',
   senalizacion: 'var(--tone-senalizacion)',

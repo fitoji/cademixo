@@ -8,7 +8,8 @@ import type { SymbolGroup } from '../symbols/library.ts';
  */
 export const GROUP_ORDER: readonly SymbolGroup[] = [
   'alimentacion', // Barra de alimentaciones
-  'proteccion',   // Barras de fusibles y de automáticos
+  'fusible',      // Barra de fusibles (y seccionadores)
+  'proteccion',   // Barra de automáticos
   'potencia',     // Barras de contactores y de potencia
   'motor',        // Barras de motores y de accionamientos
   'mando',        // Barras de contactos, bobinas y relés electrónicos
