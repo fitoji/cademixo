@@ -971,56 +971,77 @@ export function mergeVertex(state: EditorState, x: number, y: number): EditorSta
 }
 
 /**
- * Reescribe los registros de un cable con una nueva polilínea. Reutiliza los
- * registros existentes (y clona el último si hacen falta más tramos) para no
- * tocar el estilo ni el número de cable. Todo entra en un solo commit.
+ * Plan de reescritura de una polilínea. Los tramos existentes se reescriben
+ * **en su lugar** (mismo id y misma posición en el archivo); sólo los tramos
+ * nuevos se anexan al final con ids `max+1`. Es obligatorio: el formato exige
+ * ids estrictamente crecientes y el parser descarta lo que no encaja, así que
+ * re-anexar ids viejos borraba el cable movido y corrompía el último registro.
  */
+interface PolylineEdit {
+  /** raw nuevo por índice original: registros reutilizados en su posición */
+  edits: Map<number, string>;
+  /** tramos nuevos, al final del archivo, con ids mayores que todos */
+  appended: string[];
+  /** ids de los tramos que sobran y se quitan */
+  removed: Set<number>;
+  /** ids de la polilínea nueva, en orden */
+  ids: number[];
+}
+
 function polylineEdit(
   project: Project,
   segmentIds: number[],
   points: Point[],
   allocId: () => number,
-): { raws: string[]; ids: number[]; removed: Set<number> } | null {
-  const byId = new Map(project.records.map((r) => [r.id, r]));
+): PolylineEdit | null {
+  const byId = new Map(project.records.map((r, index) => [r.id, { rec: r, index }]));
   const existing = segmentIds
     .map((id) => byId.get(id))
-    .filter((r): r is CadeRecordModel => r !== undefined);
+    .filter((entry): entry is { rec: CadeRecordModel; index: number } => entry !== undefined);
   if (existing.length === 0 || points.length < 2) return null;
 
-  const raws: string[] = [];
+  const needed = points.length - 1;
+  const edits = new Map<number, string>();
+  const appended: string[] = [];
+  const removed = new Set<number>();
   const ids: number[] = [];
-  for (let i = 0; i + 1 < points.length; i++) {
-    let base = existing[i];
-    if (!base) {
-      const template = existing[0]!;
-      const id = allocId();
-      base = { ...template, id, raw: withId(template, id), geometry: [...template.geometry] };
+  for (let i = 0; i < needed; i++) {
+    const geometry = {
+      x1: points[i]!.x,
+      y1: points[i]!.y,
+      x2: points[i + 1]!.x,
+      y2: points[i + 1]!.y,
+    };
+    const reuse = existing[i];
+    if (reuse) {
+      edits.set(reuse.index, withWirePoints(reuse.rec, geometry));
+      ids.push(reuse.rec.id);
+      continue;
     }
-    raws.push(
-      withWirePoints(base, {
-        x1: points[i]!.x,
-        y1: points[i]!.y,
-        x2: points[i + 1]!.x,
-        y2: points[i + 1]!.y,
-      }),
-    );
-    ids.push(base.id);
+    const template = existing[0]!.rec;
+    const id = allocId();
+    const clone: CadeRecordModel = { ...template, id, raw: withId(template, id), geometry: [...template.geometry] };
+    appended.push(withWirePoints(clone, geometry));
+    ids.push(id);
   }
-  return { raws, ids, removed: new Set(segmentIds) };
+  for (let i = needed; i < existing.length; i++) removed.add(existing[i]!.rec.id);
+  return { edits, appended, removed, ids };
 }
 
 function writePolyline(state: EditorState, segmentIds: number[], points: Point[]): EditorState {
   const project = projectOf(state);
-  const edit = polylineEdit(project, segmentIds, points, () => nextId(project));
+  let next = nextId(project);
+  const edit = polylineEdit(project, segmentIds, points, () => next++);
   if (!edit) return state;
   const text =
     (project.hasMagic ? 'CADe_SIMU' : '') +
     project.prefix +
     project.records
-      .filter((r) => !edit.removed.has(r.id))
-      .map((r) => r.raw)
+      .map((rec, index) => ({ rec, index }))
+      .filter(({ rec }) => !edit.removed.has(rec.id))
+      .map(({ rec, index }) => edit.edits.get(index) ?? rec.raw)
       .join('') +
-    edit.raws.join('');
+    edit.appended.join('');
   return commit(state, text, edit.ids);
 }
 

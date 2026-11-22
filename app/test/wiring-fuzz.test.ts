@@ -44,6 +44,15 @@ function assertInvariants(text: string, step: number): void {
   for (let i = 1; i < ids.length; i++) {
     assert.ok(ids[i]! > ids[i - 1]!, `paso ${step}: ids estrictamente crecientes`);
   }
+  // Un raw nunca contiene la cabecera de OTRO registro de cable. Si aparece, el
+  // parser descartó un registro fuera de orden y lo fundió acá (corrupción).
+  for (const rec of records) {
+    assert.equal(
+      rec.raw.slice(1).match(/\*\d+\*40(00|09|10|19)#/),
+      null,
+      `paso ${step}: el raw ${rec.id} absorbió un registro de cable ajeno`,
+    );
+  }
 }
 
 function applyRandomOperation(state: EditorState, random: () => number): EditorState {
