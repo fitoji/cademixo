@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '../src/format/cade.ts';
-import { boxOf, buildProject, wirePoints } from '../src/model/project.ts';
+import { buildProject } from '../src/model/project.ts';
 import { buildNetlist } from '../src/sim/netlist.ts';
+import { buildNetwork } from '../src/editor/network.ts';
+import { pathPoints, wirePathsOf } from '../src/editor/wiring/types.ts';
 import {
   createEditor,
   projectOf,
@@ -57,40 +59,49 @@ test('moveSelection: el componente y sus cables viajan juntos', () => {
   assert.equal(ma.geometry[8], mb.geometry[8]! + 10);
   assert.equal(ma.geometry[9], mb.geometry[9]! - 5);
   assert.equal(s.dirty, true);
-  assert.equal(parse(s.text).records.length, parse(ARRANQUE).records.length);
+
+  // Los cables enganchados a sus bornes viajan con el componente. Se comparan
+  // por ruta (los registros se reescriben al re-rutear).
+  const attached = wirePathsOf(buildNetwork(before.records)).filter(
+    (p) =>
+      (p.from.kind === 'pin' && p.from.componentId === motorId) ||
+      (p.to.kind === 'pin' && p.to.componentId === motorId),
+  );
+  assert.ok(attached.length > 0, 'el motor tiene cables en sus bornes');
+  const afterNet = buildNetwork(after.records);
+  const afterPaths = wirePathsOf(afterNet);
+  let movedCable = false;
+  for (const path of attached) {
+    const now = afterPaths.find((p) => p.cable === path.cable);
+    if (!now) continue;
+    if (JSON.stringify(pathPoints(afterNet, now)) !== JSON.stringify(pathPoints(buildNetwork(before.records), path)))
+      movedCable = true;
+  }
+  assert.equal(movedCable, true, 'al menos un cable enganchado viaja con el motor');
 });
 
-test('moveSelection: los cables del componente movido cambian de extremo', () => {
+test('moveSelection: los extremos en bornes del componente siguen su desplazamiento', () => {
   const motorId = idOf(1000);
-  const base = projectOf(createEditor(ARRANQUE));
-  const motorBox = (() => {
-    const rec = base.records.find((r) => r.id === motorId)!;
-    const b = boxOf(rec)!;
-    return { x: rec.geometry[8]!, y: rec.geometry[9]!, w: b.width, h: b.height };
-  })();
-  const attached = base.records.filter((r) => {
-    const pts = wirePoints(r);
-    if (!pts) return false;
-    const inside = (x: number, y: number) =>
-      x >= motorBox.x - 4 && x <= motorBox.x + motorBox.w + 4 && y >= motorBox.y - 4 && y <= motorBox.y + motorBox.h + 4;
-    return inside(pts.x1, pts.y1) || inside(pts.x2, pts.y2);
-  });
-  assert.ok(attached.length > 0, 'el motor debe tener cables enganchados');
+  const beforeNet = buildNetwork(projectOf(createEditor(ARRANQUE)).records);
+  const attached = wirePathsOf(beforeNet).filter(
+    (p) =>
+      (p.from.kind === 'pin' && p.from.componentId === motorId) ||
+      (p.to.kind === 'pin' && p.to.componentId === motorId),
+  );
+  assert.ok(attached.length > 0, 'el motor debe tener cables en sus bornes');
 
-  let s = select(createEditor(ARRANQUE), [motorId]);
-  s = moveSelection(s, 7, 0);
+  const s = moveSelection(select(createEditor(ARRANQUE), [motorId]), 7, 0);
+  const afterNet = buildNetwork(projectOf(s).records);
+  const afterPaths = wirePathsOf(afterNet);
 
-  const after = projectOf(s);
-  for (const rec of attached) {
-    const beforePts = wirePoints(base.records.find((r) => r.id === rec.id)!)!;
-    const now = wirePoints(after.records.find((r) => r.id === rec.id)!)!;
-    const inside = (x: number, y: number) =>
-      x >= motorBox.x - 4 && x <= motorBox.x + motorBox.w + 4 && y >= motorBox.y - 4 && y <= motorBox.y + motorBox.h + 4;
-    const shiftA = inside(beforePts.x1, beforePts.y1) ? 7 : 0;
-    const shiftB = inside(beforePts.x2, beforePts.y2) ? 7 : 0;
-    assert.equal(now.x1, beforePts.x1 + shiftA, `cable ${rec.id} extremo A`);
-    assert.equal(now.x2, beforePts.x2 + shiftB, `cable ${rec.id} extremo B`);
-    assert.ok(shiftA + shiftB > 0, `cable ${rec.id} debía moverse de algún lado`);
+  for (const path of attached) {
+    const beforePts = pathPoints(beforeNet, path);
+    const now = afterPaths.find((p) => p.cable === path.cable)!;
+    const afterPts = pathPoints(afterNet, now);
+    const shiftFrom = path.from.kind === 'pin' && path.from.componentId === motorId ? 7 : 0;
+    const shiftTo = path.to.kind === 'pin' && path.to.componentId === motorId ? 7 : 0;
+    assert.deepEqual(afterPts[0], { x: beforePts[0]!.x + shiftFrom, y: beforePts[0]!.y });
+    assert.deepEqual(afterPts.at(-1), { x: beforePts.at(-1)!.x + shiftTo, y: beforePts.at(-1)!.y });
   }
 });
 

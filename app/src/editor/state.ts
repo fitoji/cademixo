@@ -49,7 +49,7 @@ import {
 } from '../model/orientation.ts';
 import type { Rotation } from '../model/transform.ts';
 import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
-import type { Point } from './pins.ts';
+import { attachPoints, type Point } from './pins.ts';
 import { routeOrthogonal, type Box } from './wiring/router.ts';
 import { normalizeOrthogonal } from './wiring/geometry.ts';
 import { pathPoints, wirePathsOf } from './wiring/types.ts';
@@ -277,32 +277,28 @@ function indexed(project: Project): IndexedRecord[] {
 }
 
 /**
- * Mueve la selección.
- *
- * Los cables cuyo extremo cae dentro de la caja de un componente movido viajan
- * con él. Es una regla PROVISIONAL por proximidad geométrica — la unión real
- * pin↔cable llega en la fase 3. Sin ella, arrastrar deja los cables atrás y el
- * resultado se lee como roto.
+ * Mueve la selección. Los extremos de cable que coinciden exactamente con un
+ * borne de un componente movido viajan con él: se acabó la regla provisional de
+ * proximidad ±4, que arrastraba cables que sólo pasaban cerca de la caja.
  */
 export function moveSelection(state: EditorState, dx: number, dy: number): EditorState {
   if (state.selection.length === 0 || (dx === 0 && dy === 0)) return state;
   const project = projectOf(state);
   const selected = new Set(state.selection);
-  const boxes = indexed(project)
-    .filter(({ rec }) => selected.has(rec.id) && rec.kind === 'component')
-    .map(({ rec }) => boundsOf(rec))
-    .filter((b): b is NonNullable<typeof b> => b !== null);
+  const pins = attachPoints(project.records);
+  const movedPins = new Set<string>();
+  for (const rec of project.records) {
+    if (!selected.has(rec.id) || rec.kind !== 'component') continue;
+    for (const p of pins.get(rec.id) ?? []) movedPins.add(`${p.x},${p.y}`);
+  }
+  const anchored = (x: number, y: number): boolean => movedPins.has(`${x},${y}`);
 
   const edits = new Map<number, string>();
   const protect: Point[] = [];
-
   for (const { index, rec } of indexed(project)) {
     if (selected.has(rec.id) && rec.kind === 'component') {
-      const b = boundsOf(rec);
-      if (!b) continue;
       // El ancla del registro es su `x,y`: con orientación, el origen de la caja
-      // dibujada no coincide con ella, así que mover toma la posición guardada y
-      // no la de `boundsOf`.
+      // dibujada no coincide con ella, así que mover toma la posición guardada.
       edits.set(index, withPosition(rec, rec.geometry[GEOMETRY.x]! + dx, rec.geometry[GEOMETRY.y]! + dy));
       continue;
     }
@@ -310,11 +306,8 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
     const pts = wirePoints(rec);
     if (!pts) continue;
 
-    const inside = (x: number, y: number): boolean =>
-      boxes.some((b) => x >= b.x - 4 && x <= b.x + b.w + 4 && y >= b.y - 4 && y <= b.y + b.h + 4);
-
-    const moveA = inside(pts.x1, pts.y1);
-    const moveB = inside(pts.x2, pts.y2);
+    const moveA = anchored(pts.x1, pts.y1);
+    const moveB = anchored(pts.x2, pts.y2);
     if (!moveA && !moveB) continue;
     if (moveA) protect.push({ x: pts.x1 + dx, y: pts.y1 + dy });
     if (moveB) protect.push({ x: pts.x2 + dx, y: pts.y2 + dy });
@@ -332,10 +325,7 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
 
   return commit(
     state,
-    pruneOrphanJunctions(
-      project.records,
-      pruneDeadStubs(project.records, serializeWith(project, edits), protect),
-    ),
+    pruneOrphanJunctions(project.records, pruneDeadStubs(project.records, serializeWith(project, edits), protect)),
   );
 }
 
@@ -985,23 +975,26 @@ export function mergeVertex(state: EditorState, x: number, y: number): EditorSta
  * registros existentes (y clona el último si hacen falta más tramos) para no
  * tocar el estilo ni el número de cable. Todo entra en un solo commit.
  */
-function writePolyline(state: EditorState, segmentIds: number[], points: Point[]): EditorState {
-  const project = projectOf(state);
+function polylineEdit(
+  project: Project,
+  segmentIds: number[],
+  points: Point[],
+  allocId: () => number,
+): { raws: string[]; ids: number[]; removed: Set<number> } | null {
   const byId = new Map(project.records.map((r) => [r.id, r]));
   const existing = segmentIds
     .map((id) => byId.get(id))
     .filter((r): r is CadeRecordModel => r !== undefined);
-  if (existing.length === 0 || points.length < 2) return state;
+  if (existing.length === 0 || points.length < 2) return null;
 
-  let next = nextId(project);
   const raws: string[] = [];
-  const selected: number[] = [];
+  const ids: number[] = [];
   for (let i = 0; i + 1 < points.length; i++) {
     let base = existing[i];
     if (!base) {
       const template = existing[0]!;
-      base = { ...template, id: next, raw: withId(template, next), geometry: [...template.geometry] };
-      next++;
+      const id = allocId();
+      base = { ...template, id, raw: withId(template, id), geometry: [...template.geometry] };
     }
     raws.push(
       withWirePoints(base, {
@@ -1011,18 +1004,24 @@ function writePolyline(state: EditorState, segmentIds: number[], points: Point[]
         y2: points[i + 1]!.y,
       }),
     );
-    selected.push(base.id);
+    ids.push(base.id);
   }
-  const remove = new Set(segmentIds);
+  return { raws, ids, removed: new Set(segmentIds) };
+}
+
+function writePolyline(state: EditorState, segmentIds: number[], points: Point[]): EditorState {
+  const project = projectOf(state);
+  const edit = polylineEdit(project, segmentIds, points, () => nextId(project));
+  if (!edit) return state;
   const text =
     (project.hasMagic ? 'CADe_SIMU' : '') +
     project.prefix +
     project.records
-      .filter((r) => !remove.has(r.id))
+      .filter((r) => !edit.removed.has(r.id))
       .map((r) => r.raw)
       .join('') +
-    raws.join('');
-  return commit(state, text, selected);
+    edit.raws.join('');
+  return commit(state, text, edit.ids);
 }
 
 const nearPoint = (a: Point, b: Point): boolean =>

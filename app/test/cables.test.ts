@@ -497,7 +497,10 @@ test('mover un componente no deja un vértice suelto', () => {
   const motor = project().records.find((r) => r.code === 1000)!;
   let s = createEditor(ARRANQUE);
   s = addWire(s, { x: 30, y: 155 }, { x: 30, y: 100 }, WIRE_TEMPLATES[4000]!);
+  const a = s.selection[0]!;
   s = addWire(s, { x: 30, y: 155 }, { x: 500, y: 155 }, WIRE_TEMPLATES[4000]!);
+  const b = s.selection[0]!;
+  s = setCableNumber(s, [a, b], 92);
 
   const moved = moveSelection({ ...s, selection: [motor.id] }, 30, 0);
   assert.equal(
@@ -559,7 +562,10 @@ test('mover un componente que arrastra un cable quita el junction huérfano', ()
   let s = createEditor(ARRANQUE);
   // Un extremo del vertical cae dentro de la caja del motor; la cruz está ahí.
   s = addWire(s, { x: 30, y: 155 }, { x: 30, y: 100 }, WIRE_TEMPLATES[4000]!);
+  const a = s.selection[0]!;
   s = addWire(s, { x: 10, y: 155 }, { x: 500, y: 155 }, WIRE_TEMPLATES[4000]!);
+  const b = s.selection[0]!;
+  s = setCableNumber(s, [a, b], 91);
   s = addJunction(s, 30, 155, JUNCTION_TEMPLATE!);
   const junction = s.selection[0]!;
 
