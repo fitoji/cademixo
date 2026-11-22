@@ -141,19 +141,21 @@ export function getSettings(): Settings {
   return current;
 }
 
+/**
+ * Campos del store, derivados de los defaults: un campo nuevo entra solo en la
+ * comparación de abajo. La lista escrita a mano que había antes dejaba afuera
+ * cualquier campo agregado después, y su cambio se descartaba en silencio.
+ */
+const CAMPOS = Object.keys(DEFAULT_SETTINGS) as Array<keyof Settings>;
+
+function mismosAjustes(a: Settings, b: Settings): boolean {
+  return CAMPOS.every((key) => a[key] === b[key]);
+}
+
 /** Mezcla un cambio parcial, lo persiste y avisa; sin cambios reales no hace nada. */
 export function setSettings(patch: Partial<Settings>): void {
   const next: Settings = { ...current, ...patch };
-  if (
-    next.pinSize === current.pinSize &&
-    next.wireWidth === current.wireWidth &&
-    next.paneles === current.paneles &&
-    next.autoCierre === current.autoCierre &&
-    next.sonidosInterfaz === current.sonidosInterfaz &&
-    next.sonidosSimulacion === current.sonidosSimulacion &&
-    next.silenciado === current.silenciado &&
-    next.sonidoMotor === current.sonidoMotor
-  ) {
+  if (mismosAjustes(current, next)) {
     return;
   }
   current = next;
