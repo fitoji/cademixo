@@ -72,7 +72,12 @@ export interface CadeRecordModel {
    * muestras `samples/bornesocultos` guardadas desde CADe.
    */
   pinVisible: boolean[];
-  /** Si CADe dibuja los nombres de todos los bornes (geometría[19]). */
+  /**
+   * Flag de rótulos del registro (geometría[19]). En CADe esconde los nombres de
+   * todos los bornes; la app lo usa para el **designador** —no tiene slot propio—
+   * y deja los nombres de los bornes al check «Ocultar» de cada uno
+   * (`docs/cade-format.md`, «Desviación de la app»).
+   */
   pinLabelsVisible: boolean;
   /**
    * Color guardado de una lámpara con slot de color (`hasColorSlot`). `null`

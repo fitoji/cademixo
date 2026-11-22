@@ -1080,7 +1080,6 @@ function Component({
         <SymbolGlyph
           code={rec.code}
           pinNames={rec.pins}
-          pinVisible={rec.pinVisible}
           w={iw}
           h={ih}
           place="origin"
@@ -1094,14 +1093,14 @@ function Component({
           direction={direction}
         />
       ) : (
-        <SymbolGlyph code={rec.code} pinNames={rec.pins} pinVisible={rec.pinVisible} w={iw} h={ih} rotation={rotation} transform={rec.transform} selected={selected} closed={closed} pressed={state === 'pressed'} lampColor={rec.lampColor} live={live} direction={direction} />
+        <SymbolGlyph code={rec.code} pinNames={rec.pins} w={iw} h={ih} rotation={rotation} transform={rec.transform} selected={selected} closed={closed} pressed={state === 'pressed'} lampColor={rec.lampColor} live={live} direction={direction} />
       )}
 
-      {pins.map((p, i) =>
-        rec.pinVisible[i] === false ? null : (
-          <circle key={`pin-${i}`} className={selected ? 'pin sel' : 'pin'} cx={p.x - x} cy={p.y - y} r={attachPinRadius(pinSize)} strokeWidth={pinStroke(pinSize)} />
-        ),
-      )}
+      {/* El borne se dibuja siempre: el flag por borne del registro sólo apaga
+          el rótulo de esa conexión, nunca el punto (`docs/cade-format.md`). */}
+      {pins.map((p, i) => (
+        <circle key={`pin-${i}`} className={selected ? 'pin sel' : 'pin'} cx={p.x - x} cy={p.y - y} r={attachPinRadius(pinSize)} strokeWidth={pinStroke(pinSize)} />
+      ))}
 
       {cursorIndex !== null && pins[cursorIndex] && (
         // Marca del cursor de bornes: dice sobre qué borne actúa Enter sin
@@ -1119,7 +1118,7 @@ function Component({
       {/* Rótulo del borne: a la derecha del punto de conexión, como en CADeSimu. */}
       {pins.map((p, i) => {
         const name = rec.pins[i];
-        if (!rec.pinLabelsVisible || rec.pinVisible[i] === false || !name) return null;
+        if (rec.pinVisible[i] === false || !name) return null;
         const at = pinLabelAt(p);
         return (
           <text key={`pinlabel-${i}`} className="pinlabel" x={at.x - x} y={at.y - y}>
@@ -1128,7 +1127,7 @@ function Component({
         );
       })}
 
-      {label !== '' && (
+      {label !== '' && rec.pinLabelsVisible && (
         <text className="designator left" x={designatorAt(labelFrame).x} y={designatorAt(labelFrame).y} dominantBaseline="middle">
           {label}
         </text>

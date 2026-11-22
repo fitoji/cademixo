@@ -19,7 +19,6 @@ interface Props {
   code: number;
   pinNames: string[];
   /** Visibilidad por borne (flags del registro): false no dibuja el punto. */
-  pinVisible?: boolean[];
   w: number;
   h: number;
   /**
@@ -84,7 +83,6 @@ function matrixAttr(m: Matrix): string {
 export function SymbolGlyph({
   code,
   pinNames,
-  pinVisible,
   w,
   h,
   rotation = 0,
@@ -159,7 +157,6 @@ export function SymbolGlyph({
       )}
       {anchored
         ? (sym.originPins ?? [])
-            .filter((_, i) => pinVisible?.[i] !== false)
             .map((p) => (
               <circle
                 key={`op-${p.name}`}
@@ -173,7 +170,6 @@ export function SymbolGlyph({
               </circle>
             ))
         : sym.pins
-            .filter((_, i) => pinVisible?.[i] !== false)
             .map((p) => (
               <circle
                 key={`p-${p.name}`}

@@ -216,6 +216,30 @@ Los tres casos:
 
 Consecuencia: ocultar un borne y ocultar los nombres son opciones **independientes**. Los flags viven en la geometría, no en la cabecera; un registro sin esos campos se lee todo visible.
 
+### Desviación de la app: qué apaga cada flag
+
+CADe_SIMU y la app leen los mismos bits, pero los usan para cosas distintas. Las
+dos diferencias son deliberadas:
+
+| Bit | En CADe_SIMU | En la app |
+|---|---|---|
+| `geometry[i]` (por borne) | esconde el **borne**: el punto y su nombre | esconde sólo el **nombre** de esa conexión; el punto se dibuja siempre |
+| `geometry[19]` | esconde los **nombres de todos los bornes** | esconde el **designador** (`K1`, `M1`) |
+
+Motivos y consecuencias:
+
+- El borne se dibuja siempre porque el punto de conexión es la superficie de
+  trabajo: con el punto escondido, el cableado y el clic quedan sin referencia
+  visible. El rótulo sí se puede apagar por conexión.
+- El designador no tiene slot propio y no se le inventa uno: el repo ya pagó caro
+  escribir un slot sin evidencia de CADe (`odd/tasks/orientacion-componentes.md`,
+  L9). Se reusa `geometry[19]`, que es el bit de rótulos del registro.
+- Consecuencia, elegida a sabiendas: un archivo guardado con el designador oculto
+  se ve en CADe_SIMU con los nombres de los bornes ocultos y el designador
+  visible, y un borne con el flag apagado se ve escondido allá y visible acá —el
+  mismo bit, leído al revés—. Lo que la app nunca hace es cambiar el resto del
+  registro: sólo escribe esos bits.
+
 ## Modelo de cables: número, tramos y uniones
 
 ✅ Tres campos que no estaban identificados y son el corazón de la edición de cables:

@@ -496,7 +496,7 @@ function Single({
                     disabled={readOnly}
                     onCheckedChange={(checked) => onPinLabelsVisible(rec.id, checked === true)}
                   />
-                  Mostrar nombres
+                  Mostrar designador
                 </label>
               )}
               {rec.pins.map((pin, i) => (

@@ -476,7 +476,8 @@ test('Propiedades es un Drawer lateral: se abre al seleccionar y al pulsar aviso
   await expect(sheet).toBeVisible();
   await expect(sheet).toHaveAttribute('data-side', 'right');
   await expect(sheet.getByRole('heading', { name: 'Propiedades' })).toBeVisible();
-  await expect(sheet.getByText('Designador')).toBeVisible();
+  // `exact` porque el interruptor de rótulos también nombra el designador.
+  await expect(sheet.getByText('Designador', { exact: true })).toBeVisible();
 
   // Quitar la selección (Shift+clic alterna) esconde el Drawer.
   await page.keyboard.down('Shift');
@@ -596,16 +597,34 @@ test('ocultar un borne y los nombres se refleja en el lienzo', async ({ page }) 
   const exact = new RegExp(`^${firstName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
   await expect(labels.filter({ hasText: exact })).toHaveCount(1);
 
+  // El designador (K1, M1) va con este interruptor; los nombres de las
+  // conexiones NO: esos se ocultan uno por uno con «Ocultar».
+  const designator = selected.locator('text.designator.left');
+  await expect(designator).toHaveCount(1);
+
+  const nombres = sheet.getByRole('checkbox', { name: 'Mostrar designador' });
+  await expect(nombres).toBeChecked();
+  await nombres.click();
+  await expect(nombres).not.toBeChecked();
+  await expect(designator).toHaveCount(0);
+  // La conexión sigue rotulada: el check no toca los nombres de los bornes.
+  await expect(labels.filter({ hasText: exact })).toHaveCount(1);
+
+  // Y vuelve.
+  await nombres.click();
+  await expect(designator).toHaveCount(1);
+
+  // «Ocultar» apaga el nombre de la conexión; el borne queda siempre.
+  const bornes = selected.locator('circle.pin');
+  const bornesAntes = await bornes.count();
+  expect(bornesAntes).toBeGreaterThan(0);
+
   const hide = sheet.getByRole('checkbox', { name: 'Ocultar' }).first();
   await expect(hide).not.toBeChecked();
   await hide.click();
   await expect(hide).toBeChecked();
   await expect(labels.filter({ hasText: exact })).toHaveCount(0);
-
-  const names = sheet.getByRole('checkbox', { name: 'Mostrar nombres' });
-  await expect(names).toBeChecked();
-  await names.click();
-  await expect(names).not.toBeChecked();
-  await expect(labels).toHaveCount(0);
+  await expect(bornes).toHaveCount(bornesAntes);
   await expect(page.locator('footer span.bg-warn')).toBeVisible();
 });
+
