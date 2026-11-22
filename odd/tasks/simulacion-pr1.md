@@ -140,3 +140,49 @@ el Q1 de la derecha y el F0: el conmutador del mando se permuta solo, se enciend
 motor queda alimentado, con sus conductores en rojo ✓ como en la captura 02). Al volver a abrir
 el disyuntor, el conmutador vuelve a su posición de reposo y se enciende H2 ✓ (captura 04).
 Verificado en `app/test/simulacion-pr1.test.ts` (301/301 tests).
+
+**L17. El 8018 se acciona a mano, y la protección retoma el mando cuando cambia.**
+El usuario: «el componente 8018 creo que se activa automatico, no puedo hacerlo
+manual, revisa cadesimu». **Corrige L15** en su segunda mitad («el clic sobre el
+conmutador acciona el aparato»): la captura 04 es el usuario permutando el
+conmutador con el clic, así que el clic tiene que poder moverlo. Ahora el clic
+siempre permuta el conmutador —aunque sea el contacto auxiliar de un aparato— y
+esa permutación vale **hasta que la protección enlazada cambie de estado**; ahí
+sus auxiliares vuelven a seguirla. `sim/apparatus.ts` suma
+`linkedChangeovers` (inverso de `linkedProtection`) y
+`resolveChangeoverPositions`, que aplica las permutaciones guardando la derivada
+del momento del clic: si la derivada cambió, la permutación caduca y no se
+repite. El clic sobre la protección borra de una vez las permutaciones de sus
+auxiliares, así que un aparato que vuelve a su estado anterior no resucita una
+permutación vieja. Verificado con `test/conmutador-manual.test.ts` (6 casos sobre
+el PR1) y `e2e/conmutador.spec.ts`, que además comprueba que el clic sobre el
+conmutador **no** acciona el disyuntor; el chequeo diferencial con el
+comportamiento anterior falla en esa misma aserción.
+
+**L18. Se revierte L17: el 8018 vuelve a ser sólo el contacto auxiliar del 6009.**
+Decisión del usuario sobre L17: «no, el 8018 tiene que estar asociado al 6009, como
+funciona en cadesimu?». Antes de revertir se revisó la evidencia disponible y esta
+vez mirando las capturas en vez de confiar en L6:
+
+- El formato no tiene campo de referencia entre registros (10 textos + 23 números,
+  `docs/re/cadesimu-v4-rea.md:132-139`), y en los cinco archivos con `8018` ningún
+  número guarda el id del aparato acompañante. Lo único compartido es el texto del
+  designador: coincide en PR1, PR2 y `ej0def`, y **no** coincide en
+  `docs/03/componentes02.cad` (`-F` contra `-Q`), donde además ocho dispositivos
+  comparten `-F`. El vínculo por nombre es entonces una convención del dibujo, no
+  algo que el archivo garantice.
+- `_simu_play_03.png` contra `_simu_play_04.png`: entre las dos capturas cambia el
+  **lado de potencia** (el Q1 de potencia pasa de cerrado a abierto, K1M y el motor
+  quedan sin tensión) y el conmutador del mando lo sigue (H2 enciende, H1 se apaga).
+  Eso sostiene el vínculo unidireccional aparato → auxiliar, y deja sin base la
+  lectura de L6 de que el clic fue sobre el conmutador.
+- Sin binario en el repo (`docs/re/traspaso-windows.md:19-27`), queda sin verificar
+  si CADe empareja por designador y si el 8018 responde al mouse: no está en la
+  paleta de CADe (`docs/componentes.md:14`). Prueba pendiente: copiar el PR1,
+  renombrar sólo el designador del 8018 a `QX` y ver si deja de seguir al disyuntor.
+
+Consecuencia en el código: se descartan `linkedChangeovers`,
+`resolveChangeoverPositions` y el estado de permutaciones manuales; el conmutador
+vuelve a `changeover` no accionable y el clic sobre él acciona el aparato, como en
+L15. También se descartan `test/conmutador-manual.test.ts` y
+`e2e/conmutador.spec.ts`, que fijaban el comportamiento revertido.
