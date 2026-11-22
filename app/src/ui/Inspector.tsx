@@ -45,6 +45,7 @@ interface Props {
   onDelete: () => void;
   onCableNumber: (ids: number[], value: number) => void;
   onAddJunction: (x: number, y: number) => void;
+  onRemoveJunction: (id: number) => void;
   /** Lleva el lienzo al lugar del aviso y lo resalta. */
   onFocusFinding: (finding: Finding) => void;
   vertex: Point | null;
@@ -65,6 +66,7 @@ export function Inspector(props: Props): JSX.Element {
     selected,
     findings,
     onAddJunction,
+    onRemoveJunction,
     onFocusFinding,
     vertex,
     canDeleteVertex,
@@ -113,7 +115,7 @@ export function Inspector(props: Props): JSX.Element {
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
-        <Findings findings={findings} onAddJunction={onAddJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} collapsible={collapsibleSections} />
+        <Findings findings={findings} onAddJunction={onAddJunction} onRemoveJunction={onRemoveJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} collapsible={collapsibleSections} />
       </InspectorShell>
     );
   }
@@ -161,7 +163,7 @@ export function Inspector(props: Props): JSX.Element {
             Borrar
           </Button>
         </div>
-        <Findings findings={findings} onAddJunction={onAddJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} collapsible={collapsibleSections} />
+        <Findings findings={findings} onAddJunction={onAddJunction} onRemoveJunction={onRemoveJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} collapsible={collapsibleSections} />
       </InspectorShell>
     );
   }
@@ -261,12 +263,14 @@ function Row({ label, value }: { label: string; value: ReactNode }): JSX.Element
 function Findings({
   findings,
   onAddJunction,
+  onRemoveJunction,
   onFocusFinding,
   readOnly,
   collapsible,
 }: {
   findings: Finding[];
   onAddJunction: (x: number, y: number) => void;
+  onRemoveJunction: (id: number) => void;
   onFocusFinding: (finding: Finding) => void;
   readOnly: boolean;
   collapsible: boolean;
@@ -299,9 +303,26 @@ function Findings({
                 size="xs"
                 className="mt-1.5"
                 disabled={readOnly}
-                onClick={() => onAddJunction(f.at!.x, f.at!.y)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddJunction(f.at!.x, f.at!.y);
+                }}
               >
                 Crear unión
+              </Button>
+            )}
+            {f.code === 'orphan-junction' && f.ids.length > 0 && (
+              <Button
+                variant="secondary"
+                size="xs"
+                className="mt-1.5"
+                disabled={readOnly}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveJunction(f.ids[0]!);
+                }}
+              >
+                Quitar unión
               </Button>
             )}
           </AlertDescription>
@@ -333,6 +354,7 @@ function Single({
   onDelete,
   onCableNumber,
   onAddJunction,
+  onRemoveJunction,
   vertexBlock,
   readOnly,
   collapsibleSections,
@@ -477,7 +499,7 @@ function Single({
         />
       )}
 
-      <Findings findings={findings} onAddJunction={onAddJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} collapsible={collapsibleSections} />
+      <Findings findings={findings} onAddJunction={onAddJunction} onRemoveJunction={onRemoveJunction} onFocusFinding={onFocusFinding} readOnly={readOnly} collapsible={collapsibleSections} />
     </InspectorShell>
   );
 }

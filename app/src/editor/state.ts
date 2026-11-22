@@ -51,7 +51,7 @@ import type { Rotation } from '../model/transform.ts';
 import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
 import { attachPoints, type Point } from './pins.ts';
 import { routeOrthogonal, type Box } from './wiring/router.ts';
-import { normalizeOrthogonal } from './wiring/geometry.ts';
+import { normalizeOrthogonal, projectOnSegment } from './wiring/geometry.ts';
 import { pathPoints, wirePathsOf } from './wiring/types.ts';
 
 export type { Rotation };
@@ -417,7 +417,7 @@ export function deleteSelection(state: EditorState): EditorState {
   const text = magic + project.prefix + project.records.filter((r) => !removable.has(r.id)).map((r) => r.raw).join('');
   const rotation = { ...state.rotation };
   for (const id of removable) delete rotation[id];
-  return { ...commit(state, text, []), rotation };
+  return { ...commit(state, pruneOrphanJunctions(project.records, text), []), rotation };
 }
 
 export function copySelection(state: EditorState): EditorState {
@@ -967,7 +967,7 @@ export function mergeVertex(state: EditorState, x: number, y: number): EditorSta
       .map((r, i) => (i === first.index ? merged : r.raw))
       .filter((_, i) => i !== second.index)
       .join('');
-  return commit(state, text, [first.rec.id]);
+  return commit(state, pruneOrphanJunctions(project.records, text), [first.rec.id]);
 }
 
 /**
@@ -1028,6 +1028,47 @@ const nearPoint = (a: Point, b: Point): boolean =>
   Math.abs(a.x - b.x) < AXIS_TOL && Math.abs(a.y - b.y) < AXIS_TOL;
 
 /**
+ * Raws de los `4001` que hacen falta donde un extremo cae en el INTERIOR de
+ * otro tramo (T). Un cruce sin extremo no genera unión: en eléctrico cruzar sin
+ * punto no conecta.
+ */
+function teeJunctionRaws(
+  project: Project,
+  points: Point[],
+  templateRaw: string | undefined,
+  allocId: () => number,
+): string[] {
+  if (!templateRaw) return [];
+  const template = parseOne(templateRaw);
+  if (!template) return [];
+  const existing = new Set(buildNetwork(project.records).junctionPoints.map((p) => `${p.x},${p.y}`));
+  const raws: string[] = [];
+  for (const point of points) {
+    const key = `${point.x},${point.y}`;
+    if (existing.has(key)) continue;
+    const onInterior = project.records.some((rec) => {
+      if (rec.kind !== 'connection') return false;
+      const pts = wirePoints(rec);
+      if (!pts || (pts.x1 === pts.x2 && pts.y1 === pts.y2)) return false;
+      const projection = projectOnSegment(point, {
+        a: { x: pts.x1, y: pts.y1 },
+        b: { x: pts.x2, y: pts.y2 },
+      });
+      return projection.t > 0.01 && projection.t < 0.99 && projection.distance < AXIS_TOL;
+    });
+    if (!onInterior) continue;
+    existing.add(key);
+    const g = [...template.geometry];
+    g[GEOMETRY.x] = point.x;
+    g[GEOMETRY.y] = point.y;
+    if (g.length > GEOMETRY.x2) g[GEOMETRY.x2] = point.x;
+    if (g.length > GEOMETRY.y2) g[GEOMETRY.y2] = point.y;
+    raws.push(withGeometry({ ...template, raw: withId(template, allocId()) }, g));
+  }
+  return raws;
+}
+
+/**
  * Mueve un tramo. Si es interior, desplaza sus dos vértices en perpendicular e
  * inserta los codos de entrada/salida para que los tramos vecinos sigan siendo
  * ortogonales. Si es extremo, delega en `bendCable`: inserta un codo sin mover
@@ -1072,21 +1113,28 @@ export function addWire(
   from: Point,
   to: Point,
   templateRaw: string,
+  junctionTemplateRaw?: string,
 ): EditorState {
   if (from.x === to.x && from.y === to.y) return state;
   const project = projectOf(state);
   const template = parseOne(templateRaw);
   if (!template || template.kind === 'component') return state;
-  const id = nextId(project);
+  let next = nextId(project);
+  const id = next++;
   const g = [...template.geometry];
   g[GEOMETRY.x] = Math.round(from.x);
   g[GEOMETRY.y] = Math.round(from.y);
   if (g.length > GEOMETRY.x2) g[GEOMETRY.x2] = Math.round(to.x);
   if (g.length > GEOMETRY.y2) g[GEOMETRY.y2] = Math.round(to.y);
   const raw = withGeometry({ ...template, raw: withId(template, id) }, g);
+  const junctions = teeJunctionRaws(project, [from, to], junctionTemplateRaw, () => next++).join('');
   const text =
-    (project.hasMagic ? 'CADe_SIMU' : '') + project.prefix + project.records.map((r) => r.raw).join('') + raw;
-  return commit(state, text, [id]);
+    (project.hasMagic ? 'CADe_SIMU' : '') +
+    project.prefix +
+    project.records.map((r) => r.raw).join('') +
+    raw +
+    junctions;
+  return commit(state, pruneOrphanJunctions(project.records, text), [id]);
 }
 
 /**
@@ -1100,6 +1148,7 @@ export function addRoutedWire(
   to: Point,
   obstacles: readonly Box[],
   templateRaw: string,
+  junctionTemplateRaw?: string,
 ): EditorState {
   const project = projectOf(state);
   const template = parseOne(templateRaw);
@@ -1125,12 +1174,30 @@ export function addRoutedWire(
     addedIds.push(next);
     next++;
   }
+  const ends = [route.waypoints[0]!, route.waypoints.at(-1)!];
+  const junctions = teeJunctionRaws(project, ends, junctionTemplateRaw, () => next++).join('');
   const text =
     (project.hasMagic ? 'CADe_SIMU' : '') +
     project.prefix +
     project.records.map((r) => r.raw).join('') +
-    raws.join('');
-  return commit(state, text, addedIds);
+    raws.join('') +
+    junctions;
+  return commit(state, pruneOrphanJunctions(project.records, text), addedIds);
+}
+
+/** Borra el registro 4001 indicado (acción del aviso `orphan-junction`). */
+export function removeJunction(state: EditorState, id: number): EditorState {
+  const project = projectOf(state);
+  const rec = project.records.find((r) => r.id === id);
+  if (!rec || rec.code !== JUNCTION_CODE) return state;
+  const text =
+    (project.hasMagic ? 'CADe_SIMU' : '') +
+    project.prefix +
+    project.records
+      .filter((r) => r.id !== id)
+      .map((r) => r.raw)
+      .join('');
+  return commit(state, text, []);
 }
 
 /** Agrega un registro de unión (4001) en el punto indicado. */

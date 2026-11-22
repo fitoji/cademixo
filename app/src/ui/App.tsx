@@ -50,6 +50,7 @@ import {
   selectVertex,
   addJunction,
   addRoutedWire,
+  removeJunction,
   applyDrag,
   undo,
   redo,
@@ -968,7 +969,7 @@ export function App(): JSX.Element {
             .map((rec) => boundsOf(rec))
             .filter((b): b is NonNullable<typeof b> => b !== null)
             .map((b) => ({ minX: b.x, minY: b.y, maxX: b.x + b.w, maxY: b.y + b.h }));
-          return addRoutedWire(s, from, { x, y }, obstacles, wire);
+          return addRoutedWire(s, from, { x, y }, obstacles, wire, JUNCTION_TEMPLATE ?? undefined);
         });
         return;
       }
@@ -1549,6 +1550,7 @@ export function App(): JSX.Element {
                 onCableNumber={(ids, n) => setState(setCableNumber(state, ids, n))}
                 readOnly={running}
                 onAddJunction={(x, y) => setState(addJunction(state, x, y, JUNCTION_TEMPLATE ?? undefined))}
+                onRemoveJunction={(id) => setState((s) => (s ? removeJunction(s, id) : s))}
                 onFocusFinding={(f) => setHighlight({ ids: f.ids, at: f.at ?? null })}
                 collapsibleSections={styleMode === 'moderno'}
               />
