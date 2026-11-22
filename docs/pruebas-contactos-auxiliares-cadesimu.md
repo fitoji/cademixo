@@ -19,6 +19,8 @@ protección `6000`-`6999` que comparte su designador normalizado; su posición n
 acciona por separado y el clic sobre él acciona el aparato. Los contactos
 `70xx` siguen a la bobina/contactor del mismo designador.
 
+> Paso a paso para la máquina Windows: [`pruebas-cadesimu-windows.md`](pruebas-cadesimu-windows.md).
+
 ## Antes de empezar
 
 - El `8018` **no está en la paleta de CADe** (`docs/componentes.md:14`): no se
