@@ -12,7 +12,7 @@ binario de CADe (`docs/re/traspaso-windows.md:19-27`, vive en
 2. **¿El contacto auxiliar responde al mouse** en la simulación, o su posición la
    marca siempre el aparato?
 3. **¿Qué pasa cuando varios aparatos comparten designador?** En
-   `docs/03/componentes02.cad` hay ocho dispositivos con `-F`.
+   `docs/03/componentes02.cad` hay catorce dispositivos con `-F`.
 
 Lo que la app hace hoy (`app/src/sim/apparatus.ts`): el `8018` sigue a la
 protección `6000`-`6999` que comparte su designador normalizado; su posición no se
@@ -208,7 +208,7 @@ conmutador, (iii) cambian los dos.
 
 ### D. Designador ambiguo
 
-Archivo: `docs/03/componentes02.cad` — ocho dispositivos con `-F`, entre ellos un
+Archivo: `docs/03/componentes02.cad` — catorce dispositivos con `-F`, entre ellos un
 `8018` (`id 25`) y protecciones `6000`-`6999`.
 
 1. Abrir, Simulación, accionar **una** de las protecciones `-F`.
