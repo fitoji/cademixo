@@ -6,7 +6,7 @@ import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
 import type { DragOp, Rotation } from '../editor/state.ts';
-import { idle, startBend, startMarquee, startMove, startPan, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
+import { idle, startMarquee, startMove, startPan, startSegment, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
 import { attachPoints, type Point } from '../editor/pins.ts';
 import { buildNetwork, cableSegments } from '../editor/network.ts';
 import { routeOrthogonal } from '../editor/wiring/router.ts';
@@ -603,7 +603,10 @@ export function Canvas(props: Props): JSX.Element {
       // En simulación se puede seleccionar y accionar, pero no arrastrar.
       if (!e.shiftKey && !simulating) {
         const at = isWire && rec ? bendPoint(rec, world) : null;
-        setGesture(at ? startBend(id, at, world, sheet) : startMove(world));
+        // Arrastrar el cuerpo mueve el tramo (F2). Si es extremo, moveSegment
+        // inserta un codo sin tocar el borne. Los vértices se insertan con
+        // doble-clic y se arrastran desde sus tiradores cuadrados.
+        setGesture(at ? startSegment(id, at, world, sheet) : startMove(world));
         svgRef.current!.setPointerCapture(e.pointerId);
       }
       return;

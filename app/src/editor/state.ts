@@ -51,6 +51,8 @@ import type { Rotation } from '../model/transform.ts';
 import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
 import type { Point } from './pins.ts';
 import { routeOrthogonal, type Box } from './wiring/router.ts';
+import { normalizeOrthogonal } from './wiring/geometry.ts';
+import { pathPoints, wirePathsOf } from './wiring/types.ts';
 
 export type { Rotation };
 
@@ -978,6 +980,93 @@ export function mergeVertex(state: EditorState, x: number, y: number): EditorSta
   return commit(state, text, [first.rec.id]);
 }
 
+/**
+ * Reescribe los registros de un cable con una nueva polilínea. Reutiliza los
+ * registros existentes (y clona el último si hacen falta más tramos) para no
+ * tocar el estilo ni el número de cable. Todo entra en un solo commit.
+ */
+function writePolyline(state: EditorState, segmentIds: number[], points: Point[]): EditorState {
+  const project = projectOf(state);
+  const byId = new Map(project.records.map((r) => [r.id, r]));
+  const existing = segmentIds
+    .map((id) => byId.get(id))
+    .filter((r): r is CadeRecordModel => r !== undefined);
+  if (existing.length === 0 || points.length < 2) return state;
+
+  let next = nextId(project);
+  const raws: string[] = [];
+  const selected: number[] = [];
+  for (let i = 0; i + 1 < points.length; i++) {
+    let base = existing[i];
+    if (!base) {
+      const template = existing[0]!;
+      base = { ...template, id: next, raw: withId(template, next), geometry: [...template.geometry] };
+      next++;
+    }
+    raws.push(
+      withWirePoints(base, {
+        x1: points[i]!.x,
+        y1: points[i]!.y,
+        x2: points[i + 1]!.x,
+        y2: points[i + 1]!.y,
+      }),
+    );
+    selected.push(base.id);
+  }
+  const remove = new Set(segmentIds);
+  const text =
+    (project.hasMagic ? 'CADe_SIMU' : '') +
+    project.prefix +
+    project.records
+      .filter((r) => !remove.has(r.id))
+      .map((r) => r.raw)
+      .join('') +
+    raws.join('');
+  return commit(state, text, selected);
+}
+
+const nearPoint = (a: Point, b: Point): boolean =>
+  Math.abs(a.x - b.x) < AXIS_TOL && Math.abs(a.y - b.y) < AXIS_TOL;
+
+/**
+ * Mueve un tramo. Si es interior, desplaza sus dos vértices en perpendicular e
+ * inserta los codos de entrada/salida para que los tramos vecinos sigan siendo
+ * ortogonales. Si es extremo, delega en `bendCable`: inserta un codo sin mover
+ * el borne. Patrón `moveSegment` de Excalidraw, adaptado al formato CADe.
+ */
+export function moveSegment(state: EditorState, id: number, at: Point, to: Point, sheet = 0): EditorState {
+  const project = projectOf(state);
+  const net = buildNetwork(project.records);
+  const path = wirePathsOf(net).find((p) => p.segmentIds.includes(id));
+  if (!path) return state;
+  const points = pathPoints(net, path);
+  const index = path.segmentIds.indexOf(id);
+  const p = points[index]!;
+  const q = points[index + 1]!;
+  if (!p || !q) return state;
+
+  const vertical = Math.abs(p.x - q.x) < AXIS_TOL;
+  const newValue = vertical ? to.x : to.y;
+  const oldValue = vertical ? p.x : p.y;
+  if (Math.abs(newValue - oldValue) < AXIS_TOL) return state;
+
+  // Tramo extremo: el borne no se mueve, se inserta un codo (S2).
+  if (index === 0 || index === points.length - 2) return bendCable(state, id, at, to, sheet);
+
+  const movedP = vertical ? { x: newValue, y: p.y } : { x: p.x, y: newValue };
+  const movedQ = vertical ? { x: newValue, y: q.y } : { x: q.x, y: newValue };
+  const out: Point[] = points.slice(0, index);
+  const a = points[index - 1]!;
+  const bendA = vertical ? { x: a.x, y: movedP.y } : { x: movedP.x, y: a.y };
+  if (!nearPoint(bendA, a) && !nearPoint(bendA, movedP)) out.push(bendA);
+  out.push(movedP, movedQ);
+  const b = points[index + 2]!;
+  const bendB = vertical ? { x: b.x, y: movedQ.y } : { x: movedQ.x, y: b.y };
+  if (!nearPoint(bendB, movedQ) && !nearPoint(bendB, b)) out.push(bendB);
+  out.push(...points.slice(index + 2));
+  return writePolyline(state, path.segmentIds, normalizeOrthogonal(out));
+}
+
 /** Inserta un tramo de cable entre dos puntos. */
 export function addWire(
   state: EditorState,
@@ -1086,10 +1175,12 @@ export function bendCable(state: EditorState, id: number, at: Point, to: Point, 
 export type DragOp =
   | { kind: 'move'; dx: number; dy: number }
   | { kind: 'vertex'; from: Point; to: Point; sheet?: number }
-  | { kind: 'bend'; id: number; at: Point; to: Point; sheet?: number };
+  | { kind: 'bend'; id: number; at: Point; to: Point; sheet?: number }
+  | { kind: 'segment'; id: number; at: Point; to: Point; sheet?: number };
 
 export function applyDrag(state: EditorState, op: DragOp): EditorState {
   if (op.kind === 'move') return moveSelection(state, op.dx, op.dy);
   if (op.kind === 'vertex') return moveVertex(state, op.from, op.to, op.sheet ?? 0);
+  if (op.kind === 'segment') return moveSegment(state, op.id, op.at, op.to, op.sheet ?? 0);
   return bendCable(state, op.id, op.at, op.to, op.sheet ?? 0);
 }

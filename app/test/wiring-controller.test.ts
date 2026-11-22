@@ -14,6 +14,7 @@ import {
   startMarquee,
   startMove,
   startPan,
+  startSegment,
   startVertex,
   step,
 } from '../src/editor/wiring/controller.ts';
@@ -50,6 +51,28 @@ test('Escape durante un arrastre de vértice cancela sin commit', () => {
   assert.equal(esc.next.kind, 'idle');
   assert.deepEqual(esc.effects, [{ type: 'cancel' }]);
   assert.equal(esc.effects.filter((e) => e.type === 'commit').length, 0);
+});
+
+test('el arrastre de tramo confirma un único commit de tipo segment', () => {
+  let g = startSegment(9, pt(30, 60), pt(30, 60), 0);
+  g = step(g, { type: 'move', world: pt(41, 74), client: pt(41, 74) }, ctx).next;
+  const up = step(g, { type: 'up', world: pt(41, 74), client: pt(41, 74) }, ctx);
+  const commits = up.effects.filter((e) => e.type === 'commit');
+  assert.equal(commits.length, 1);
+  const op = commits[0]!.op;
+  assert.equal(op.kind, 'segment');
+  if (op.kind === 'segment') {
+    assert.equal(op.id, 9);
+    assert.deepEqual(op.to, pt(41, 74));
+  }
+});
+
+test('Escape durante el arrastre de tramo no confirma', () => {
+  let g = startSegment(9, pt(30, 60), pt(30, 60), 0);
+  g = step(g, { type: 'move', world: pt(41, 74), client: pt(41, 74) }, ctx).next;
+  const cancelled = step(g, { type: 'cancel' }, ctx);
+  assert.equal(cancelled.effects.filter((e) => e.type === 'commit').length, 0);
+  assert.deepEqual(cancelled.effects, [{ type: 'cancel' }]);
 });
 
 test('pointercancel se trata igual que Escape: cancela, no confirma', () => {

@@ -19,7 +19,8 @@ export type Gesture =
   | { kind: 'marquee'; start: Point; current: Point; additive: boolean }
   | { kind: 'move'; start: Point; moved: boolean }
   | { kind: 'vertex'; from: Point; start: Point; moved: boolean; exclude: number[]; sheet: number }
-  | { kind: 'bend'; id: number; at: Point; start: Point; moved: boolean; sheet: number };
+  | { kind: 'bend'; id: number; at: Point; start: Point; moved: boolean; sheet: number }
+  | { kind: 'segment'; id: number; at: Point; start: Point; moved: boolean; sheet: number };
 
 export type Effect =
   /** Nueva vista del paneo. */
@@ -81,6 +82,15 @@ export const startBend = (id: number, at: Point, world: Point, sheet: number): G
   sheet,
 });
 
+export const startSegment = (id: number, at: Point, world: Point, sheet: number): Gesture => ({
+  kind: 'segment',
+  id,
+  at,
+  start: world,
+  moved: false,
+  sheet,
+});
+
 const VERTEX_TOL = 0.5;
 const BEND_TOL = 0.8;
 
@@ -92,7 +102,10 @@ export function step(g: Gesture, e: GestureEvent, ctx: StepCtx): { next: Gesture
   // Cancelar en reposo no hace nada; en gesto, revierte y vuelve a idle.
   if (e.type === 'cancel') {
     if (g.kind === 'idle') return { next: g, effects: [] };
-    const effects: Effect[] = g.kind === 'vertex' || g.kind === 'bend' || g.kind === 'move' ? [{ type: 'cancel' }] : [];
+    const effects: Effect[] =
+      g.kind === 'vertex' || g.kind === 'bend' || g.kind === 'segment' || g.kind === 'move'
+        ? [{ type: 'cancel' }]
+        : [];
     return { next: idle, effects };
   }
   if (g.kind === 'idle') return { next: g, effects: [] };
@@ -154,20 +167,21 @@ export function step(g: Gesture, e: GestureEvent, ctx: StepCtx): { next: Gesture
     return { next: idle, effects: [{ type: 'commit', op }] };
   }
 
-  // Doblaz: el preview y el commit esperan el umbral; el snap de T excluye el
-  // propio tramo (no deriva sobre sí mismo).
-  const bendOp = (world: Point): DragOp => ({
-    kind: 'bend',
+  // Doblaz y mover tramo: el preview y el commit esperan el umbral; el snap de T
+  // excluye el propio tramo (no deriva sobre sí mismo).
+  const kind = g.kind;
+  const dragOp = (world: Point): DragOp => ({
+    kind,
     id: g.id,
     at: g.at,
     to: ctx.snap(world, [g.id]),
     sheet: g.sheet,
   });
   if (e.type === 'move') {
-    if (g.moved) return { next: g, effects: [{ type: 'preview', op: bendOp(e.world) }] };
+    if (g.moved) return { next: g, effects: [{ type: 'preview', op: dragOp(e.world) }] };
     if (dFrom(g, e.world) <= BEND_TOL) return { next: g, effects: [] };
-    return { next: { ...g, moved: true }, effects: [{ type: 'preview', op: bendOp(e.world) }] };
+    return { next: { ...g, moved: true }, effects: [{ type: 'preview', op: dragOp(e.world) }] };
   }
   if (dFrom(g, e.world) <= BEND_TOL) return { next: idle, effects: [{ type: 'cancel' }] };
-  return { next: idle, effects: [{ type: 'commit', op: bendOp(e.world) }] };
+  return { next: idle, effects: [{ type: 'commit', op: dragOp(e.world) }] };
 }
