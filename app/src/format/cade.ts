@@ -72,6 +72,18 @@ function longestIncreasing(cands: Candidate[]): Candidate[] {
   return chain.reverse();
 }
 
+/**
+ * Heurística barata para aceptar un archivo sin mirar su extensión: alcanza con
+ * el magic o un candidato de registro. No reemplaza al parser (que después
+ * decide si el documento es válido), pero evita abrir un binario cualquiera.
+ */
+export function isCadeDocument(text: string): boolean {
+  if (text.startsWith(MAGIC)) return true;
+  // Regex local y sin `g`: usar `CANDIDATE` dejaría su `lastIndex` tocado y
+  // `parse` depende de que arranque en cero.
+  return /\*\d+\*\d+#/.test(text);
+}
+
 export function parse(text: string): CadeDocument {
   const hasMagic = text.startsWith(MAGIC);
   const body = hasMagic ? text.slice(MAGIC.length) : text;

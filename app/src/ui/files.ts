@@ -26,14 +26,6 @@ interface PickerScope {
 }
 
 /**
- * El filtro del selector de apertura: el mismo que el `accept` del input oculto
- * (`.cade,.cad`), para que el diálogo del sistema no ofrezca cualquier archivo.
- */
-const OPEN_TYPES = [
-  { description: 'Documentos CADe_SIMU', accept: { 'application/octet-stream': ['.cade', '.cad'] } },
-];
-
-/**
  * El selector no se pudo abrir: sin contexto seguro, permiso denegado o una
  * política que lo prohíba. No es una cancelación y no se puede tratar como tal,
  * porque el usuario no eligió nada y decirle que "no eligió destino" sería
@@ -134,7 +126,9 @@ export async function pickOpenHandle(): Promise<{ handle: FileSystemFileHandle; 
   if (typeof scope.showOpenFilePicker !== 'function') return null;
   let handle: FileSystemFileHandle | undefined;
   try {
-    [handle] = await scope.showOpenFilePicker({ multiple: false, types: OPEN_TYPES });
+    // Sin `types`: el formato no obliga a la extensión, así que el selector
+    // ofrece cualquier archivo y la validación se hace por contenido.
+    [handle] = await scope.showOpenFilePicker({ multiple: false });
   } catch (error) {
     if (isAbort(error)) return null;
     throw new PickerError('no se pudo abrir el selector de archivos');

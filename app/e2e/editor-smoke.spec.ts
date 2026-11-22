@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const fixture = fileURLToPath(new URL('../test/fixtures/ej0def.cad', import.meta.url));
+const noExtensionFile = fileURLToPath(new URL('../samples/bornesocultos/tresbornesoculto', import.meta.url));
 const pickerTarget = fileURLToPath(new URL('../test/fixtures/luz-con-interruptor.cade', import.meta.url));
 const pickerFiles = {
   'current.cad': Array.from(readFileSync(fixture)),
@@ -164,10 +165,17 @@ test('starts with the first sample loaded', async ({ page }) => {
 
 test('opens a local .cad file through the file input', async ({ page }) => {
   await page.goto('/');
-  await page.locator('input[type="file"][accept=".cade,.cad"]').setInputFiles(fixture);
+  await page.locator('input[type="file"]').setInputFiles(fixture);
 
   await expect(page.locator('footer').getByText('ej0def.cad')).toBeVisible();
   expect((await getOpenGuardState(page)).calls).toBe(0);
+});
+
+test('abre un archivo CADe aunque no tenga extensión .cad', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').setInputFiles(noExtensionFile);
+
+  await expect(page.locator('footer').getByText('tresbornesoculto')).toBeVisible();
 });
 
 test('declining the dirty-open prompt keeps the current document when using the file input', async ({ page }) => {
@@ -176,7 +184,7 @@ test('declining the dirty-open prompt keeps the current document when using the 
   const before = await getDocumentSnapshot(page);
 
   await setConfirmAnswer(page, false);
-  await page.locator('input[type="file"][accept=".cade,.cad"]').setInputFiles(fixture);
+  await page.locator('input[type="file"]').setInputFiles(fixture);
 
   await expect.poll(async () => (await getOpenGuardState(page)).calls).toBe(1);
   expect(await getDocumentSnapshot(page)).toEqual(before);
@@ -191,7 +199,7 @@ test('saving successfully before opening through the file input downloads the di
 
   await setConfirmAnswer(page, true);
   const downloadPromise = page.waitForEvent('download');
-  await page.locator('input[type="file"][accept=".cade,.cad"]').setInputFiles(fixture);
+  await page.locator('input[type="file"]').setInputFiles(fixture);
   const download = await downloadPromise;
 
   expect(download.suggestedFilename()).toBe('arranque-paro-motor-3f.cad');
@@ -507,4 +515,97 @@ test('Propiedades es un Drawer lateral: se abre al seleccionar y al pulsar aviso
   await expect(sheet).toBeVisible();
   await expect(sheet.getByRole('heading', { name: /Avisos/ })).toBeVisible();
   await expect(sheet.getByText(/Símbolos superpuestos/).first()).toBeVisible();
+});
+
+test('renombrar una conexión desde Propiedades cambia el rótulo del lienzo', async ({ page }) => {
+  await page.goto('/');
+  const sheet = page.locator('[data-slot="drawer-content"]');
+  const canvas = page.getByRole('application', { name: /Lienzo del esquema/ });
+  const components = canvas.locator('g[data-id]');
+  const viewport = page.viewportSize();
+
+  let first: import('@playwright/test').Locator | null = null;
+  for (let i = 0, total = await components.count(); i < total; i += 1) {
+    const bounds = await components.nth(i).boundingBox();
+    if (!bounds || bounds.width < 2 || bounds.height < 2) continue;
+    const x = bounds.x + bounds.width / 2;
+    const y = bounds.y + bounds.height / 2;
+    if (viewport && (x < 0 || y < 0 || x > viewport.width || y > viewport.height)) continue;
+    const id = await components.nth(i).getAttribute('data-id');
+    const reached = await page.evaluate(
+      ({ pointX, pointY, recordId }) =>
+        document.elementFromPoint(pointX, pointY)?.closest('g[data-id]')?.getAttribute('data-id') === recordId,
+      { pointX: x, pointY: y, recordId: id },
+    );
+    if (!reached) continue;
+
+    await page.mouse.click(x, y);
+    const candidate = sheet.getByRole('textbox', { name: 'Conexión 1' });
+    if ((await candidate.count()) > 0) {
+      first = candidate;
+      break;
+    }
+    await page.keyboard.down('Shift');
+    await page.mouse.click(x, y);
+    await page.keyboard.up('Shift');
+  }
+  expect(first).not.toBeNull();
+
+  const input = first!;
+  const original = await input.inputValue();
+  await input.fill('A1');
+  await input.press('Enter');
+  await expect(input).toHaveValue('A1');
+  await expect(canvas.getByText('A1', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('footer span.bg-warn')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Deshacer' }).click();
+  await expect(input).toHaveValue(original);
+});
+
+test('ocultar un borne y los nombres se refleja en el lienzo', async ({ page }) => {
+  await page.goto('/');
+  const sheet = page.locator('[data-slot="drawer-content"]');
+  const canvas = page.getByRole('application', { name: /Lienzo del esquema/ });
+  const components = canvas.locator('g[data-id]');
+  const viewport = page.viewportSize();
+
+  for (let i = 0, total = await components.count(); i < total; i += 1) {
+    const bounds = await components.nth(i).boundingBox();
+    if (!bounds || bounds.width < 2 || bounds.height < 2) continue;
+    const x = bounds.x + bounds.width / 2;
+    const y = bounds.y + bounds.height / 2;
+    if (viewport && (x < 0 || y < 0 || x > viewport.width || y > viewport.height)) continue;
+    const id = await components.nth(i).getAttribute('data-id');
+    const reached = await page.evaluate(
+      ({ pointX, pointY, recordId }) =>
+        document.elementFromPoint(pointX, pointY)?.closest('g[data-id]')?.getAttribute('data-id') === recordId,
+      { pointX: x, pointY: y, recordId: id },
+    );
+    if (!reached) continue;
+    await page.mouse.click(x, y);
+    if ((await sheet.getByRole('checkbox', { name: 'Ocultar' }).count()) > 0) break;
+    await page.keyboard.down('Shift');
+    await page.mouse.click(x, y);
+    await page.keyboard.up('Shift');
+  }
+
+  const selected = canvas.locator('g[data-id][data-sel]');
+  const labels = selected.locator('text.pinlabel');
+  const firstName = (await sheet.getByRole('textbox', { name: 'Conexión 1' }).inputValue()).trim();
+  const exact = new RegExp(`^${firstName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+  await expect(labels.filter({ hasText: exact })).toHaveCount(1);
+
+  const hide = sheet.getByRole('checkbox', { name: 'Ocultar' }).first();
+  await expect(hide).not.toBeChecked();
+  await hide.click();
+  await expect(hide).toBeChecked();
+  await expect(labels.filter({ hasText: exact })).toHaveCount(0);
+
+  const names = sheet.getByRole('checkbox', { name: 'Mostrar nombres' });
+  await expect(names).toBeChecked();
+  await names.click();
+  await expect(names).not.toBeChecked();
+  await expect(labels).toHaveCount(0);
+  await expect(page.locator('footer span.bg-warn')).toBeVisible();
 });

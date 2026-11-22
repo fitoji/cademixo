@@ -29,6 +29,9 @@ import {
   withGeometry,
   withId,
   withLampColor,
+  withPinName,
+  withPinLabelsVisible,
+  withPinVisible,
   withPosition,
   withWirePoints,
   wirePoints,
@@ -560,6 +563,34 @@ export function setDesignator(state: EditorState, id: number, designator: string
   fields[1] = designator;
   const edits = new Map([[entry.index, fields.join('#')]]);
   return commit(state, serializeWith(project, edits));
+}
+
+/** Renombra un borne del registro seleccionado, escribiendo su cabecera. */
+export function setPinName(state: EditorState, id: number, index: number, name: string): EditorState {
+  return editComponent(state, id, (rec) => withPinName(rec, index, name));
+}
+
+/** Muestra u oculta un borne del registro seleccionado. */
+export function setPinVisible(state: EditorState, id: number, index: number, visible: boolean): EditorState {
+  return editComponent(state, id, (rec) => withPinVisible(rec, index, visible));
+}
+
+/** Muestra u oculta los nombres de todos los bornes del registro seleccionado. */
+export function setPinLabelsVisible(state: EditorState, id: number, visible: boolean): EditorState {
+  return editComponent(state, id, (rec) => withPinLabelsVisible(rec, visible));
+}
+
+function editComponent(
+  state: EditorState,
+  id: number,
+  rewrite: (rec: CadeRecordModel) => string,
+): EditorState {
+  const project = projectOf(state);
+  const entry = indexed(project).find(({ rec }) => rec.id === id);
+  if (!entry || entry.rec.kind !== 'component') return state;
+  const raw = rewrite(entry.rec);
+  if (raw === entry.rec.raw) return state;
+  return commit(state, serializeWith(project, new Map([[entry.index, raw]])));
 }
 
 /**

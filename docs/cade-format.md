@@ -8,7 +8,7 @@ Estado: **parcial**. Todo lo marcado ✅ está verificado sobre `data/CADe_SIMU 
 
 ## Extensión al guardar
 
-✅ `.cad` y `.cade` son **el mismo formato de texto**: la extensión no cambia un byte del contenido. La app abre las dos.
+✅ `.cad` y `.cade` son **el mismo formato de texto**: la extensión no cambia un byte del contenido. La app abre las dos y también un archivo con **cualquier otra extensión o sin extensión**, porque al abrir valida el contenido (`isCadeDocument`: magic `CADe_SIMU` o un candidato de registro), no el nombre.
 
 Con la File System Access API, «Guardar» **reescribe el archivo abierto tal como está**: un `.cade` abierto se vuelve a guardar como `.cade`. El `.cad` normalizado sólo se usa en dos lados: como nombre sugerido del selector de destino («Guardar como…») y como nombre de la descarga de respaldo en los navegadores sin esa API, donde «Guardar como…» abre un diálogo para escribir el nombre y descarga con él.
 
@@ -196,6 +196,25 @@ La regla, verificada en tres archivos y en cajas de alturas distintas (15, 24):
 | pulsador `STAR` (8000) | `(162, 108, 6, 15)` | `(0,0) (0,12)` — borde izquierdo |
 
 ⚠️ Se observa en tres esquemas ascendentes (en escalera). Falta un archivo de disposición horizontal para confirmar el patrón en otra orientación. Mientras tanto, la app dibuja **los bornes que el archivo evidencia**: sin cables, no hay bornes.
+
+## Visibilidad de bornes y de sus nombres
+
+✅ Verificado con tres archivos guardados desde CADe_SIMU en `app/samples/bornesocultos/`:
+
+| Dónde | Qué es |
+|---|---|
+| `geometry[0..n-1]` | flag por borne, en el orden de la cabecera: `1` visible, `0` oculto |
+| `geometry[19]` | `1` muestra los nombres de todos los bornes; `0` los oculta |
+
+Los tres casos:
+
+| Archivo | Flags `g0..g5` | `g19` |
+|---|---|---|
+| `unborneoculto.cad` | `0 1 1 1 1 1` | `1` |
+| `tresbornesoculto` | `0 0 0 1 1 1` | `1` |
+| `nombreoculto` | `1 1 1 1 1 1` | `0` |
+
+Consecuencia: ocultar un borne y ocultar los nombres son opciones **independientes**. Los flags viven en la geometría, no en la cabecera; un registro sin esos campos se lee todo visible.
 
 ## Modelo de cables: número, tramos y uniones
 

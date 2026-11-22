@@ -18,6 +18,8 @@ import { getSettings, pinRadius, pinStroke, subscribeSettings } from './settings
 interface Props {
   code: number;
   pinNames: string[];
+  /** Visibilidad por borne (flags del registro): false no dibuja el punto. */
+  pinVisible?: boolean[];
   w: number;
   h: number;
   /**
@@ -82,6 +84,7 @@ function matrixAttr(m: Matrix): string {
 export function SymbolGlyph({
   code,
   pinNames,
+  pinVisible,
   w,
   h,
   rotation = 0,
@@ -155,30 +158,34 @@ export function SymbolGlyph({
         </g>
       )}
       {anchored
-        ? (sym.originPins ?? []).map((p) => (
-            <circle
-              key={`op-${p.name}`}
-              className="pin"
-              cx={p.x}
-              cy={p.y}
-              r={pinRadius(pinSize)}
-              strokeWidth={pinStroke(pinSize)}
-            >
-              <title>{p.name}</title>
-            </circle>
-          ))
-        : sym.pins.map((p) => (
-            <circle
-              key={`p-${p.name}`}
-              className="pin"
-              cx={p.nx * w}
-              cy={p.ny * h}
-              r={pinRadius(pinSize)}
-              strokeWidth={pinStroke(pinSize)}
-            >
-              <title>{p.name}</title>
-            </circle>
-          ))}
+        ? (sym.originPins ?? [])
+            .filter((_, i) => pinVisible?.[i] !== false)
+            .map((p) => (
+              <circle
+                key={`op-${p.name}`}
+                className="pin"
+                cx={p.x}
+                cy={p.y}
+                r={pinRadius(pinSize)}
+                strokeWidth={pinStroke(pinSize)}
+              >
+                <title>{p.name}</title>
+              </circle>
+            ))
+        : sym.pins
+            .filter((_, i) => pinVisible?.[i] !== false)
+            .map((p) => (
+              <circle
+                key={`p-${p.name}`}
+                className="pin"
+                cx={p.nx * w}
+                cy={p.ny * h}
+                r={pinRadius(pinSize)}
+                strokeWidth={pinStroke(pinSize)}
+              >
+                <title>{p.name}</title>
+              </circle>
+            ))}
       {labels.map((l, i) => (
         <text
           key={`t${i}`}

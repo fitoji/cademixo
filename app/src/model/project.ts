@@ -67,6 +67,14 @@ export interface CadeRecordModel {
   /** bornes en orden de aparición, sin vacíos. Puede estar vacío. */
   pins: string[];
   /**
+   * Visibilidad por borne, en el orden de `pins`. CADe_SIMU la guarda en los
+   * primeros campos de la geometría (1 visible, 0 oculto); verificado con las
+   * muestras `samples/bornesocultos` guardadas desde CADe.
+   */
+  pinVisible: boolean[];
+  /** Si CADe dibuja los nombres de todos los bornes (geometría[19]). */
+  pinLabelsVisible: boolean;
+  /**
    * Color guardado de una lámpara con slot de color (`hasColorSlot`). `null`
    * en todo lo demás, y también cuando el archivo trae un valor fuera de
    * rango: preferimos no pintar antes que inventar un color.
@@ -134,6 +142,90 @@ function splitNumbers(field: string): number[] {
     .filter((n) => Number.isFinite(n));
 }
 
+interface HeaderSlot {
+  /** Índice del token dentro de `raw.split('#')`. */
+  field: number;
+  token: string;
+}
+
+/**
+ * Tokens de la cabecera con su posición exacta en el raw. Lo comparten el
+ * parser y `withPinName`: si el renombre calculase el índice por su cuenta,
+ * el slot de color de las lámparas (justo después de los bornes) corría todo
+ * el listado al reparsear.
+ */
+function headerSlots(
+  raw: string,
+  code: number,
+): { slots: HeaderSlot[]; geoIdx: number; fields: string[]; color: LampColor | null } {
+  const fields = raw.split('#');
+  let geoIdx = -1;
+  for (let i = 1; i < fields.length; i++) {
+    if (fields[i].indexOf('*') !== -1) {
+      geoIdx = i;
+      break;
+    }
+  }
+  const slots: HeaderSlot[] = [];
+  if (geoIdx === -1) return { slots, geoIdx, fields, color: null };
+
+  for (let i = 2; i <= geoIdx; i++) {
+    const field = fields[i];
+    const star = field.indexOf('*');
+    const token = i === geoIdx && star !== -1 ? field.slice(0, star) : field;
+    if (token !== '') slots.push({ field: i, token });
+  }
+
+  let color: LampColor | null = null;
+  if (hasColorSlot(code) && slots.length >= 3) {
+    const last = slots.at(-1)!.token;
+    if (/^\d+$/.test(last)) {
+      const value = Number(last);
+      if (value >= 0 && value < LAMP_COLORS.length) {
+        color = value as LampColor;
+        slots.pop();
+      }
+    }
+  }
+  return { slots, geoIdx, fields, color };
+}
+
+/** Devuelve el raw con el borne `index` renombrado; otros índices son no-op. */
+export function withPinName(rec: CadeRecordModel, index: number, name: string): string {
+  const next = name.trim();
+  if (rec.kind !== 'component' || next === '' || index < 0 || index >= rec.pins.length) return rec.raw;
+  const { slots, fields } = headerSlots(rec.raw, rec.code);
+  const slot = slots[index];
+  if (!slot || slot.token === next) return rec.raw;
+
+  const field = fields[slot.field];
+  const star = field.indexOf('*');
+  fields[slot.field] = next + (star === -1 ? '' : field.slice(star));
+  return fields.join('#');
+}
+
+/** Muestra u oculta un borne escribiendo su flag de geometría. */
+export function withPinVisible(rec: CadeRecordModel, index: number, visible: boolean): string {
+  if (rec.kind !== 'component' || index < 0 || index >= rec.pins.length || rec.geometry.length <= index) {
+    return rec.raw;
+  }
+  const next = visible ? 1 : 0;
+  if (rec.geometry[index] === next) return rec.raw;
+  const geometry = [...rec.geometry];
+  geometry[index] = next;
+  return withGeometry(rec, geometry);
+}
+
+/** Muestra u oculta los nombres de todos los bornes del componente. */
+export function withPinLabelsVisible(rec: CadeRecordModel, visible: boolean): string {
+  if (rec.kind !== 'component' || rec.geometry.length <= 19) return rec.raw;
+  const next = visible ? 1 : 0;
+  if (rec.geometry[19] === next) return rec.raw;
+  const geometry = [...rec.geometry];
+  geometry[19] = next;
+  return withGeometry(rec, geometry);
+}
+
 export function modelOfRecord(rec: CadeRecord, sheet = 0): CadeRecordModel {
   const kind = classify(rec.code);
   const fields = rec.raw.split('#');
@@ -143,6 +235,8 @@ export function modelOfRecord(rec: CadeRecord, sheet = 0): CadeRecordModel {
     kind,
     designator: kind === 'text' ? '' : (fields[1] ?? ''),
     pins: [],
+    pinVisible: [],
+    pinLabelsVisible: true,
     lampColor: null,
     transform: IDENTITY,
     geometry: [],
@@ -159,41 +253,21 @@ export function modelOfRecord(rec: CadeRecord, sheet = 0): CadeRecordModel {
 
   // El bloque de geometría empieza con '*', pero en los códigos con layout
   // extendido (11 textos, p. ej. 1052/10500..10550) el último texto queda
-  // pegado al primer número: `...#EV1*1*1*...`. Buscamos el primer '*' dentro
-  // del campo, no solo al inicio.
-  let geoIdx = -1;
-  let geoPrefix = '';
-  for (let i = 1; i < fields.length; i++) {
-    const star = fields[i].indexOf('*');
-    if (star !== -1) {
-      geoIdx = i;
-      geoPrefix = fields[i].slice(0, star);
-      break;
-    }
-  }
+  // pegado al primer número: `...#EV1*1*1*...`. `headerSlots` busca el primer
+  // '*' dentro del campo, no solo al inicio.
+  const { slots, geoIdx, fields: headerFields, color } = headerSlots(rec.raw, rec.code);
   if (geoIdx === -1) return base;
 
-  const headerFields = fields.slice(2, geoIdx);
-  if (geoPrefix !== '') headerFields.push(geoPrefix);
-  const header = headerFields.filter((p) => p !== '');
-
-  // Las lámparas con slot de color cierran su cabecera con el índice de color
-  // (lo declara ComponentSpec): ese token no es un borne. Si se deja en `pins`,
-  // el editor dibuja un pin fantasma al lado de X1 y X2. El mínimo de tres
-  // tokens protege a un registro sin bornes.
-  if (hasColorSlot(rec.code) && header.length >= 3) {
-    const last = header.at(-1)!.trim();
-    if (/^\d+$/.test(last)) {
-      const color = Number(last);
-      if (color >= 0 && color < LAMP_COLORS.length) {
-        base.lampColor = color as LampColor;
-        header.pop();
-      }
-    }
-  }
-
-  base.pins = header;
-  base.geometry = splitNumbers(fields[geoIdx].slice(fields[geoIdx].indexOf('*')));
+  // El slot de color de las lámparas no es un borne: si se cuenta como tal, el
+  // editor dibuja un pin fantasma al lado de X1 y X2.
+  base.lampColor = color;
+  base.pins = slots.map((slot) => slot.token);
+  base.geometry = splitNumbers(headerFields[geoIdx].slice(headerFields[geoIdx].indexOf('*')));
+  // Los flags de visibilidad viven al principio de la geometría. Un registro
+  // sin ese campo (o más corto que sus bornes) se lee como todo visible, que es
+  // el valor con el que CADe guarda un componente recién insertado.
+  base.pinVisible = base.pins.map((_, i) => base.geometry[i] !== 0);
+  base.pinLabelsVisible = base.geometry[19] !== 0;
   // La orientación se lee del slot 17; si el bloque no llega hasta ahí, el
   // registro no declara transformación y se dibuja como vino (S7).
   const slot = base.geometry[GEOMETRY.transform];

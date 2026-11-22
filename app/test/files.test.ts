@@ -149,9 +149,9 @@ test('los bytes guardados son los de los archivos reales', () => {
 
 // --- envoltorios de navegador ------------------------------------------------
 
-// Abrir tiene que ofrecer el mismo filtro que el input oculto (`accept`), o el
-// diálogo del sistema muestra cualquier archivo.
-test('el selector de apertura filtra por extensión y no permite múltiples', async () => {
+// El formato no obliga a la extensión: el selector ofrece cualquier archivo y
+// el contenido se valida al cargarlo, no en el diálogo del sistema.
+test('el selector de apertura no filtra por extensión ni permite múltiples', async () => {
   const calls: unknown[] = [];
   const file = { name: 'x.cade' };
   const handle = { name: 'x.cade', getFile: async () => file };
@@ -165,10 +165,7 @@ test('el selector de apertura filtra por extensión y no permite múltiples', as
     restore();
   }
   assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0], {
-    multiple: false,
-    types: [{ description: 'Documentos CADe_SIMU', accept: { 'application/octet-stream': ['.cade', '.cad'] } }],
-  });
+  assert.deepEqual(calls[0], { multiple: false });
 });
 
 test('cancelar la apertura no es un fallo: devuelve null en silencio', async () => {

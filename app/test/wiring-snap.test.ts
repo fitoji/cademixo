@@ -18,7 +18,7 @@ const pt = (x: number, y: number): Point => ({ x, y });
 
 /** Registro mínimo de prueba: solo lo que attachPoints/wirePoints leen (sin orientación). */
 const rec = (id: number, kind: 'component' | 'connection', geometry: number[], sheet = 0): CadeRecordModel =>
-  ({ id, code: kind === 'component' ? 0 : 4000, kind, designator: '', pins: [], lampColor: null, transform: { rotation: 0, mirror: false }, geometry, text: '', raw: '', sheet });
+  ({ id, code: kind === 'component' ? 0 : 4000, kind, designator: '', pins: [], pinVisible: [], pinLabelsVisible: true, lampColor: null, transform: { rotation: 0, mirror: false }, geometry, text: '', raw: '', sheet });
 
 // Componente 7 con caja (5,15)-(15,45) y dos cables que la tocan en (10,20) y
 // (10,40): attachPoints deriva de ahí sus bornes.

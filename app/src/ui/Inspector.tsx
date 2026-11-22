@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,9 @@ interface Props {
   network: Network;
   findings: Finding[];
   onDesignator: (id: number, value: string) => void;
+  onPinName: (id: number, index: number, value: string) => void;
+  onPinVisible: (id: number, index: number, visible: boolean) => void;
+  onPinLabelsVisible: (id: number, visible: boolean) => void;
   onLampColor: (id: number, color: LampColor) => void;
   onRotate: () => void;
   onDelete: () => void;
@@ -385,6 +389,9 @@ function Single({
   network,
   findings,
   onDesignator,
+  onPinName,
+  onPinVisible,
+  onPinLabelsVisible,
   onLampColor,
   onRotate,
   onDelete,
@@ -397,8 +404,10 @@ function Single({
 }: Props & { rec: CadeRecordModel; vertexBlock: JSX.Element | null }): JSX.Element {
   const [draft, setDraft] = useState(rec.designator);
   const [cableDraft, setCableDraft] = useState(String(cableNumberOf(rec)));
+  const [pinDrafts, setPinDrafts] = useState(rec.pins);
   useEffect(() => setDraft(rec.designator), [rec.designator]);
   useEffect(() => setCableDraft(String(cableNumberOf(rec))), [rec.raw]);
+  useEffect(() => setPinDrafts(rec.pins), [rec.raw]);
 
   const sym = resolveSymbol(rec.code, rec.pins);
   const box = boxOf(rec);
@@ -479,11 +488,53 @@ function Single({
             collapsible={collapsibleSections}
             groupInClassic={false}
           >
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-col gap-3">
+              {rec.pins.length > 0 && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={rec.pinLabelsVisible}
+                    disabled={readOnly}
+                    onCheckedChange={(checked) => onPinLabelsVisible(rec.id, checked === true)}
+                  />
+                  Mostrar nombres
+                </label>
+              )}
               {rec.pins.map((pin, i) => (
-                <Badge key={`${pin}-${i}`} variant="outline" className="h-5 px-1.5 font-mono text-[10.5px] font-normal">
-                  {pin}
-                </Badge>
+                <Field key={i} className="gap-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <FieldLabel
+                      htmlFor={`pin-${rec.id}-${i}`}
+                      className="text-[10px] tracking-[0.6px] text-muted-foreground uppercase"
+                    >
+                      Conexión {i + 1}
+                    </FieldLabel>
+                    <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Checkbox
+                        checked={!rec.pinVisible[i]}
+                        disabled={readOnly}
+                        onCheckedChange={(checked) => onPinVisible(rec.id, i, checked !== true)}
+                      />
+                      Ocultar
+                    </label>
+                  </div>
+                  <Input
+                    id={`pin-${rec.id}-${i}`}
+                    className="h-7 font-mono text-xs"
+                    disabled={readOnly}
+                    value={pinDrafts[i] ?? pin}
+                    onChange={(event) =>
+                      setPinDrafts((prev) => prev.map((value, j) => (j === i ? event.target.value : value)))
+                    }
+                    onBlur={() => {
+                      const value = (pinDrafts[i] ?? pin).trim();
+                      if (value !== '' && value !== pin) onPinName(rec.id, i, value);
+                      else setPinDrafts((prev) => prev.map((old, j) => (j === i ? pin : old)));
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
+                    }}
+                  />
+                </Field>
               ))}
               {rec.pins.length === 0 && (
                 <Badge variant="outline" className="h-5 px-1.5 text-[10.5px] font-normal">

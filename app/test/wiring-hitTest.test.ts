@@ -14,7 +14,7 @@ const pt = (x: number, y: number): Point => ({ x, y });
 
 /** Registro mínimo de prueba: solo lo que boundsOf lee (sin orientación). */
 const rec = (id: number, kind: 'component' | 'connection', geometry: number[], sheet = 0): CadeRecordModel =>
-  ({ id, code: kind === 'component' ? 0 : 4000, kind, designator: '', pins: [], lampColor: null, transform: { rotation: 0, mirror: false }, geometry, text: '', raw: '', sheet });
+  ({ id, code: kind === 'component' ? 0 : 4000, kind, designator: '', pins: [], pinVisible: [], pinLabelsVisible: true, lampColor: null, transform: { rotation: 0, mirror: false }, geometry, text: '', raw: '', sheet });
 
 // Tramo horizontal (0,50)-(20,50), uno vertical (50,0)-(50,30), un componente
 // con caja (0,0)-(10,10) y una unión 4001 de longitud cero en (70,70).

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parse, serialize, codeInventory, MAGIC } from '../src/format/cade.ts';
+import { isCadeDocument, parse, serialize, codeInventory, MAGIC } from '../src/format/cade.ts';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -82,6 +82,16 @@ test('ej0def: primer registro es el id 25, no un 0 de la geometría', () => {
   assert.equal(doc.records[0].code, 3005);
   const codes = codeInventory(doc).map((s) => s.code);
   assert.equal(codes.includes(0), false, 'código 0 espurio');
+});
+
+test('la detección por contenido no depende de la extensión del archivo', () => {
+  const samples = join(dirname(fileURLToPath(import.meta.url)), '..', 'samples', 'bornesocultos');
+  for (const name of ['unborneoculto.cad', 'tresbornesoculto', 'nombreoculto']) {
+    assert.equal(isCadeDocument(readFileSync(join(samples, name), 'latin1')), true, name);
+  }
+  assert.equal(isCadeDocument(MAGIC), true);
+  assert.equal(isCadeDocument('hola mundo'), false);
+  assert.equal(isCadeDocument(''), false);
 });
 
 test('arranque-paro: no hay códigos basura de cola de geometría', () => {

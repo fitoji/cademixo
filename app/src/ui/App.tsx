@@ -42,6 +42,9 @@ import {
   rotateLeftSelection,
   rotateSelection,
   setDesignator,
+  setPinName,
+  setPinVisible,
+  setPinLabelsVisible,
   setLampColor,
   setCableNumber,
   insertVertex,
@@ -92,6 +95,7 @@ import { JUNCTION_TEMPLATE, WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { templateForPlacement } from '../symbols/place.ts';
 import { blankDocument } from '../format/blank.ts';
 import { DEFAULT_FILE_NAME, cadFileName } from '../format/filename.ts';
+import { isCadeDocument } from '../format/cade.ts';
 import { circuitFrom } from '../sim/circuit.ts';
 import { simulate } from '../sim/solver.ts';
 import { motorDirections } from '../sim/direction.ts';
@@ -501,14 +505,19 @@ export function App(): JSX.Element {
       return;
     }
     if (!picked) return;
-    if (!(await canOpenFile(picked.file.name))) return;
     const { text, name } = await loadFile(picked.file);
+    if (!isCadeDocument(text)) {
+      flash('no se cargó: el archivo no parece un esquema CADe_SIMU', 'error');
+      return;
+    }
+    if (!(await canOpenFile(name))) return;
     openText(text, name, picked.handle);
     cue('abrir archivo');
   }, [openText, flash, canOpenFile]);
 
   /**
-   * Drop de un `.cad` sobre la app (S1).
+   * Drop de un archivo CADe sobre la app (S1). La extensión no importa: se
+   * valida el contenido, así también entra un `.cad` renombrado.
    *
    * Si el documento abierto tiene cambios sin guardar, primero se pregunta por
    * guardarlo: reemplazarlo sin más tiraría trabajo que el usuario no eligió
@@ -518,12 +527,12 @@ export function App(): JSX.Element {
    */
   const openDropped = useCallback(
     async (file: File): Promise<void> => {
-      if (!/\.(cad|cade)$/i.test(file.name)) {
-        flash('no se cargó: tiene que ser un archivo .cad', 'error');
+      const { text, name } = await loadFile(file);
+      if (!isCadeDocument(text)) {
+        flash('no se cargó: el archivo no parece un esquema CADe_SIMU', 'error');
         return;
       }
-      if (!(await canOpenFile(file.name))) return;
-      const { text, name } = await loadFile(file);
+      if (!(await canOpenFile(name))) return;
       openText(text, name);
       cue('abrir archivo');
       toast(`abierto ${name}`);
@@ -1160,7 +1169,7 @@ export function App(): JSX.Element {
       >
         {dragging && (
           <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-background/80 text-sm font-medium">
-            soltá el archivo .cad para abrirlo
+            soltá el archivo para abrirlo
           </div>
         )}
         <header className="relative z-10 flex h-[46px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 shadow-chrome-down">
@@ -1369,14 +1378,17 @@ export function App(): JSX.Element {
           <input
             ref={fileInput}
             type="file"
-            accept=".cade,.cad"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
               void (async () => {
-                if (!(await canOpenFile(file.name))) return;
                 const { text, name } = await loadFile(file);
+                if (!isCadeDocument(text)) {
+                  flash('no se cargó: el archivo no parece un esquema CADe_SIMU', 'error');
+                  return;
+                }
+                if (!(await canOpenFile(name))) return;
                 openText(text, name);
                 cue('abrir archivo');
               })();
@@ -1633,6 +1645,9 @@ export function App(): JSX.Element {
             canDeleteVertex={state && state.vertex ? canDeleteVertex(state, state.vertex) : false}
             onDeleteVertex={() => setState((s) => (s && s.vertex ? deleteVertex(s, s.vertex) : s))}
             onDesignator={(id, value) => setState(setDesignator(state, id, value))}
+            onPinName={(id, index, value) => setState(setPinName(state, id, index, value))}
+            onPinVisible={(id, index, visible) => setState(setPinVisible(state, id, index, visible))}
+            onPinLabelsVisible={(id, visible) => setState(setPinLabelsVisible(state, id, visible))}
             onLampColor={(id, color) => setState(setLampColor(state, id, color))}
             onRotate={() => setState(rotateSelection(state))}
             onDelete={() => setState(deleteSelection(state))}
