@@ -56,6 +56,52 @@ test('un cable con el extremo cerca pero fuera de la caja no se mueve', () => {
   assert.deepEqual(after, before, 'la regla vieja de caja ±4 ya no aplica');
 });
 
+test('mover el componente inserta un codo y el cable sigue ortogonal', () => {
+  const m = motor();
+  const { s } = cableFrom(m.pin, { x: m.pin.x, y: m.pin.y + 40 }, 95);
+  const beforeIds = projectOf(s).records.map((r) => r.id);
+
+  const moved = moveSelection({ ...s, selection: [m.id] }, 12, 0);
+  const records = projectOf(moved).records;
+  const net = buildNetwork(records);
+  const path = wirePathsOf(net).find((p) => p.cable === 95)!;
+  const points = pathPoints(net, path);
+
+  assert.deepEqual(points[0], { x: m.pin.x + 12, y: m.pin.y }, 'sigue al borne');
+  assert.deepEqual(points.at(-1), { x: m.pin.x, y: m.pin.y + 40 }, 'el otro extremo no se mueve');
+  assert.equal(points.length, 3, 'se insertó un codo');
+  for (let i = 0; i + 1 < points.length; i++) {
+    const a = points[i]!;
+    const b = points[i + 1]!;
+    assert.ok(Math.abs(a.x - b.x) < 0.01 || Math.abs(a.y - b.y) < 0.01, 'tramo ortogonal');
+  }
+  assert.deepEqual(
+    beforeIds.filter((id) => !records.some((r) => r.id === id)),
+    [],
+    'no se pierde ningún registro existente',
+  );
+  const ids = records.map((r) => r.id);
+  assert.equal(new Set(ids).size, ids.length, 'ids únicos');
+  for (let i = 1; i < ids.length; i++) assert.ok(ids[i]! > ids[i - 1]!, 'ids crecientes');
+  assert.equal(roundTrips(moved.text), true);
+});
+
+test('mover el componente con cable horizontal también inserta el codo', () => {
+  const m = motor();
+  const { s } = cableFrom(m.pin, { x: m.pin.x + 40, y: m.pin.y }, 94);
+  const moved = moveSelection({ ...s, selection: [m.id] }, 0, 12);
+  const net = buildNetwork(projectOf(moved).records);
+  const path = wirePathsOf(net).find((p) => p.cable === 94)!;
+  const points = pathPoints(net, path);
+  assert.deepEqual(points[0], { x: m.pin.x, y: m.pin.y + 12 });
+  assert.deepEqual(points.at(-1), { x: m.pin.x + 40, y: m.pin.y });
+  for (let i = 0; i + 1 < points.length; i++) {
+    const a = points[i]!;
+    const b = points[i + 1]!;
+    assert.ok(Math.abs(a.x - b.x) < 0.01 || Math.abs(a.y - b.y) < 0.01, 'tramo ortogonal');
+  }
+});
+
 test('el extremo del borne se mueve y el otro queda clavado', () => {
   const m = motor();
   const { s } = cableFrom(m.pin, { x: m.pin.x, y: m.pin.y + 40 }, 95);

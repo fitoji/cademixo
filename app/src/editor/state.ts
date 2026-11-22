@@ -294,7 +294,9 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
   const anchored = (x: number, y: number): boolean => movedPins.has(`${x},${y}`);
 
   const edits = new Map<number, string>();
+  const appended: string[] = [];
   const protect: Point[] = [];
+  let next = nextId(project);
   for (const { index, rec } of indexed(project)) {
     if (selected.has(rec.id) && rec.kind === 'component') {
       // El ancla del registro es su `x,y`: con orientación, el origen de la caja
@@ -309,23 +311,44 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
     const moveA = anchored(pts.x1, pts.y1);
     const moveB = anchored(pts.x2, pts.y2);
     if (!moveA && !moveB) continue;
-    if (moveA) protect.push({ x: pts.x1 + dx, y: pts.y1 + dy });
-    if (moveB) protect.push({ x: pts.x2 + dx, y: pts.y2 + dy });
+    const ax = moveA ? pts.x1 + dx : pts.x1;
+    const ay = moveA ? pts.y1 + dy : pts.y1;
+    const bx = moveB ? pts.x2 + dx : pts.x2;
+    const by = moveB ? pts.y2 + dy : pts.y2;
+    if (moveA) protect.push({ x: ax, y: ay });
+    if (moveB) protect.push({ x: bx, y: by });
 
-    edits.set(
-      index,
-      withWirePoints(rec, {
-        x1: moveA ? pts.x1 + dx : pts.x1,
-        y1: moveA ? pts.y1 + dy : pts.y1,
-        x2: moveB ? pts.x2 + dx : pts.x2,
-        y2: moveB ? pts.y2 + dy : pts.y2,
-      }),
+    const orthogonal = Math.abs(ax - bx) < AXIS_TOL || Math.abs(ay - by) < AXIS_TOL;
+    if (orthogonal) {
+      edits.set(index, withWirePoints(rec, { x1: ax, y1: ay, x2: bx, y2: by }));
+      continue;
+    }
+
+    // El extremo que se movió quedó fuera de eje: se inserta un codo junto al
+    // extremo QUIETO, conservando la orientación original de ese lado.
+    const wasVertical = Math.abs(pts.x1 - pts.x2) < AXIS_TOL;
+    const corner = moveB
+      ? wasVertical
+        ? { x: pts.x1, y: by }
+        : { x: bx, y: pts.y1 }
+      : wasVertical
+        ? { x: pts.x2, y: ay }
+        : { x: ax, y: pts.y2 };
+    const fixedLeg = { x1: ax, y1: ay, x2: corner.x, y2: corner.y };
+    const movingLeg = { x1: corner.x, y1: corner.y, x2: bx, y2: by };
+    edits.set(index, withWirePoints(rec, fixedLeg));
+    appended.push(
+      withWirePoints({ ...rec, id: next, raw: withId(rec, next), geometry: [...rec.geometry] }, movingLeg),
     );
+    next++;
   }
 
   return commit(
     state,
-    pruneOrphanJunctions(project.records, pruneDeadStubs(project.records, serializeWith(project, edits), protect)),
+    pruneOrphanJunctions(
+      project.records,
+      pruneDeadStubs(project.records, serializeWith(project, edits) + appended.join(''), protect),
+    ),
   );
 }
 
@@ -775,8 +798,9 @@ export function moveVertex(state: EditorState, from: Point, to: Point, sheet = 0
     (project.hasMagic ? 'CADe_SIMU' : '') +
     project.prefix +
     project.records
-      .filter((r, i) => !removed.has(i) && !dead.has(r.id))
-      .map((r, i) => edits.get(i) ?? r.raw)
+      .map((r, i) => ({ r, i }))
+      .filter(({ r, i }) => !removed.has(i) && !dead.has(r.id))
+      .map(({ r, i }) => edits.get(i) ?? r.raw)
       .join('') +
     appended
       .filter((a) => !dead.has(a.id))

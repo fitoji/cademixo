@@ -493,7 +493,7 @@ test('mover un extremo quita el ramal muerto del punto viejo', () => {
   );
 });
 
-test('mover un componente no deja un vértice suelto', () => {
+test('mover un componente deja los cables ortogonales y sin ids duplicados', () => {
   const motor = project().records.find((r) => r.code === 1000)!;
   let s = createEditor(ARRANQUE);
   s = addWire(s, { x: 30, y: 155 }, { x: 30, y: 100 }, WIRE_TEMPLATES[4000]!);
@@ -502,12 +502,19 @@ test('mover un componente no deja un vértice suelto', () => {
   const b = s.selection[0]!;
   s = setCableNumber(s, [a, b], 92);
 
-  const moved = moveSelection({ ...s, selection: [motor.id] }, 30, 0);
-  assert.equal(
-    buildNetwork(projectOf(moved).records).nodes.has(netKey(0, 30, 155)),
-    false,
-    'el tramo que quedaba en el punto viejo se limpia',
-  );
+  const moved = moveSelection({ ...s, selection: [motor.id] }, 30, 20);
+  const records = projectOf(moved).records;
+  const ids = records.map((r) => r.id);
+  assert.equal(new Set(ids).size, ids.length, 'ids únicos');
+  for (let i = 1; i < ids.length; i++) assert.ok(ids[i]! > ids[i - 1]!, 'ids crecientes');
+  for (const rec of records) {
+    const q = wirePoints(rec);
+    if (!q) continue;
+    assert.ok(
+      Math.abs(q.x1 - q.x2) < 0.01 || Math.abs(q.y1 - q.y2) < 0.01,
+      `el registro ${rec.id} quedó ortogonal`,
+    );
+  }
 });
 
 test('deleteVertex une también una esquina en L', () => {
@@ -557,7 +564,7 @@ test('deleteVertex limpia el foco cuando sí une (colineal)', () => {
   assert.equal(deleted.vertex, null);
 });
 
-test('mover un componente que arrastra un cable quita el junction huérfano', () => {
+test('mover un componente no borra una unión que sigue conectada', () => {
   const motor = project().records.find((r) => r.code === 1000)!;
   let s = createEditor(ARRANQUE);
   // Un extremo del vertical cae dentro de la caja del motor; la cruz está ahí.
@@ -569,12 +576,15 @@ test('mover un componente que arrastra un cable quita el junction huérfano', ()
   s = addJunction(s, 30, 155, JUNCTION_TEMPLATE!);
   const junction = s.selection[0]!;
 
-  const moved = moveSelection({ ...s, selection: [motor.id] }, 30, 0);
+  // Al mover el componente el cable sigue pasando por (30,155): la unión sigue
+  // siendo válida y la limpieza por delta no debe tocarla.
+  const moved = moveSelection({ ...s, selection: [motor.id] }, 30, 20);
   assert.equal(
     projectOf(moved).records.some((r) => r.id === junction),
-    false,
-    'al correr el cable el cruce se rompe y el 4001 se va',
+    true,
+    'una unión que todavía une dos tramos no se borra',
   );
+  assert.equal(buildNetwork(projectOf(moved).records).nodes.get(netKey(0, 30, 155))?.junction, true);
 });
 
 test('arrastrar el cuerpo de un cable inserta un doblez y lo mueve en un solo paso', () => {
