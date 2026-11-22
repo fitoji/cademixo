@@ -94,6 +94,7 @@ import { blankDocument } from '../format/blank.ts';
 import { DEFAULT_FILE_NAME, cadFileName } from '../format/filename.ts';
 import { circuitFrom } from '../sim/circuit.ts';
 import { simulate } from '../sim/solver.ts';
+import { motorDirections } from '../sim/direction.ts';
 import { currentFlow } from '../sim/flow.ts';
 import { visualStatesOf } from '../sim/visual.ts';
 import { isProtectionCode, partKey } from '../sim/netlist.ts';
@@ -719,6 +720,12 @@ export function App(): JSX.Element {
     }
     return out;
   }, [simulation, project]);
+
+  /** Sentido de giro por motor, leído de la topología trifásica (no del contactor). */
+  const motorDirection = useMemo(
+    () => (simulation && built ? motorDirections(built, simulation) : new Map<number, 1 | -1>()),
+    [simulation, built],
+  );
 
   /**
    * Motores energizados (S10): los mismos que el lienzo dibuja girando.
@@ -1514,6 +1521,7 @@ export function App(): JSX.Element {
                 onPlace={onPlace}
                 wireStart={wireStart}
                 live={live}
+                motorDirection={motorDirection}
                 states={visualStates}
                 liveWires={liveWires}
                 reversedWires={reversedWires}

@@ -12,7 +12,7 @@ import {
   type Transform,
 } from '../model/transform.ts';
 import { resolveSymbol, type Shape } from '../symbols/library.ts';
-import { bladeTransform, rotorArrow, shapesBounds, type BladeState } from '../symbols/draw.ts';
+import { bladeTransform, rotorArrow, rotorReversed, shapesBounds, type BladeState } from '../symbols/draw.ts';
 import { getSettings, pinRadius, pinStroke, subscribeSettings } from './settings.ts';
 
 interface Props {
@@ -39,6 +39,8 @@ interface Props {
   lampColor?: LampColor | null;
   /** Componente energizado por la simulación (pinta el rotor del motor). */
   live?: boolean;
+  /** Sentido de giro del motor: +1 horario, -1 antihorario. */
+  direction?: 1 | -1;
   /**
    * Dónde se dibuja el símbolo:
    *
@@ -89,6 +91,7 @@ export function SymbolGlyph({
   pressed = false,
   lampColor = null,
   live = false,
+  direction = 1,
   place = 'center',
 }: Props): JSX.Element {
   // Tamaño de borne elegido en Configuración → Apariencia; sin preferencia, 1,4.
@@ -143,7 +146,10 @@ export function SymbolGlyph({
         />
       ))}
       {rotor && (
-        <g className="motor-rotor" style={{ transformOrigin: `${rotor.x}px ${rotor.y}px` }}>
+        <g
+          className={rotorReversed(direction, transform.mirror) ? 'motor-rotor rev' : 'motor-rotor'}
+          style={{ transformOrigin: `${rotor.x}px ${rotor.y}px` }}
+        >
           <path className="motor-arrow" d={rotor.arrow} />
           <path className="motor-arrow" d={rotor.head} />
         </g>

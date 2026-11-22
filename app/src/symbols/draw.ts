@@ -261,6 +261,14 @@ export function motorBodyOf(body: MotorBody | undefined, w: number, h: number): 
   return body ?? { x: w / 2, y: h / 2, r: Math.min(w, h) * MOTOR_BODY_RATIO };
 }
 
+/**
+ * ¿La animación del rotor debe ir en reversa? El espejo del símbolo invierte el
+ * sentido visual de una rotación horaria, así que hay que descontarlo.
+ */
+export function rotorReversed(direction: 1 | -1, mirror: boolean): boolean {
+  return direction * (mirror ? -1 : 1) === -1;
+}
+
 /** Flecha de giro de un motor energizado, con el pivote de su animación. */
 export interface RotorArrow extends MotorBody {
   /** arco de la flecha, ya centrado en el cuerpo */

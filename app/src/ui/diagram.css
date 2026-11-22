@@ -334,7 +334,8 @@
     animation: none;
     stroke-dasharray: none;
   }
-  .motor-rotor {
+  .motor-rotor,
+  .motor-rotor.rev {
     animation: none;
   }
   [data-state='flashing'] .sym,
@@ -398,6 +399,12 @@
    */
   transform-box: view-box;
   animation: motor-spin 1.3s linear infinite;
+}
+
+/* Sentido antihorario: el giro se decide en los bornes del motor (fase x fase),
+   no en qué contactor cerró. Mismo patrón que `.wire.live.rev`. */
+.motor-rotor.rev {
+  animation-direction: reverse;
 }
 
 @keyframes motor-spin {

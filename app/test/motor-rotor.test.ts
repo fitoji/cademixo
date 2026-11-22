@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rotorArrow } from '../src/symbols/draw.ts';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { rotorArrow, rotorReversed } from '../src/symbols/draw.ts';
 import { resolveSymbol } from '../src/symbols/library.ts';
 
 /**
@@ -22,6 +25,26 @@ const start = (d: string): { x: number; y: number } => {
   assert.ok(m, `el arco no empieza con M x y: ${d}`);
   return { x: Number(m![1]), y: Number(m![2]) };
 };
+
+test('el reverso se desactiva al espejar el símbolo', () => {
+  assert.equal(rotorReversed(1, false), false, 'horario sin espejo');
+  assert.equal(rotorReversed(-1, false), true, 'antihorario sin espejo');
+  assert.equal(rotorReversed(1, true), true, 'el espejo invierte el horario');
+  assert.equal(rotorReversed(-1, true), false, 'el espejo compensa el antihorario');
+});
+
+test('el CSS invierte la animación y respeta prefers-reduced-motion', () => {
+  const css = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'ui', 'diagram.css'),
+    'utf8',
+  );
+  assert.match(css, /\.motor-rotor\.rev\s*\{\s*animation-direction:\s*reverse;/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.ok(
+    (css.match(/\.motor-rotor\.rev/g) ?? []).length >= 2,
+    'la clase rev también se neutraliza en prefers-reduced-motion',
+  );
+});
 
 test('el motor 1000 gira sobre el centro de su cuerpo, no sobre el de su caja', () => {
   // Se consulta por la interfaz pública, no por la constante interna del

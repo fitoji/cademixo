@@ -45,6 +45,8 @@ interface Props {
   wireStart: Point | null;
   /** Componentes energizados por la simulación. */
   live: Set<number>;
+  /** Sentido de giro por id de motor: +1 horario, -1 antihorario. */
+  motorDirection?: Map<number, 1 | -1>;
   /** Estado visual por registro de componente. */
   states: Map<number, VisualState>;
   /** ids de registro de cable con tensión durante la simulación */
@@ -134,6 +136,7 @@ export function Canvas(props: Props): JSX.Element {
     onPlace,
     wireStart,
     live,
+    motorDirection,
     states,
     liveWires,
     reversedWires,
@@ -761,6 +764,7 @@ export function Canvas(props: Props): JSX.Element {
                 rec={rec}
                 selected={selection.has(rec.id)}
                 live={live.has(rec.id)}
+                direction={motorDirection?.get(rec.id)}
                 state={states.get(rec.id) ?? 'idle'}
                 closed={closedContacts.has(rec.id)}
                 bad={highlight?.ids.includes(rec.id) ?? false}
@@ -982,6 +986,7 @@ function Component({
   rec,
   selected,
   live,
+  direction,
   state,
   closed,
   bad,
@@ -993,6 +998,8 @@ function Component({
   rec: CadeRecordModel;
   selected: boolean;
   live: boolean;
+  /** Sentido de giro del motor, si la simulación lo resolvió. */
+  direction?: 1 | -1;
   state: VisualState;
   closed: boolean;
   bad: boolean;
@@ -1073,9 +1080,10 @@ function Component({
           pressed={state === 'pressed'}
           lampColor={rec.lampColor}
           live={live}
+          direction={direction}
         />
       ) : (
-        <SymbolGlyph code={rec.code} pinNames={rec.pins} w={iw} h={ih} rotation={rotation} transform={rec.transform} selected={selected} closed={closed} pressed={state === 'pressed'} lampColor={rec.lampColor} live={live} />
+        <SymbolGlyph code={rec.code} pinNames={rec.pins} w={iw} h={ih} rotation={rotation} transform={rec.transform} selected={selected} closed={closed} pressed={state === 'pressed'} lampColor={rec.lampColor} live={live} direction={direction} />
       )}
 
       {pins.map((p, i) => (
