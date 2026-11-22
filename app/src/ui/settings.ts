@@ -34,19 +34,17 @@ export type Settings = {
    */
   silenciado: boolean;
   /**
-   * Zumbido continuo del motor (S10). Interruptor propio y apagado por defecto:
-   * nunca es la única señal, el motor ya se ve girando.
+   * Zumbido continuo del motor (S10). Interruptor propio y encendido por
+   * defecto: nunca es la única señal, el motor ya se ve girando.
    */
   sonidoMotor: boolean;
 };
 
 /**
- * Defaults elegidos para no cambiar nada mientras nadie toque la preferencia.
- *
- * La interfaz suena de entrada; la simulación no, porque CADe_SIMU es mudo y la
- * desviación se elige, no se impone (S7). El mute arranca apagado por lo mismo:
- * se silencia cuando el usuario lo pide, y el zumbido del motor también, porque
- * el motor se ve girando (S10).
+ * Defaults con los tres canales sonando de entrada (S7, S10): interfaz,
+ * simulación y motor. El mute maestro arranca apagado, así que silenciar sigue
+ * siendo una decisión del usuario, y cada interruptor conserva su preferencia.
+ * Los defaults son globales: moderno y clásico comparten el mismo store.
  */
 export const DEFAULT_SETTINGS: Settings = {
   pinSize: 'normal',
@@ -56,9 +54,9 @@ export const DEFAULT_SETTINGS: Settings = {
   paneles: 'horizontal',
   autoCierre: false,
   sonidosInterfaz: true,
-  sonidosSimulacion: false,
+  sonidosSimulacion: true,
   silenciado: false,
-  sonidoMotor: false,
+  sonidoMotor: true,
 };
 
 export const SETTINGS_KEY = 'simuelectro:ajustes';

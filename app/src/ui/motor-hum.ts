@@ -68,7 +68,7 @@ const LEVELS = [0, 0.5, 0.8, 1] as const;
 export type HumSettings = {
   /** Mute maestro de la barra (S9). */
   silenciado: boolean;
-  /** Interruptor propio «Sonido del motor» (S10), apagado por defecto. */
+  /** Interruptor propio «Sonido del motor» (S10), encendido por defecto. */
   sonidoMotor: boolean;
 };
 

@@ -173,7 +173,7 @@ export function SettingsDialog({
 
         <Separator />
 
-        {/* S7: la ley de oro de CADe_SIMU es el silencio; la desviación se elige. */}
+        {/* S7: los tres canales suenan de entrada; silenciar se elige. */}
         <FieldSet>
           <FieldLegend variant="label">Sonidos</FieldLegend>
 
@@ -224,7 +224,7 @@ export function SettingsDialog({
             <FieldContent>
               <FieldLabel htmlFor="ajustes-sonido-motor">Sonido del motor</FieldLabel>
               <FieldDescription>
-                Zumbido continuo mientras haya motores energizados. Apagado por defecto: el motor
+                Zumbido continuo mientras haya motores energizados. Encendido por defecto: el motor
                 igual se ve girando.
               </FieldDescription>
             </FieldContent>

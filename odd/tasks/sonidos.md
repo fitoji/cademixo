@@ -27,9 +27,10 @@ contrato que hace verificable S1):
   cues de la misma clase, y un tope de un cue de simulación cada 50 ms en total.
   Coalescer es lógica pura y se testea.
 - **S7 — Dos interruptores.** «Sonidos de interfaz» (por defecto **sí**) y
-  «Sonidos de simulación» (por defecto **no**), en Configuración, persistidos en
-  el store de ajustes existente. La ley de oro dice que CADe_SIMU es mudo: la
-  desviación se elige, no se impone.
+  «Sonidos de simulación» (por defecto **sí**), en Configuración, persistidos en
+  el store de ajustes existente. Los defaults son globales: moderno y clásico
+  comparten el mismo store, así que los tres canales suenan de entrada en los dos
+  estilos. Silenciar sigue siendo una decisión del usuario por el mute maestro.
 - **S8 — Versión y desbloqueo.** `cuelume` va pineada a `0.2.8` exacta (sin
   `^`): los nombres de preset cambian hasta 1.0. La importación es diferida,
   para que los ~205 KB no entren al bundle inicial. `unlock()` se llama dentro
@@ -48,7 +49,7 @@ contrato que hace verificable S1):
   dependencia nueva y sin archivo de audio. Un **solo** zumbido compartido, no
   uno por motor: la amplitud sube con la cantidad de motores energizados y tiene
   techo. Se enciende y se apaga por **transición**, nunca por tick. Interruptor
-  propio «Sonido del motor», apagado por defecto. Nunca es la única señal: el
+  propio «Sonido del motor», encendido por defecto. Nunca es la única señal: el
   motor ya se ve girando. El `AudioContext` es propio —cuelume no expone el
   suyo— y se crea o reanuda dentro de un gesto.
 
@@ -107,3 +108,10 @@ contrato que hace verificable S1):
   detenida, mute maestro, «Sonido del motor» apagado y pestaña oculta (los
   navegadores suspenden audio en segundo plano, así que hay que manejar
   `visibilitychange` o queda sonando colgado).
+- L11 — «quiero que los sonidos de simulacion , interfaz y motor por default
+  esten activados en modo moderno y clasico». Decisión del usuario: **sólo**
+  cambiar el default, sin migración. `DEFAULT_SETTINGS` pasa
+  `sonidosSimulacion` y `sonidoMotor` a `true` (`sonidosInterfaz` ya lo estaba),
+  y como el store es uno solo los dos estilos lo heredan. El `false` ya guardado
+  en `simuelectro:ajustes` sigue ganando, así que quien lo tenía apagado lo
+  prende a mano; revertir S7/S10 no toca la forma de `Settings` ni el codec.

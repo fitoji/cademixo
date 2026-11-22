@@ -46,7 +46,7 @@ test('los cinco cortes de S10 devuelven 0', () => {
   assert.equal(humLevel(frame({ simulando: false })), 0);
   // 3. mute maestro de la barra
   assert.equal(humLevel(frame({ ajustes: { silenciado: true, sonidoMotor: true } })), 0);
-  // 4. «Sonido del motor» apagado, que es el default
+  // 4. «Sonido del motor» apagado a mano
   assert.equal(humLevel(frame({ ajustes: { silenciado: false, sonidoMotor: false } })), 0);
   // 5. pestaña oculta
   assert.equal(humLevel(frame({ oculta: true })), 0);

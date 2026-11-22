@@ -32,9 +32,9 @@ test('sin nada guardado valen los ajustes por defecto', () => {
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
 });
 
@@ -53,9 +53,9 @@ test('un objeto parcial completa cada campo con su default', () => {
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
   assert.deepEqual(parseSettings('{"autoCierre":true}'), {
     pinSize: 'normal',
@@ -63,9 +63,9 @@ test('un objeto parcial completa cada campo con su default', () => {
     paneles: 'horizontal',
     autoCierre: true,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
 });
 
@@ -77,9 +77,9 @@ test('un valor desconocido cae sólo al default de su campo', () => {
     paneles: 'horizontal',
     autoCierre: true,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
   assert.deepEqual(parseSettings('{"pinSize":"chico","wireWidth":"fino"}'), {
     pinSize: 'chico',
@@ -87,9 +87,9 @@ test('un valor desconocido cae sólo al default de su campo', () => {
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
 });
 
@@ -102,9 +102,9 @@ test('un tipo equivocado cae sólo al default de su campo', () => {
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
 });
 
@@ -187,9 +187,9 @@ test('una orientación inválida cae a horizontal sin tocar los otros campos', (
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
 });
 
@@ -301,9 +301,9 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
   assert.equal(avisos, 1);
 
@@ -314,9 +314,9 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
     paneles: 'vertical',
     autoCierre: true,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
   assert.equal(avisos, 2);
 
@@ -358,9 +358,9 @@ test('setSettings persiste el objeto mezclado bajo la clave y no escribe si nada
       paneles: 'horizontal',
       autoCierre: true,
       sonidosInterfaz: true,
-      sonidosSimulacion: false,
+      sonidosSimulacion: true,
       silenciado: false,
-      sonidoMotor: false,
+      sonidoMotor: true,
     });
     assert.equal(store.get(SETTINGS_KEY), serializeSettings(getSettings()));
 
@@ -424,13 +424,13 @@ test('un localStorage viejo sin los sonidos sigue funcionando con los defaults',
     paneles: 'vertical',
     autoCierre: true,
     sonidosInterfaz: true,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
-  // La interfaz suena de entrada; la simulación no, porque CADe_SIMU es mudo.
+  // Interfaz, simulación y motor suenan de entrada.
   assert.equal(parseSettings('{}').sonidosInterfaz, true);
-  assert.equal(parseSettings('{}').sonidosSimulacion, false);
+  assert.equal(parseSettings('{}').sonidosSimulacion, true);
 });
 
 test('un valor que no es booleano cae sólo al default de su campo de sonido', () => {
@@ -444,7 +444,7 @@ test('un valor que no es booleano cae sólo al default de su campo de sonido', (
     sonidosInterfaz: false,
     sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
   // El campo inválido no arrastra al otro: el que vale, se respeta.
   assert.deepEqual(parseSettings('{"sonidosInterfaz":null,"sonidosSimulacion":true}'), {
@@ -468,7 +468,7 @@ test('un localStorage sin el mute parsea con el sonido prendido', () => {
     sonidosInterfaz: false,
     sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
 });
 
@@ -487,15 +487,15 @@ test('un valor que no es booleano en el mute cae sólo al default de ese campo',
     sonidosInterfaz: false,
     sonidosSimulacion: true,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
 });
 
 // --- Zumbido del motor (S10) ----------------------------------------------
 
-test('un localStorage sin el zumbido del motor lo deja apagado', () => {
-  assert.equal(parseSettings(null).sonidoMotor, false);
-  assert.equal(parseSettings('{}').sonidoMotor, false);
+test('un localStorage sin el zumbido del motor lo deja prendido', () => {
+  assert.equal(parseSettings(null).sonidoMotor, true);
+  assert.equal(parseSettings('{}').sonidoMotor, true);
   const viejo =
     '{"pinSize":"grande","wireWidth":"grueso","paneles":"vertical","autoCierre":true,"sonidosInterfaz":true,"sonidosSimulacion":false,"silenciado":false}';
   assert.deepEqual(parseSettings(viejo), {
@@ -506,7 +506,7 @@ test('un localStorage sin el zumbido del motor lo deja apagado', () => {
     sonidosInterfaz: true,
     sonidosSimulacion: false,
     silenciado: false,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
   // Y el interruptor guardado vuelve tal cual.
   assert.equal(parseSettings('{"sonidoMotor":true}').sonidoMotor, true);
@@ -523,8 +523,8 @@ test('un valor que no es booleano en el zumbido cae sólo al default de ese camp
     paneles: 'horizontal',
     autoCierre: false,
     sonidosInterfaz: false,
-    sonidosSimulacion: false,
+    sonidosSimulacion: true,
     silenciado: true,
-    sonidoMotor: false,
+    sonidoMotor: true,
   });
 });

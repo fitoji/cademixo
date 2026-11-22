@@ -97,7 +97,7 @@ simulación detenida, mute maestro, «Sonido del motor» apagado, y pestaña ocu
 (`visibilitychange`: baja a 0 al ocultarse y se restaura al volver).
 
 Es el sonido más invasivo que puede tener la app, así que va con interruptor
-propio **apagado por defecto** y nunca es la única señal: el motor ya se ve
+propio y **encendido por defecto**, y nunca es la única señal: el motor ya se ve
 girando. Los tres osciladores quedan andando con ganancia 0 en vez de arrancar y
 frenar en cada flanco, que haría clic.
 
@@ -107,12 +107,14 @@ frenar en cada flanco, que haría clic.
 | --- | --- | --- |
 | 🔊 «Silenciar» / «Activar sonido» | barra, al lado de **Simular** | mute **maestro**: corta todo sin tocar las preferencias de canal |
 | «Sonidos de interfaz» | Configuración → Sonidos | activa el canal `interfaz` (por defecto **sí**) |
-| «Sonidos de simulación» | Configuración → Sonidos | activa el canal `simulacion` (por defecto **no**) |
-| «Sonido del motor» | Configuración → Sonidos | el zumbido continuo del motor (por defecto **no**) |
+| «Sonidos de simulación» | Configuración → Sonidos | activa el canal `simulacion` (por defecto **sí**) |
+| «Sonido del motor» | Configuración → Sonidos | el zumbido continuo del motor (por defecto **sí**) |
 
-La simulación viene apagada porque CADe_SIMU es mudo: la desviación se elige, no
-se impone. Silenciar corta en `cue()` **antes** del coalescer, así que no consume
-turnos ni despierta el `AudioContext`.
+Los tres canales suenan de entrada, en moderno y en clásico: los defaults son
+uno solo, compartido por los dos estilos. Silenciar sigue siendo del usuario —
+el mute maestro arranca apagado y cada interruptor conserva su preferencia.
+Silenciar corta en `cue()` **antes** del coalescer, así que no consume turnos ni
+despierta el `AudioContext`.
 
 Arrancar y detener van por el canal **interfaz**, no por el de simulación: son
 gestos del usuario sobre el modo de la app, así que suenan aunque «Sonidos de
