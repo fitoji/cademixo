@@ -4,6 +4,7 @@ import { Grid3x3Icon, KeyboardIcon, MagnetIcon, MaximizeIcon, MinusIcon, PlusIco
 import { GEOMETRY, baseBoxOf, boundsOf, boxOf, wirePoints, type CadeRecordModel } from '../model/project.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
+import { componentHitBox } from './hit-box.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
 import type { DragOp, Rotation } from '../editor/state.ts';
 import { idle, startMarquee, startMove, startPan, startSegment, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
@@ -1034,10 +1035,6 @@ function Component({
   const base = baseBoxOf(rec) ?? { x, y, w: box.width, h: box.height };
   const iw = base.w;
   const ih = base.h;
-  // Caja del DIBUJO: con orientación el símbolo sale de la caja base, así que el
-  // hitbox (y todo clic sobre el componente) sigue a la tinta transformada. Sin
-  // orientación es la misma caja de antes (S7).
-  const drawn = boundsOf(rec) ?? base;
 
   // Un símbolo anclado al origen trae su geometría en unidades del archivo y se
   // dibuja en el origen del registro, como en CADeSimu: la caja declarada es la
@@ -1048,6 +1045,19 @@ function Component({
   // El designador va a la izquierda del dibujo: para los anclados el marco de
   // referencia es la caja de la tinta; para el resto, la caja declarada.
   const ink = shapesBounds(sym.shapes(iw, ih));
+
+  // Lo que el puntero puede alcanzar es la unión de la caja declarada y la
+  // tinta, porque la tinta son trazos con `fill: none`: sin el rectángulo
+  // invisible, los intersticios de la pieza no existen para el hit-testing y el
+  // halo sólo aparecía sobre los trazos. En un símbolo anclado al origen la caja
+  // declarada es la grilla de conexión y la tinta vive en otras coordenadas, así
+  // que unirlas es lo que hace que el bloque entero responda (S7).
+  const hitBox = componentHitBox({
+    declared: { x: base.x - x, y: base.y - y, w: iw, h: ih },
+    ink,
+    anchored,
+    transform: rec.transform,
+  });
   const labelFrame = anchored
     ? { x: ink.minX, y: ink.minY, w: ink.maxX - ink.minX, h: ink.maxY - ink.minY }
     : { x: 0, y: 0, w: iw, h: ih };
@@ -1065,7 +1075,7 @@ function Component({
       transform={`translate(${x} ${y})`}
       style={{ cursor: 'move' }}
     >
-      <rect className="hitbox" x={drawn.x - x} y={drawn.y - y} width={drawn.w} height={drawn.h} />
+      <rect className="hitbox" x={hitBox.x} y={hitBox.y} width={hitBox.w} height={hitBox.h} />
       {anchored ? (
         <SymbolGlyph
           code={rec.code}

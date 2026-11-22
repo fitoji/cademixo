@@ -136,9 +136,16 @@ export function transformMatrix(transform: Transform, pivot: Point): Matrix {
  * transformación identidad devuelve la MISMA caja: los archivos sin orientación
  * no cambian de comportamiento (S7).
  */
-export function transformBox(box: Box, transform: Transform): Box {
+/**
+ * Caja de la envuelta mínima de `box` girada y espejada alrededor de `pivot`.
+ *
+ * `transformBox` es el caso con pivote en el centro de la caja. Un símbolo
+ * anclado al origen tiene otro pivote —el centro de su tinta—, así que la caja
+ * de impacto necesita poder pasar el pivote: si se usara el centro de la caja
+ * declarada, la envuelta quedaría corrida respecto de lo que se dibuja.
+ */
+export function transformBoxAround(box: Box, transform: Transform, pivot: Point): Box {
   if (isIdentity(transform)) return box;
-  const pivot = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
   const matrix = transformMatrix(transform, pivot);
   const corners = [
     { x: box.x, y: box.y },
@@ -152,6 +159,10 @@ export function transformBox(box: Box, transform: Transform): Box {
   const minX = Math.min(...xs);
   const minY = Math.min(...ys);
   return { x: minX, y: minY, w: Math.max(...xs) - minX, h: Math.max(...ys) - minY };
+}
+
+export function transformBox(box: Box, transform: Transform): Box {
+  return transformBoxAround(box, transform, { x: box.x + box.w / 2, y: box.y + box.h / 2 });
 }
 
 /** Giro normalizado de la capa visual del editor (siempre 0|90|180|270). */
