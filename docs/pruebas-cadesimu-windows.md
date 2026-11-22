@@ -108,12 +108,12 @@ Copiar esta tabla y completarla; con eso alcanza, no hace falta explicar nada m�
 
 | Prueba | Archivo | Qué accioné | Qué pasó | Veredicto |
 | --- | --- | --- | --- | --- |
-| A | PR1 | Q1 de potencia | | |
-| A2 | PR2 vfinal | Q1 de potencia | | |
-| B | PR1 con el 8018 en `QX` | Q1 de potencia | | |
-| C | PR1 | Q1 del mando | | |
-| D | componentes02 | una protección `-F` | | |
-| E | inversion-giro-cej | bobina `-KM2` | | |
+| A | PR1 | Q1 de potencia | El `8018` pasó de 95-96 cerrado a 97-98 cerrado y se pintó de rojo junto al disyuntor. H1/H2 no cambiaron (S0 abierto) | Sí: el auxiliar sigue al disyuntor |
+| A2 | PR2 vfinal | Q1 de potencia | Idéntico a A: 95-96 → 97-98, todo en rojo | Sí, confirmado en un segundo plano |
+| B | PR1 con el 8018 en `QX` | Q1 de potencia | El disyuntor cerró y se pintó de rojo, pero `QX` quedó gris e inmóvil en 95-96 | El emparejamiento es por texto de designador |
+| C | PR1 | Q1 del mando | No pasó nada: ni el conmutador, ni el disyuntor, ni las lámparas | No es accionable por mouse; la app está bien |
+| D | componentes02 | automático `-F` (fila inferior) | El `8018` reaccionó: se pintó de rojo y cambió de posición. Hay 14 dispositivos `-F` y varios auxiliares reaccionan a la vez | Reacciona, pero no se distingue una protección concreta: queda pendiente definir el criterio |
+| E | inversion-giro-cej | bobina `-KM2` | No se pudo energizar: S0 es momentáneo y hace falta mantenerlo mientras se acciona S2. Sí se verificó que S0 cierra al mantener el clic | Inconclusa: repetir con dos personas o con un pulsador auxiliar |
 
 Si algo no se puede hacer (por ejemplo, el `8018` no se deja seleccionar),
 anotarlo tal cual: también es un resultado.
@@ -127,3 +127,24 @@ anotarlo tal cual: también es un resultado.
 | B dice que no (sigue al aparato tras renombrar) | hay que encontrar el mecanismo real antes de tocar código |
 | C dice que el auxiliar se permuta | hay que redefinir el clic sobre el `8018` |
 | D muestra que sigue a una protección concreta | hay que definir qué hacer con designadores repetidos |
+
+## Ejecución del 2026-11-22
+
+Las pruebas A, A2, B, C y D se corrieron en la sesión interactiva de Windows
+con automatización de GUI nativa (PowerShell + `.NET`, sin instalar nada):
+`AppActivate` para enfocar CADe, `mouse_event` para los clics y
+`CopyFromScreen` para las capturas. El veredicto de cada prueba se tomó
+comparando capturas antes/después del accionamiento.
+
+Detalle útil para repetirlas:
+
+- Al abrir un archivo, CADe puede conservar el scroll anterior: ubicar el
+  componente en el screenshot antes de clickear.
+- Los pulsadores (`S0`, `S2`, ...) son **momentáneos**: cierran sólo mientras el
+  mouse está apretado. Por eso la prueba E no se pudo completar con un solo
+  puntero.
+- Las capturas crudas quedaron en
+  `C:\Users\fitoj\AppData\Local\Temp\opencode\cadesimu-pruebas\` (`A*.png`,
+  `A2-*.png`, `B-*.png`, `C-*.png`, `D-*.png`, `E-*.png`).
+- `B-pr1-renombrado.cad` se generó por reemplazo de bytes sobre una copia:
+  1 solo byte distinto del original (`1` → `X`).
