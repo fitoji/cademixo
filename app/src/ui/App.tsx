@@ -101,6 +101,14 @@ import { isProtectionCode, partKey } from '../sim/netlist.ts';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import {
   Menubar,
   MenubarLabel,
   MenubarCheckboxItem,
@@ -181,6 +189,9 @@ export function App(): JSX.Element {
   const scope = useSyncExternalStore(subscribeScope, getScope, getScope);
   const settings = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** Propiedades/Avisos: el mismo Drawer lateral con dos entradas. */
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const [sheetView, setSheetView] = useState<'propiedades' | 'avisos'>('propiedades');
   /**
    * «Guardar como…» sin File System Access API: el navegador no tiene selector
    * donde pedir el nombre, así que se pide acá antes de descargar.
@@ -877,6 +888,23 @@ export function App(): JSX.Element {
     return project.records.filter((r) => ids.has(r.id));
   }, [project, state]);
 
+  // Seleccionar algo abre el Drawer en modo propiedades. Cerrarlo no cambia la
+  // selección, así que el efecto no lo vuelve a abrir hasta la próxima selección.
+  const lastSelection = useRef<number[]>([]);
+  useEffect(() => {
+    const ids = state?.selection ?? [];
+    const changed = ids.length > 0 && ids.join(',') !== lastSelection.current.join(',');
+    lastSelection.current = ids;
+    if (changed) {
+      setSheetView('propiedades');
+      setPropertiesOpen(true);
+    } else if (ids.length === 0 && sheetView === 'propiedades') {
+      // Sin selección no hay ficha que mostrar. El modo avisos se mantiene:
+      // se abre desde el pie aunque no haya nada seleccionado.
+      setPropertiesOpen(false);
+    }
+  }, [state?.selection, sheetView]);
+
   const onSelect = useCallback((ids: number[], additive: boolean) => {
     // Con la simulación activa, un clic sobre un pulsador lo acciona —el
     // momentáneo vuelve solo, el interruptor se queda accionado— y sobre una
@@ -1540,29 +1568,6 @@ export function App(): JSX.Element {
               />
             </ResizablePanel>
 
-            <ResizableHandle aria-label="Redimensionar inspector" />
-
-            <ResizablePanel id="inspector" defaultSize="268px" minSize="240px" maxSize="520px">
-              <Inspector
-                selected={selectedRecords}
-                rotation={state.rotation}
-                network={network}
-                findings={findings}
-                vertex={state.vertex}
-                canDeleteVertex={state && state.vertex ? canDeleteVertex(state, state.vertex) : false}
-                onDeleteVertex={() => setState((s) => (s && s.vertex ? deleteVertex(s, s.vertex) : s))}
-                onDesignator={(id, value) => setState(setDesignator(state, id, value))}
-                onLampColor={(id, color) => setState(setLampColor(state, id, color))}
-                onRotate={() => setState(rotateSelection(state))}
-                onDelete={() => setState(deleteSelection(state))}
-                onCableNumber={(ids, n) => setState(setCableNumber(state, ids, n))}
-                readOnly={running}
-                onAddJunction={(x, y) => setState(addJunction(state, x, y, JUNCTION_TEMPLATE ?? undefined))}
-                onRemoveJunction={(id) => setState((s) => (s ? removeJunction(s, id) : s))}
-                onFocusFinding={(f) => setHighlight({ ids: f.ids, at: f.at ?? null })}
-                collapsibleSections={styleMode === 'moderno'}
-              />
-            </ResizablePanel>
           </Resizable>
         </div>
 
@@ -1590,15 +1595,57 @@ export function App(): JSX.Element {
             </Badge>
           )}
           {findings.length > 0 && (
-            <Badge variant="destructive" className="h-4 px-1.5 text-[10px]">
+            <Button
+              variant="destructive"
+              size="xs"
+              className="h-4 px-1.5 text-[10px]"
+              onClick={() => {
+                setSheetView('avisos');
+                setPropertiesOpen(true);
+              }}
+            >
               {findings.length} aviso{findings.length === 1 ? '' : 's'}
-            </Badge>
+            </Button>
           )}
           {state.selection.length > 0 && <span>{state.selection.length} seleccionados</span>}
           <span>{Math.round(zoom * 100)}%</span>
           {placing !== null && <span>colocando código {placing} · esc para salir</span>}
         </footer>
       </div>
+
+      <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen} side="right">
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{sheetView === 'avisos' ? `Avisos (${findings.length})` : 'Propiedades'}</SheetTitle>
+            <SheetClose />
+          </SheetHeader>
+          <SheetDescription className="sr-only">
+            {sheetView === 'avisos'
+              ? 'Avisos del esquema con acceso a su ubicación en el lienzo.'
+              : 'Información del componente o cable seleccionado.'}
+          </SheetDescription>
+          <Inspector
+            selected={selectedRecords}
+            rotation={state.rotation}
+            network={network}
+            findings={findings}
+            vertex={state.vertex}
+            canDeleteVertex={state && state.vertex ? canDeleteVertex(state, state.vertex) : false}
+            onDeleteVertex={() => setState((s) => (s && s.vertex ? deleteVertex(s, s.vertex) : s))}
+            onDesignator={(id, value) => setState(setDesignator(state, id, value))}
+            onLampColor={(id, color) => setState(setLampColor(state, id, color))}
+            onRotate={() => setState(rotateSelection(state))}
+            onDelete={() => setState(deleteSelection(state))}
+            onCableNumber={(ids, n) => setState(setCableNumber(state, ids, n))}
+            readOnly={running}
+            onAddJunction={(x, y) => setState(addJunction(state, x, y, JUNCTION_TEMPLATE ?? undefined))}
+            onRemoveJunction={(id) => setState((s) => (s ? removeJunction(s, id) : s))}
+            onFocusFinding={(f) => setHighlight({ ids: f.ids, at: f.at ?? null })}
+            collapsibleSections={styleMode === 'moderno'}
+            view={sheetView}
+          />
+        </SheetContent>
+      </Sheet>
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
 

@@ -9,7 +9,6 @@ import type { Rotation } from '../editor/state.ts';
 import { cableLength, cableNumberOf, cableSegments, type Finding, type Network } from '../editor/network.ts';
 import type { Point } from '../editor/pins.ts';
 import { setSectionOpen, subscribeSections, getSectionsSnapshot, type SectionId } from './section-state.ts';
-import { PanelHead } from './PanelHead.tsx';
 import { getFavorites, isFavorite, subscribeFavorites, toggleStoredFavorite } from './favorites.ts';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -59,6 +58,8 @@ interface Props {
    * muestra entero, como en el panel de CADe_SIMU: ahí no se pliega nada.
    */
   collapsibleSections: boolean;
+  /** El Drawer abre en modo avisos cuando se pulsa el contador del pie. */
+  view?: 'propiedades' | 'avisos';
 }
 
 export function Inspector(props: Props): JSX.Element {
@@ -73,7 +74,36 @@ export function Inspector(props: Props): JSX.Element {
     onDeleteVertex,
     readOnly,
     collapsibleSections,
+    view = 'propiedades',
   } = props;
+
+  if (view === 'avisos') {
+    return (
+      <InspectorShell>
+        <Findings
+          findings={findings}
+          onAddJunction={onAddJunction}
+          onRemoveJunction={onRemoveJunction}
+          onFocusFinding={onFocusFinding}
+          readOnly={readOnly}
+          collapsible={collapsibleSections}
+          forceOpen
+          limit={findings.length}
+        />
+        {findings.length === 0 && (
+          <Empty className="px-0 py-4">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <InfoIcon />
+              </EmptyMedia>
+              <EmptyTitle>Sin avisos</EmptyTitle>
+              <EmptyDescription className="text-xs">El esquema no tiene avisos pendientes.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        )}
+      </InspectorShell>
+    );
+  }
 
   const vertexBlock = vertex ? (
     <Section id="vertice" title="Vértice seleccionado" collapsible={collapsibleSections}>
@@ -174,12 +204,11 @@ export function Inspector(props: Props): JSX.Element {
 
 function InspectorShell({ children }: { children: ReactNode }): JSX.Element {
   return (
-    <aside className="relative z-10 flex min-h-0 w-full flex-1 flex-col bg-card shadow-chrome-left">
-      <PanelHead>Propiedades</PanelHead>
+    <div className="flex min-h-0 flex-1 flex-col">
       <ScrollArea className="min-h-0 flex-1">
-        <div className="flex flex-col gap-3 px-3 pb-3">{children}</div>
+        <div className="flex flex-col gap-3 px-4 py-3">{children}</div>
       </ScrollArea>
-    </aside>
+    </div>
   );
 }
 
@@ -202,12 +231,15 @@ function Section({
   children,
   collapsible,
   groupInClassic = true,
+  forceOpen = false,
 }: {
   /** Clave con la que la sección recuerda si quedó plegada. */
   id: SectionId;
   title: ReactNode;
   children: ReactNode;
   collapsible: boolean;
+  /** Abre el grupo sin importar el plegado recordado (modo avisos del Drawer). */
+  forceOpen?: boolean;
   /**
    * En el clásico la sección era -o rótulo y contenido sueltos, o un grupo con
    * su propio gap. Se replica tal cual: el espaciado del panel de CADe_SIMU no
@@ -216,7 +248,7 @@ function Section({
   groupInClassic?: boolean;
 }): JSX.Element {
   const open = useSyncExternalStore(subscribeSections, getSectionsSnapshot, getSectionsSnapshot);
-  const expanded = !open.split(',').includes(id);
+  const expanded = forceOpen || !open.split(',').includes(id);
 
   /*
    * Un `<details>` que no se puede abrir sería una mentira del DOM, y frenar el
@@ -267,6 +299,8 @@ function Findings({
   onFocusFinding,
   readOnly,
   collapsible,
+  forceOpen = false,
+  limit = 10,
 }: {
   findings: Finding[];
   onAddJunction: (x: number, y: number) => void;
@@ -274,11 +308,13 @@ function Findings({
   onFocusFinding: (finding: Finding) => void;
   readOnly: boolean;
   collapsible: boolean;
+  forceOpen?: boolean;
+  limit?: number;
 }): JSX.Element | null {
   if (findings.length === 0) return null;
   return (
-    <Section id="avisos" title={`Avisos (${findings.length})`} collapsible={collapsible}>
-      {findings.slice(0, 10).map((f, i) => (
+    <Section id="avisos" title={`Avisos (${findings.length})`} collapsible={collapsible} forceOpen={forceOpen}>
+      {findings.slice(0, limit).map((f, i) => (
         <Alert
           key={`${f.code}-${i}`}
           variant={f.level === 'error' ? 'destructive' : 'default'}

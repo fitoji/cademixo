@@ -455,3 +455,56 @@ test('el inspector recuerda qué secciones plegaste', async ({ page }) => {
   await expect(again).toHaveCount(1);
   await expect(again).not.toHaveAttribute('open', '');
 });
+
+test('Propiedades es un Drawer lateral: se abre al seleccionar y al pulsar avisos', async ({ page }) => {
+  await page.goto('/');
+
+  const sheet = page.locator('[data-slot="drawer-content"]');
+  await expect(sheet).toHaveCount(0);
+
+  const target = await findDraggableComponent(page);
+  await page.mouse.click(target.x, target.y);
+
+  await expect(sheet).toBeVisible();
+  await expect(sheet).toHaveAttribute('data-side', 'right');
+  await expect(sheet.getByRole('heading', { name: 'Propiedades' })).toBeVisible();
+  await expect(sheet.getByText('Designador')).toBeVisible();
+
+  // Quitar la selección (Shift+clic alterna) esconde el Drawer.
+  await page.keyboard.down('Shift');
+  await page.mouse.click(target.x, target.y);
+  await page.keyboard.up('Shift');
+  await expect(sheet).toHaveCount(0);
+
+  // El editor sigue vivo: el Drawer es no modal y tiene un cierre explícito.
+  await page.mouse.click(target.x, target.y);
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole('button', { name: 'Cerrar' }).click();
+  await expect(sheet).toHaveCount(0);
+
+  // Superponer dos símbolos genera un aviso de solapamiento.
+  const canvas = page.getByRole('application', { name: /Lienzo del esquema/ });
+  const components = canvas.locator('g[data-id]');
+  const viewport = page.viewportSize();
+  const reachable: { x: number; y: number }[] = [];
+  for (let i = 0, total = await components.count(); i < total && reachable.length < 2; i += 1) {
+    const bounds = await components.nth(i).boundingBox();
+    if (!bounds || bounds.width < 2 || bounds.height < 2) continue;
+    const x = bounds.x + bounds.width / 2;
+    const y = bounds.y + bounds.height / 2;
+    if (viewport && (x < 0 || y < 0 || x > viewport.width || y > viewport.height)) continue;
+    reachable.push({ x, y });
+  }
+  expect(reachable).toHaveLength(2);
+  await page.mouse.move(reachable[0]!.x, reachable[0]!.y);
+  await page.mouse.down();
+  await page.mouse.move(reachable[1]!.x, reachable[1]!.y, { steps: 6 });
+  await page.mouse.up();
+
+  const avisos = page.locator('footer').getByRole('button', { name: /avisos?/ });
+  await expect(avisos).toBeVisible();
+  await avisos.click();
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('heading', { name: /Avisos/ })).toBeVisible();
+  await expect(sheet.getByText(/Símbolos superpuestos/).first()).toBeVisible();
+});
