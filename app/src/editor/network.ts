@@ -64,8 +64,8 @@ export interface Network {
   segments: Map<number, NetSegment>;
   /** `<hoja>:<número de cable>` -> ids de tramo, en orden de archivo */
   cables: Map<string, number[]>;
-  /** puntos de unión declarados por registros 4001, con su hoja */
-  junctionPoints: (Point & { sheet: number })[];
+  /** puntos de unión declarados por registros 4001, con su hoja y su id */
+  junctionPoints: (Point & { sheet: number; recordId: number })[];
   /** bornes de componente por id */
   pins: Map<number, Point[]>;
 }
@@ -109,7 +109,7 @@ const onSegmentInterior = (seg: NetSegment, x: number, y: number): boolean => {
 export function buildNetwork(records: CadeRecordModel[]): Network {
   const segments = new Map<number, NetSegment>();
   const cables = new Map<string, number[]>();
-  const junctionPoints: (Point & { sheet: number })[] = [];
+  const junctionPoints: (Point & { sheet: number; recordId: number })[] = [];
   const pins = attachPoints(records);
   const sheetOf = new Map<number, number>();
   for (const rec of records) sheetOf.set(rec.id, rec.sheet);
@@ -119,7 +119,7 @@ export function buildNetwork(records: CadeRecordModel[]): Network {
     if (rec.code === JUNCTION_CODE) {
       const x = rec.geometry[8];
       const y = rec.geometry[9];
-      if (Number.isFinite(x) && Number.isFinite(y)) junctionPoints.push({ x, y, sheet: rec.sheet });
+      if (Number.isFinite(x) && Number.isFinite(y)) junctionPoints.push({ x, y, sheet: rec.sheet, recordId: rec.id });
       continue;
     }
     const pts = wirePoints(rec);
@@ -245,6 +245,30 @@ export function validate(records: CadeRecordModel[]): Finding[] {
         at: { x: node.x, y: node.y },
       });
     }
+  }
+
+  // Un 4001 que ya no une dos conductores es un punto fantasma: el cruce que lo
+  // justificaba se movió y el registro quedó colgado. No cambia la red, pero hay
+  // que poder verlo para borrarlo a mano.
+  for (const node of network.nodes.values()) {
+    if (!node.junction || node.pin) continue;
+    if (node.ends.length + node.through.length >= 2) continue;
+    const ids = records
+      .filter(
+        (r) =>
+          r.code === JUNCTION_CODE &&
+          r.sheet === node.sheet &&
+          Math.abs((r.geometry[8] ?? NaN) - node.x) < TOL &&
+          Math.abs((r.geometry[9] ?? NaN) - node.y) < TOL,
+      )
+      .map((r) => r.id);
+    findings.push({
+      level: 'warn',
+      code: 'orphan-junction',
+      message: `Punto de unión sin conexión en (${node.x}, ${node.y})`,
+      ids,
+      at: { x: node.x, y: node.y },
+    });
   }
 
   const seen = new Map<string, number>();

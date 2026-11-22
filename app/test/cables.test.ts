@@ -14,13 +14,18 @@ import {
   insertVertex,
   mergeVertex,
   setCableNumber,
+  addWire,
   addJunction,
   moveVertex,
+  moveSelection,
+  selectVertex,
+  canDeleteVertex,
+  deleteVertex,
   bendCable,
   undo,
   deleteSelection,
 } from '../src/editor/state.ts';
-import { JUNCTION_TEMPLATE } from '../src/symbols/templates.ts';
+import { JUNCTION_TEMPLATE, WIRE_TEMPLATES } from '../src/symbols/templates.ts';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const ARRANQUE = readFileSync(join(FIXTURES, 'arranque-paro-motor-3f.cad'), 'latin1');
@@ -401,6 +406,169 @@ test('si el vértice cae alineado con un extremo, degenera en L sin duplicar', (
     signatures.add(key);
   }
   assert.equal(orphanCount(projectOf(s).records), 0, 'no deben quedar extremos sueltos');
+});
+
+// --- uniones huérfanas -------------------------------------------------------
+
+/** Dos cables que se cruzan en (500,530) con un 4001 que los une. */
+function cruceConUnion() {
+  let s = createEditor(ARRANQUE);
+  s = addWire(s, { x: 500, y: 500 }, { x: 500, y: 560 }, WIRE_TEMPLATES[4000]!);
+  const vertical = s.selection[0]!;
+  s = addWire(s, { x: 470, y: 530 }, { x: 530, y: 530 }, WIRE_TEMPLATES[4000]!);
+  const horizontal = s.selection[0]!;
+  s = addJunction(s, 500, 530, JUNCTION_TEMPLATE!);
+  const junction = s.selection[0]!;
+  return { s, vertical, horizontal, junction };
+}
+
+test('validate: reporta un 4001 que no conecta ningún tramo', () => {
+  let s = createEditor(ARRANQUE);
+  s = addJunction(s, 500, 500, JUNCTION_TEMPLATE!);
+  const id = s.selection[0]!;
+
+  const orphan = validate(projectOf(s).records).find((f) => f.code === 'orphan-junction');
+  assert.ok(orphan, 'un junction suelto debe generar un hallazgo');
+  assert.deepEqual(orphan.at, { x: 500, y: 500 });
+  assert.ok(orphan.ids.includes(id), 'el hallazgo apunta al registro 4001');
+});
+
+test('validate: no reporta el T legítimo de (162,105)', () => {
+  const codes = validate(project().records).map((f) => f.code);
+  assert.equal(codes.includes('orphan-junction'), false, 'ese 4001 une un extremo con un tramo');
+});
+
+test('mover un cable quita el 4001 que quedó sin cruce', () => {
+  const { s, horizontal, junction } = cruceConUnion();
+
+  // El cruce inicial sí es una unión válida (dos tramos pasan por ahí).
+  const before = buildNetwork(projectOf(s).records).nodes.get(netKey(0, 500, 530))!;
+  assert.ok(before.ends.length + before.through.length >= 2);
+
+  // Mover el extremo de la horizontal: deja de pasar por (500,530).
+  const moved = moveEndpoint(s, horizontal, 0, 470, 600);
+  assert.equal(
+    projectOf(moved).records.some((r) => r.id === junction),
+    false,
+    'el junction huérfano desaparece del documento',
+  );
+  assert.ok(
+    projectOf(moved).records.some((r) => r.code === 4001 && r.geometry[8] === 162 && r.geometry[9] === 105),
+    'el junction legítimo del fixture no se toca',
+  );
+});
+
+test('mover un cable no borra un 4001 que ya estaba suelto antes del gesto', () => {
+  let s = createEditor(ARRANQUE);
+  s = addJunction(s, 500, 500, JUNCTION_TEMPLATE!);
+  const id = s.selection[0]!;
+  const wire = longWire();
+  const pts = wirePoints(wire)!;
+
+  s = moveVertex(s, { x: pts.x1, y: (pts.y1 + pts.y2) / 2 }, { x: pts.x1 + 9, y: (pts.y1 + pts.y2) / 2 + 6 });
+
+  assert.ok(projectOf(s).records.some((r) => r.id === id), 'un punto puesto a propósito no se toca');
+});
+
+test('la limpieza del junction entra en el mismo paso de deshacer', () => {
+  const { s, horizontal } = cruceConUnion();
+  const moved = moveEndpoint(s, horizontal, 0, 470, 600);
+  assert.equal(undo(moved).text, s.text, 'un solo undo restaura cable y junction juntos');
+});
+
+test('mover un extremo quita el ramal muerto del punto viejo', () => {
+  let s = createEditor(ARRANQUE);
+  // El tramo cuelga de un borne real: así la limpieza sabe que es resto de un
+  // codo y no un cable suelto que el usuario dibujó a propósito.
+  s = addWire(s, { x: 48, y: 150 }, { x: 600, y: 130 }, WIRE_TEMPLATES[4000]!);
+  s = addWire(s, { x: 600, y: 130 }, { x: 660, y: 130 }, WIRE_TEMPLATES[4000]!);
+  const horizontal = s.selection[0]!;
+
+  // El extremo que estaba en (600,130) baja a (660,200): el vertical queda suelto.
+  s = moveEndpoint(s, horizontal, 0, 660, 200);
+  assert.equal(
+    buildNetwork(projectOf(s).records).nodes.has(netKey(0, 600, 130)),
+    false,
+    'no queda vértice colgado en el punto viejo',
+  );
+});
+
+test('mover un componente no deja un vértice suelto', () => {
+  const motor = project().records.find((r) => r.code === 1000)!;
+  let s = createEditor(ARRANQUE);
+  s = addWire(s, { x: 30, y: 155 }, { x: 30, y: 100 }, WIRE_TEMPLATES[4000]!);
+  s = addWire(s, { x: 30, y: 155 }, { x: 500, y: 155 }, WIRE_TEMPLATES[4000]!);
+
+  const moved = moveSelection({ ...s, selection: [motor.id] }, 30, 0);
+  assert.equal(
+    buildNetwork(projectOf(moved).records).nodes.has(netKey(0, 30, 155)),
+    false,
+    'el tramo que quedaba en el punto viejo se limpia',
+  );
+});
+
+test('deleteVertex une también una esquina en L', () => {
+  let s = createEditor(ARRANQUE);
+  s = addWire(s, { x: 700, y: 100 }, { x: 700, y: 130 }, WIRE_TEMPLATES[4000]!);
+  s = addWire(s, { x: 700, y: 130 }, { x: 730, y: 130 }, WIRE_TEMPLATES[4000]!);
+  const at = { x: 700, y: 130 };
+  const focused = selectVertex(s, at);
+
+  assert.equal(canDeleteVertex(focused, at), true, 'la esquina se puede unir en un tramo');
+  const deleted = deleteVertex(focused, at);
+  assert.equal(
+    buildNetwork(projectOf(deleted).records).nodes.has(netKey(0, at.x, at.y)),
+    false,
+    'el vértice desaparece del dibujo',
+  );
+  const merged = projectOf(deleted).records.find((r) => {
+    const q = wirePoints(r);
+    return q?.x1 === 700 && q.y1 === 100;
+  });
+  assert.deepEqual(wirePoints(merged!), { x1: 700, y1: 100, x2: 730, y2: 130 });
+  assert.equal(deleted.vertex, null);
+});
+
+test('deleteVertex no descarta el foco cuando no puede unir (ramal suelto)', () => {
+  let s = createEditor(ARRANQUE);
+  s = addWire(s, { x: 700, y: 100 }, { x: 700, y: 130 }, WIRE_TEMPLATES[4000]!);
+  const at = { x: 700, y: 130 };
+  const focused = selectVertex(s, at);
+
+  assert.equal(canDeleteVertex(focused, at), false, 'un solo tramo no se puede unir');
+  const deleted = deleteVertex(focused, at);
+  assert.equal(deleted.text, focused.text, 'el documento no cambia');
+  assert.deepEqual(deleted.vertex, at, 'el foco se conserva para ver el aviso');
+});
+
+test('deleteVertex limpia el foco cuando sí une (colineal)', () => {
+  let s = createEditor(ARRANQUE);
+  s = addWire(s, { x: 700, y: 100 }, { x: 700, y: 160 }, WIRE_TEMPLATES[4000]!);
+  s = insertVertex(s, s.selection[0]!, 700, 130);
+  const at = { x: 700, y: 130 };
+  const focused = selectVertex(s, at);
+
+  assert.equal(canDeleteVertex(focused, at), true);
+  const deleted = deleteVertex(focused, at);
+  assert.notEqual(deleted.text, focused.text, 'los dos tramos se unen');
+  assert.equal(deleted.vertex, null);
+});
+
+test('mover un componente que arrastra un cable quita el junction huérfano', () => {
+  const motor = project().records.find((r) => r.code === 1000)!;
+  let s = createEditor(ARRANQUE);
+  // Un extremo del vertical cae dentro de la caja del motor; la cruz está ahí.
+  s = addWire(s, { x: 30, y: 155 }, { x: 30, y: 100 }, WIRE_TEMPLATES[4000]!);
+  s = addWire(s, { x: 10, y: 155 }, { x: 500, y: 155 }, WIRE_TEMPLATES[4000]!);
+  s = addJunction(s, 30, 155, JUNCTION_TEMPLATE!);
+  const junction = s.selection[0]!;
+
+  const moved = moveSelection({ ...s, selection: [motor.id] }, 30, 0);
+  assert.equal(
+    projectOf(moved).records.some((r) => r.id === junction),
+    false,
+    'al correr el cable el cruce se rompe y el 4001 se va',
+  );
 });
 
 test('arrastrar el cuerpo de un cable inserta un doblez y lo mueve en un solo paso', () => {

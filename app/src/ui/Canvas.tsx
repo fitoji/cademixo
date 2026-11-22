@@ -9,6 +9,7 @@ import type { DragOp, Rotation } from '../editor/state.ts';
 import { idle, startBend, startMarquee, startMove, startPan, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
 import { attachPoints, type Point } from '../editor/pins.ts';
 import { buildNetwork, cableSegments } from '../editor/network.ts';
+import { routeOrthogonal } from '../editor/wiring/router.ts';
 import { snapContext, snapTarget, type SnapTarget } from '../editor/wiring/snap.ts';
 import { firstPin, nextPin, pinRefs, samePin, type Direction, type PinRef } from '../editor/wiring/keyboard.ts';
 import { dist } from '../editor/wiring/geometry.ts';
@@ -320,6 +321,22 @@ export function Canvas(props: Props): JSX.Element {
     }
     return wireCornerPaths(segments, cornerRadius, isPinnedPoint);
   }, [records, cornerRadius, isPinnedPoint]);
+
+  /**
+   * Ruta del cable a medio dibujar. Usa el mismo router que el commit para que
+   * el ghost y el resultado final coincidan, y es sólamente pintado: el gesto
+   * sigue escribiendo registros 4xxx al soltar (S3, S5).
+   */
+  const ghostPath = useMemo(() => {
+    if (!wireStart || !hover) return '';
+    const obstacles = records
+      .filter((rec) => rec.kind === 'component')
+      .map((rec) => boundsOf(rec))
+      .filter((b): b is NonNullable<typeof b> => b !== null)
+      .map((b) => ({ minX: b.x, minY: b.y, maxX: b.x + b.w, maxY: b.y + b.h }));
+    const points = routeOrthogonal({ from: wireStart, to: hover, obstacles }).waypoints;
+    return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join('');
+  }, [wireStart, hover, records]);
 
   const [snapMark, setSnapMark] = useState<Point | null>(null);
 
@@ -802,7 +819,7 @@ export function Canvas(props: Props): JSX.Element {
 
           {wireStart && hover && (
             <g className="ghost">
-              <line className="wire" x1={wireStart.x} y1={wireStart.y} x2={hover.x} y2={hover.y} />
+              <path className="wire" d={ghostPath} />
               <circle className="junction" cx={wireStart.x} cy={wireStart.y} r={1.15} />
             </g>
           )}

@@ -48,6 +48,8 @@ interface Props {
   /** Lleva el lienzo al lugar del aviso y lo resalta. */
   onFocusFinding: (finding: Finding) => void;
   vertex: Point | null;
+  /** Sólo se puede unir si dos tramos terminan en el punto. */
+  canDeleteVertex: boolean;
   onDeleteVertex: () => void;
   /** En simulación el circuito es de solo lectura. */
   readOnly: boolean;
@@ -59,15 +61,35 @@ interface Props {
 }
 
 export function Inspector(props: Props): JSX.Element {
-  const { selected, findings, onAddJunction, onFocusFinding, vertex, onDeleteVertex, readOnly, collapsibleSections } =
-    props;
+  const {
+    selected,
+    findings,
+    onAddJunction,
+    onFocusFinding,
+    vertex,
+    canDeleteVertex,
+    onDeleteVertex,
+    readOnly,
+    collapsibleSections,
+  } = props;
 
   const vertexBlock = vertex ? (
     <Section id="vertice" title="Vértice seleccionado" collapsible={collapsibleSections}>
       <dl className={DL}>
         <Row label="Posición" value={`${vertex.x}, ${vertex.y}`} />
       </dl>
-      <Button variant="outline" size="sm" className="self-start" onClick={onDeleteVertex} disabled={readOnly}>
+      {!canDeleteVertex && (
+        <p className="text-xs text-muted-foreground">
+          No se puede unir: hacen falta dos tramos que terminen en este punto.
+        </p>
+      )}
+      <Button
+        variant="outline"
+        size="sm"
+        className="self-start"
+        onClick={onDeleteVertex}
+        disabled={readOnly || !canDeleteVertex}
+      >
         <Trash2Icon data-icon="inline-start" />
         Eliminar vértice (⌫)
       </Button>

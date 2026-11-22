@@ -24,6 +24,7 @@ import {
   buildProject,
   modelOfRecord,
   nextId,
+  serializeProject,
   serializeWith,
   withGeometry,
   withId,
@@ -47,8 +48,9 @@ import {
   nextSlot,
 } from '../model/orientation.ts';
 import type { Rotation } from '../model/transform.ts';
-import { CABLE_NUMBER_INDEX, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
+import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
 import type { Point } from './pins.ts';
+import { routeOrthogonal, type Box } from './wiring/router.ts';
 
 export type { Rotation };
 
@@ -118,6 +120,74 @@ function commit(state: EditorState, text: string, selection = state.selection): 
   }
   const past = [...state.past, state.text].slice(-HISTORY_LIMIT);
   return { ...state, text, past, future: [], selection, dirty: true };
+}
+
+/**
+ * Quita ramales muertos: puntos que antes tenían al menos dos conductores y
+ * ahora uno solo, es decir el resto de un codo que el gesto dejó colgado. Los
+ * puntos protegidos son los que el usuario está arrastrando: ahí una punta
+ * suelta es parte del gesto, no un descuido.
+ */
+function pruneDeadStubs(before: CadeRecordModel[], text: string, protectPoints: Point[]): string {
+  const afterProject = buildProject(parse(text));
+  const afterNet = buildNetwork(afterProject.records);
+  const beforeNet = buildNetwork(before);
+  // Las claves llevan la hoja adelante (`0|42,486`); acá se comparan por
+  // coordenada, que es lo que el usuario mueve.
+  const protect = new Set(protectPoints.map((p) => `${p.x},${p.y}`));
+  const deadIds = new Set<number>();
+  const degreeAt = (net: ReturnType<typeof buildNetwork>, key: string): number => {
+    const n = net.nodes.get(key);
+    return n ? n.ends.length + n.through.length : 0;
+  };
+  for (const node of afterNet.nodes.values()) {
+    if (node.pin || node.junction) continue;
+    if (degreeAt(afterNet, node.key) !== 1) continue;
+    if (protect.has(nodeXY(node.key))) continue;
+    if (degreeAt(beforeNet, node.key) < 2) continue;
+    const segId = node.ends[0];
+    if (segId === undefined || deadIds.has(segId)) continue;
+    const seg = afterNet.segments.get(segId);
+    if (!seg) continue;
+    const otherKey = seg.a === node.key ? seg.b : seg.a;
+    const other = afterNet.nodes.get(otherKey);
+    const otherDegree = other ? other.ends.length + other.through.length : 0;
+    if (otherDegree < 2 && !other?.pin && !other?.junction) continue;
+    deadIds.add(segId);
+  }
+  if (deadIds.size === 0) return text;
+  return serializeProject({ ...afterProject, records: afterProject.records.filter((r) => !deadIds.has(r.id)) });
+}
+
+/**
+ * Quita los 4001 que el gesto dejó sin cruce: tenían dos conductores antes y
+ * ahora menos de dos. La comparación es ANTES/DESPUÉS, no un umbral absoluto,
+ * porque un punto suelto puede ser una derivación puesta a propósito y el snap
+ * la usa como imán. Se devuelve texto nuevo para entrar en el MISMO commit.
+ */
+function pruneOrphanJunctions(before: CadeRecordModel[], text: string): string {
+  const after = buildProject(parse(text));
+  const beforeNet = buildNetwork(before);
+  const afterNet = buildNetwork(after.records);
+  const dead = new Set<number>();
+
+  for (const j of afterNet.junctionPoints) {
+    const key = netKey(j.sheet, j.x, j.y);
+    const now = afterNet.nodes.get(key);
+    const was = beforeNet.nodes.get(key);
+    // Sólo importa el pin AHORA: si el borne se movió, el 4001 quedó colgado.
+    if (!now || !was || now.pin) continue;
+    if (was.ends.length + was.through.length < 2) continue;
+    if (now.ends.length + now.through.length >= 2) continue;
+    for (const rec of after.records) {
+      if (rec.code !== JUNCTION_CODE || rec.sheet !== j.sheet) continue;
+      if (rec.geometry[8] !== j.x || rec.geometry[9] !== j.y) continue;
+      dead.add(rec.id);
+    }
+  }
+
+  if (dead.size === 0) return text;
+  return serializeProject({ ...after, records: after.records.filter((r) => !dead.has(r.id)) });
 }
 
 /**
@@ -222,6 +292,7 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
     .filter((b): b is NonNullable<typeof b> => b !== null);
 
   const edits = new Map<number, string>();
+  const protect: Point[] = [];
 
   for (const { index, rec } of indexed(project)) {
     if (selected.has(rec.id) && rec.kind === 'component') {
@@ -243,6 +314,8 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
     const moveA = inside(pts.x1, pts.y1);
     const moveB = inside(pts.x2, pts.y2);
     if (!moveA && !moveB) continue;
+    if (moveA) protect.push({ x: pts.x1 + dx, y: pts.y1 + dy });
+    if (moveB) protect.push({ x: pts.x2 + dx, y: pts.y2 + dy });
 
     edits.set(
       index,
@@ -255,7 +328,13 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
     );
   }
 
-  return commit(state, serializeWith(project, edits));
+  return commit(
+    state,
+    pruneOrphanJunctions(
+      project.records,
+      pruneDeadStubs(project.records, serializeWith(project, edits), protect),
+    ),
+  );
 }
 
 /**
@@ -545,7 +624,13 @@ export function moveEndpoint(state: EditorState, id: number, end: 0 | 1, x: numb
         ? { x1: target.x, y1: target.y, x2: pts.x2, y2: pts.y2 }
         : { x1: pts.x1, y1: pts.y1, x2: target.x, y2: target.y };
     edits.set(index, withWirePoints(rec, next));
-    return commit(state, serializeWith(project, edits));
+    return commit(
+      state,
+      pruneOrphanJunctions(
+        project.records,
+        pruneDeadStubs(project.records, serializeWith(project, edits), [target]),
+      ),
+    );
   }
 
   // El codo va junto al extremo que NO se mueve, para que el tramo que se
@@ -573,7 +658,10 @@ export function moveEndpoint(state: EditorState, id: number, end: 0 | 1, x: numb
     project.prefix +
     project.records.map((r, i) => edits.get(i) ?? r.raw).join('') +
     leg2;
-  return commit(state, text, [id, newId]);
+  return commit(state, pruneOrphanJunctions(project.records, pruneDeadStubs(project.records, text, [target])), [
+    id,
+    newId,
+  ]);
 }
 
 /**
@@ -705,37 +793,10 @@ export function moveVertex(state: EditorState, from: Point, to: Point, sheet = 0
 
   const firstPass = compose(new Set());
 
-  // Limpieza de ramales muertos: si un punto que estaba conectado quedó con un
-  // solo tramo por culpa de este movimiento, ese tramo es el resto del codo
-  // anterior y se elimina. Sin esto, volver un extremo a su lugar dejaba el
-  // vértice viejo plantado en el aire.
-  const afterNet = buildNetwork(buildProject(parse(firstPass)).records);
-  const beforeNet = buildNetwork(project.records);
-  // Las claves de red llevan la hoja adelante (`0|42,486`); acá se protegen los
-  // puntos por coordenada, que es lo que el usuario está arrastrando.
-  const protect = new Set([`${from.x},${from.y}`, `${to.x},${to.y}`]);
-  const deadIds = new Set<number>();
-  const degreeAt = (net: typeof afterNet, key: string): number => {
-    const n = net.nodes.get(key);
-    return n ? n.ends.length + n.through.length : 0;
-  };
-  for (const node of afterNet.nodes.values()) {
-    if (node.pin || node.junction) continue;
-    if (degreeAt(afterNet, node.key) !== 1) continue;
-    if (protect.has(nodeXY(node.key))) continue;
-    if (degreeAt(beforeNet, node.key) < 2) continue;
-    const segId = node.ends[0];
-    if (segId === undefined || deadIds.has(segId)) continue;
-    const seg = afterNet.segments.get(segId);
-    if (!seg) continue;
-    const otherKey = seg.a === node.key ? seg.b : seg.a;
-    const other = afterNet.nodes.get(otherKey);
-    const otherDegree = other ? other.ends.length + other.through.length : 0;
-    if (otherDegree < 2 && !other?.pin && !other?.junction) continue;
-    deadIds.add(segId);
-  }
-
-  const finalText = simplifyCollinear(deadIds.size === 0 ? firstPass : compose(deadIds));
+  const finalText = pruneOrphanJunctions(
+    project.records,
+    simplifyCollinear(pruneDeadStubs(project.records, firstPass, [from, to])),
+  );
   const next = commit(state, finalText);
 
   // La selección tiene que seguir al cable: si no, después de mover un extremo
@@ -813,9 +874,17 @@ function simplifyCollinear(text: string): string {
   return current;
 }
 
+/** ¿Se puede borrar este vértice uniendo sus dos tramos en una sola recta? */
+export function canDeleteVertex(state: EditorState, point: Point): boolean {
+  return vertexMergeOf(state, point.x, point.y) !== null;
+}
+
 /** Borra el vértice indicado, uniendo los tramos que lo tocaban. */
 export function deleteVertex(state: EditorState, point: Point): EditorState {
   const merged = mergeVertex(state, point.x, point.y);
+  // Si no se pudo unir, conservar el foco: el Inspector tiene que poder mostrar
+  // por qué. Antes se limpiaba igual y parecía que había borrado algo.
+  if (merged.text === state.text) return state;
   return { ...merged, vertex: null };
 }
 
@@ -852,7 +921,15 @@ export function insertVertex(state: EditorState, id: number, x: number, y: numbe
  * Si los tramos no son colineales no hay nada que unir: unirlos crearía una
  * diagonal que el formato no usa.
  */
-export function mergeVertex(state: EditorState, x: number, y: number): EditorState {
+interface VertexMerge {
+  a: Point;
+  b: Point;
+  first: { rec: CadeRecordModel; index: number };
+  second: { rec: CadeRecordModel; index: number };
+}
+
+/** Analiza el punto y describe cómo se unirían sus dos tramos, o `null`. */
+function vertexMergeOf(state: EditorState, x: number, y: number): VertexMerge | null {
   const project = projectOf(state);
   const touching = project.records
     .map((rec, index) => ({ rec, index }))
@@ -865,18 +942,29 @@ export function mergeVertex(state: EditorState, x: number, y: number): EditorSta
       );
     });
 
-  if (touching.length !== 2) return state;
+  if (touching.length !== 2) return null;
   const [first, second] = touching as [typeof touching[0], typeof touching[0]];
   const p1 = wirePoints(first.rec)!;
   const p2 = wirePoints(second.rec)!;
 
-  const outer = (pts: typeof p1): { x: number; y: number } =>
-    Math.abs(pts.x1 - x) < AXIS_TOL && Math.abs(pts.y1 - y) < AXIS_TOL ? { x: pts.x2, y: pts.y2 } : { x: pts.x1, y: pts.y1 };
+  const outer = (pts: typeof p1): Point =>
+    Math.abs(pts.x1 - x) < AXIS_TOL && Math.abs(pts.y1 - y) < AXIS_TOL
+      ? { x: pts.x2, y: pts.y2 }
+      : { x: pts.x1, y: pts.y1 };
 
   const a = outer(p1);
   const b = outer(p2);
-  if (!isOrthogonal(a, b)) return state;
+  // Una esquina en L también se une: el resultado es un tramo diagonal, que el
+  // formato admite. Exigir ortogonalidad hacía que 'borrar vértice' no hiciera
+  // nada justo en los vértices que el propio editor crea al doblar un cable.
+  return { a, b, first, second };
+}
 
+export function mergeVertex(state: EditorState, x: number, y: number): EditorState {
+  const plan = vertexMergeOf(state, x, y);
+  if (!plan) return state;
+  const { a, b, first, second } = plan;
+  const project = projectOf(state);
   const merged = withWirePoints(first.rec, { x1: a.x, y1: a.y, x2: b.x, y2: b.y });
   // Se reemplaza ANTES de filtrar: al revés, sacar un registro corre los índices
   // y el tramo unido se escribía sobre otro registro, borrando la línea.
@@ -911,6 +999,50 @@ export function addWire(
   const text =
     (project.hasMagic ? 'CADe_SIMU' : '') + project.prefix + project.records.map((r) => r.raw).join('') + raw;
   return commit(state, text, [id]);
+}
+
+/**
+ * Dibuja un cable ortogonal entre dos puntos usando el router (F1). Escribe un
+ * registro 4xxx por tramo, todos con el mismo número de cable nuevo, y entra
+ * al historial como una sola operación. Los extremos son exactos.
+ */
+export function addRoutedWire(
+  state: EditorState,
+  from: Point,
+  to: Point,
+  obstacles: readonly Box[],
+  templateRaw: string,
+): EditorState {
+  const project = projectOf(state);
+  const template = parseOne(templateRaw);
+  if (!template || template.kind === 'component') return state;
+  const route = routeOrthogonal({ from, to, obstacles });
+  if (route.waypoints.length < 2) return state;
+
+  const cable = Math.max(0, ...project.records.filter((r) => r.kind === 'connection').map(cableNumberOf)) + 1;
+  let next = nextId(project);
+  const raws: string[] = [];
+  const addedIds: number[] = [];
+  for (let i = 0; i + 1 < route.waypoints.length; i++) {
+    const a = route.waypoints[i]!;
+    const b = route.waypoints[i + 1]!;
+    const record: CadeRecordModel = {
+      ...template,
+      id: next,
+      raw: withId(template, next),
+      geometry: [...template.geometry],
+    };
+    const numbered = parseOne(withCableNumber(record, cable)) ?? record;
+    raws.push(withWirePoints(numbered, { x1: a.x, y1: a.y, x2: b.x, y2: b.y }));
+    addedIds.push(next);
+    next++;
+  }
+  const text =
+    (project.hasMagic ? 'CADe_SIMU' : '') +
+    project.prefix +
+    project.records.map((r) => r.raw).join('') +
+    raws.join('');
+  return commit(state, text, addedIds);
 }
 
 /** Agrega un registro de unión (4001) en el punto indicado. */

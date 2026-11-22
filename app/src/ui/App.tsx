@@ -46,9 +46,10 @@ import {
   setCableNumber,
   insertVertex,
   deleteVertex,
+  canDeleteVertex,
   selectVertex,
   addJunction,
-  addWire,
+  addRoutedWire,
   applyDrag,
   undo,
   redo,
@@ -57,7 +58,7 @@ import {
   type EditorState,
 } from '../editor/state.ts';
 import { buildNetwork, validate } from '../editor/network.ts';
-import { roundTrips } from '../model/project.ts';
+import { boundsOf, roundTrips } from '../model/project.ts';
 import {
   SIMULATION_TICK_MS,
   MOMENTARY_PULSE_MS,
@@ -960,7 +961,15 @@ export function App(): JSX.Element {
         }
         const from = wireStart;
         setWireStart(null);
-        setState((s) => (s ? addWire(s, from, { x, y }, wire) : s));
+        setState((s) => {
+          if (!s) return s;
+          const obstacles = projectOf(s)
+            .records.filter((rec) => rec.kind === 'component')
+            .map((rec) => boundsOf(rec))
+            .filter((b): b is NonNullable<typeof b> => b !== null)
+            .map((b) => ({ minX: b.x, minY: b.y, maxX: b.x + b.w, maxY: b.y + b.h }));
+          return addRoutedWire(s, from, { x, y }, obstacles, wire);
+        });
         return;
       }
       const template = templateForPlacement(placing);
@@ -1531,6 +1540,7 @@ export function App(): JSX.Element {
                 network={network}
                 findings={findings}
                 vertex={state.vertex}
+                canDeleteVertex={state && state.vertex ? canDeleteVertex(state, state.vertex) : false}
                 onDeleteVertex={() => setState((s) => (s && s.vertex ? deleteVertex(s, s.vertex) : s))}
                 onDesignator={(id, value) => setState(setDesignator(state, id, value))}
                 onLampColor={(id, color) => setState(setLampColor(state, id, color))}
