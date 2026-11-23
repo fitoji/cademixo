@@ -183,8 +183,8 @@ caso 1:1 pero no el grupo:
 
 - `changeoverPositions` lee `protectionStates[protection.id]` de un solo id.
 - `App.tsx:954-963` guarda el estado sólo bajo `id` del componente clickeado.
-- Para igualar a CADe, el estado y el accionamiento deberían ir por
-  `partKey(designator)` y propagarse a todos los registros del grupo.
+- Para igualar a CADe, el estado y el accionamiento tienen que ir por la clave
+  del aparato (`apparatusKey`) y propagarse a todos los registros del grupo.
 
 Además, la prueba C se repitió con cuatro puntos distintos del símbolo `8018`
 sin respuesta: CADe **no** lo acciona con el mouse. En cambio `App.tsx:936-948`
@@ -205,8 +205,9 @@ Mismo archivo base, cambiando **sólo** el designador del `8018` (`-F`) por:
 
 **Conclusión**: CADe compara el designador **literal**: distingue mayúsculas,
 guion inicial y espacios. En cambio `partKey` (`app/src/sim/netlist.ts:72`)
-hace `trim().toUpperCase().replace(/^[-\s]+/, '')`, o sea que la app agrupa
-casos que CADe separa. Otra corrección pendiente.
+hacía `trim().toUpperCase().replace(/^[-\s]+/, '')`, o sea que la app agrupaba
+casos que CADe separa. La serie I confirmó que la misma regla vale para
+bobinas y contactos, y con eso se corrigió la clave de aparato.
 
 ### Serie H — destrabando la prueba E
 
@@ -226,3 +227,36 @@ La identificación del `7000` NA dentro de esta hoja sigue siendo dudosa (hay
 varios contactos `13`/`14` con designadores parecidos), así que E queda
 **parcialmente respondida**: el auxiliar NC sigue a la bobina, sin retardo
 apreciable; falta confirmar el NA.
+
+### Serie I — la literalidad también vale para bobina y contactos
+
+La serie G dejó una duda que no era menor: `partKey` también agrupa la bobina
+con sus contactos de potencia y auxiliares. Si CADe normalizara ahí, la app
+tendría que hacer lo mismo. Se probó sobre `arranque-paro-motor-3f.cad`, cuyo
+circuito de mando es `L → F → PARO → (STAR ∥ -KM1 13/14) → bobina -KM1 → N`:
+el único camino que sostiene el contactor al soltar STAR es el auxiliar de
+enclavamiento.
+
+| Variante | Bobina | Contacto de enclavamiento | Resultado al soltar STAR |
+| --- | --- | --- | --- |
+| `I0-control.cad` | `-KM1` | `-KM1` | Enclava: auxiliar cerrado, bobina viva, contactor de potencia cerrado |
+| `I1-literal-KM1.cad` | `-KM1` | `KM1` | **No enclava**: el auxiliar no cierra y el contactor de potencia queda abierto |
+| `I2-ambos-KM1.cad` | `KM1` | `KM1` | Enclava de nuevo, **pero el contactor de potencia `-KM1` no cierra** |
+
+Los tres archivos se diferencian sólo en el texto del designador (`-KM1` → `KM1`
+en los registros `26` y `27`). I2 descarta que la edición rompa el archivo: con
+los dos textos iguales el enclavamiento vuelve. Y el detalle de I2 es la
+segunda mitad de la prueba: el contacto de potencia `-KM1` **no** sigue a una
+bobina `KM1`, así que la comparación es literal en los dos sentidos.
+
+**Conclusión**: no hay dos reglas. Protección ↔ auxiliar y bobina ↔ contactos
+comparan el designador **literal**, y el grupo es todo lo que comparte ese
+texto. `partKey` (`app/src/sim/netlist.ts`) normalizaba, así que la app unía
+aparatos que CADe separa; se reemplazó por `apparatusKey`
+(`app/src/model/project.ts`), sin normalizar y con clave propia para los
+registros sin designador.
+
+**Lección operativa**: para aislar una variable de designador conviene un
+circuito con autorretención, donde el efecto es binario (enclava o no). Los
+puntos de captura se reubican después de arrancar la simulación: CADe mantiene
+el desplazamiento del archivo anterior y el arranque mueve la vista.
