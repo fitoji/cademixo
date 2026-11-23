@@ -26,5 +26,8 @@ ni una transposición: por eso el escritor de la app sigue bloqueado hasta usar 
 Nota: el archivo .cad reúne las 8 variantes en una fila (x=20,60,...,300; y=60).
 Los ids usados son 201..208: ids altos para no colisionar con la cola de geometría.
 El bloque de título (id 5) va al final, como en los archivos que guarda CADe.
-Nota: CADe dibuja y permite seleccionar las 8 piezas; el parser de la app, al reconstruir
-un archivo sintético con el título al final, descarta la primera variante (t=0).
+Nota: CADe dibuja y permite seleccionar las 8 piezas. La primera variante (t=0) se
+perdía al parsear porque la cabecera tenía dos asteriscos (`CADe_SIMU**201...`);
+los archivos que guarda CADe llevan uno (`CADe_SIMU*201...`). Corregido el byte
+de más, las 8 variantes entran con slots 0..7 y el archivo hace round-trip byte a byte.
+Regresión cubierta en `app/test/orientacion-sample.test.ts`.

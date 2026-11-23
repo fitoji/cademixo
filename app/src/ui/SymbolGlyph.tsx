@@ -23,7 +23,8 @@ interface Props {
   h: number;
   /**
    * Capa visual del editor (tecla `R`): gira ENCIMA de la orientación del
-   * archivo. No se guarda — escribir `geometry[17]` sigue pendiente (S3).
+   * archivo. Al aplicar girar/espejar se pliega en `geometry[17]` junto con sus
+   * métricas (`model/orientation.ts`); la capa por sí sola no se guarda.
    */
   rotation?: number;
   /**

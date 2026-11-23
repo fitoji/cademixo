@@ -18,14 +18,16 @@ el eje vertical (izquierda↔derecha). La composición es **primero el giro, des
 espejo**: `p' = Mx( R90(giro) · p )`. Con `t = 5` el resultado es la reflexión sobre
 la diagonal principal y con `t = 7` sobre la antihiagonal.
 
-S3. **BLOQUEADA — no se escribe `geometry[17]` hasta conocer las métricas.** Escribir
-sólo `geometry[17]` no alcanza: con la caja base 12×15, CADe dibuja giradas las
-variantes 5, 6 y 7 pero las deja **in-seleccionables**, y una pieza con la caja
-girada por CADe (3×12) y `t=0` también queda in-seleccionable (L9). Las métricas de
-`geometry[12..15]` que CADe guarda por variante (12×15 → 3×12 / 15×3 / 15×15) no son
-derivables del dibujo, así que hoy no sabemos escribir una transformación que CADe
-acepte. Mientras tanto: leer y dibujar sí, escribir no. Lo que se rote en la app
-sigue sin persistirse, y el registro se preserva intacto.
+S3. **Cerrada: la orientación se escribe junta con sus métricas.** Escribir sólo
+`geometry[17]` no alcanza: con la caja base 12×15, CADe dibuja giradas las variantes
+5, 6 y 7 pero las deja **in-seleccionables**, y una pieza con la caja girada por CADe
+(3×12) y `t=0` también queda in-seleccionable (L9). Las métricas de `geometry[12..15]`
+sí se derivan: la descompilación de los cuatro handlers de la barra de CADe (L14)
+mostró `(offX, offY, w, h) → (−h, offX, −offY, w)` al girar a la derecha, con fórmulas
+propias para el giro a la izquierda y los dos espejos. El escritor
+(`app/src/model/orientation.ts`) aplica esas fórmulas a cualquier código con bloque
+de geometría y escribe el slot **y** las cuatro métricas; verificado abriendo en CADe
+un 6003 girado por la app: se dibuja y se puede seleccionar.
 
 S4. Todo lo demás del registro se preserva byte a byte: cabecera, nombres de bornes en
 su orden, flags, resto de la geometría y el bloque de título. Un archivo sin
@@ -44,12 +46,12 @@ fixtures y planos existentes siguen abriendo y guardando igual.
 
 | ID | Qué | Ruta | Commit |
 | --- | --- | --- | --- |
-| T1 | Modelo: leer `geometry[17]` a `transform` por registro (`app/src/model/transform.ts` + `project.ts`). **Hecho**, sin escritor del slot. | modelo | sin commit |
-| T2 | Editor: la orientación nace del registro; escribir el slot queda **bloqueado por S3**. | editor | bloqueada |
-| T3 | Render: giro + espejo compuestos en el glifo, con caja canónica cuando hay transformación. **Hecho**. | ui | sin commit |
-| T4 | Caja e hit-test: `boundsOf`/hitbox sobre el dibujo transformado. **Hecho**. | editor/ui | sin commit |
-| T5 | Indicador «Orientación» en Propiedades. **Hecho**. Girar/espejar persistiendo: bloqueado por S3. | ui | parcial |
-| T6 | Tests que asumían rotación sólo visual (`compat.test.ts`, `editor.test.ts`): actualizados a que la capa visual no altera `record.transform`; escribir el slot sigue sin existir. | tests | sin commit |
+| T1 | Modelo: leer `geometry[17]` a `transform` por registro (`app/src/model/transform.ts` + `project.ts`). Hecho. | modelo | `19a94c1` |
+| T2 | Editor: la orientación nace del registro y girar/espejar escribe el slot **junto con `geometry[12..15]`** (`model/orientation.ts`). Hecho. | editor | `3bf7ca2`, `6da15bd` |
+| T3 | Render: giro + espejo compuestos en el glifo, con caja canónica cuando hay transformación. Hecho. | ui | `19a94c1` |
+| T4 | Caja e hit-test: `boundsOf`/hitbox sobre el dibujo transformado, ampliado a la envolvente de la tinta. Hecho. | editor/ui | `19a94c1`, `83c6617` |
+| T5 | Indicador «Orientación» en Propiedades y acciones de girar/espejar persistentes. Hecho. | ui | `19a94c1`, `6da15bd` |
+| T6 | Tests actualizados a que la capa visual no altera `record.transform`, más `orientation-writer.test.ts` y `orientacion-sample.test.ts`. Hecho. | tests | `3bf7ca2`, `6da15bd`, sin commitear el último |
 
 ## Log
 
@@ -78,3 +80,17 @@ L11 (regla de dibujo, corregida durante la implementación): con transformación
 L12 (pendiente cosmético, decisión de mínimo cambio): el espejo espeja también los rótulos internos del símbolo (`M`, `3~`), y el designador y los rótulos de borne no rotan con la pieza (esto último ya pasaba con la rotación visual previa).
 
 L13 (pedido del usuario, verbatim): «revisa el tema del hover sobre los componentes, solo se activa arriba de los trazos, y no en los intersticios de los componentes , preferiria que se haga el hover en todo el bloque del componente (no el hover visual, sino que se active)». **Corrige T4**: el hitbox salía de `boundsOf` (la caja declarada) solo, y en un símbolo `anchor: 'origin'` la caja declarada es la grilla de conexión mientras la tinta vive en coordenadas absolutas del archivo —el fusible 5000 declara 6×15 y dibuja en x∈[−7,25,−4,75]—, así que el rectángulo invisible cubría otro lugar que el dibujo y el interior de la pieza no respondía al puntero. Ahora `componentHitBox` (`app/src/ui/hit-box.ts`, puro) devuelve la **unión** de la caja declarada y la envolvente de la tinta (`shapesBounds`), las dos transformadas alrededor del pivote real del glifo —centro de la tinta si está anclado, centro de la caja declarada si no—, con `transformBoxAround` en `model/transform.ts` (`transformBox` pasa a delegar). Unir y no reemplazar conserva el área de antes. Cubierto por `test/hit-box.test.ts` (7 casos, incluido un barrido sobre la biblioteca) y por `e2e/canvas-hover.spec.ts`: el chequeo diferencial muestra que la aserción de cobertura falla con la geometría anterior y pasa con la nueva. Efecto colateral buscado: el clic sigue el mismo DOM hit-test, así que también selecciona desde cualquier punto del bloque. La rotación **visual** del editor sigue fuera del hitbox, igual que antes (decisión de mínimo cambio, no regresión).
+
+L14 (cierre de S3 desde Windows, 2026-11-21): la Parte A entregó
+`app/samples/rotacion/manual/orientacion-8-variantes.cad` con la tabla real de los 8 slots
+del 6001 y la Parte B descompiló con Ghidra los handlers `FUN_0043bce0` (girar derecha),
+`FUN_0043b4c0` (girar izquierda), `FUN_0043c500` (espejo horizontal) y `FUN_0043cd20`
+(espejo vertical). Los cuatro escriben el slot **y** las métricas, así que `geometry[12..15]`
+no es tabla por código sino la consecuencia de rotar el par (offset, tamaño). La frase
+de L9 («no son derivables») queda así superada por evidencia del binario, no por una
+suposición: el escritor pasa a escribir slot y métricas juntos.
+Escritor en `model/orientation.ts`, verificado en CADe con un 6003 girado por
+la app (se dibuja y se selecciona). El sample tenía un `*` de más en la cabecera
+(`CADe_SIMU**201…`), que hacía perder la variante t=0 al parsear; corregido a
+`CADe_SIMU*201…` y fijado en `app/test/orientacion-sample.test.ts` (8 ids 201..208,
+slots 0..7, métricas de referencia y round-trip byte a byte).

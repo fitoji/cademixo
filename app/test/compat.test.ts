@@ -72,8 +72,9 @@ test('el documento nuevo también es estable al reabrir', () => {
 
 /**
  * Ley de oro: lo que CADe_SIMU no puede leer no se escribe. La orientación se
- * escribe con las métricas `geometry[12..15]` que CADe guarda por variante
- * (`model/orientation.ts`), medidas en archivos reales. Cuatro giros consecutivos
+ * escribe con las métricas `geometry[12..15]` derivadas de los handlers de CADe
+ * (`model/orientation.ts`) y verificadas contra los 8 slots medidos en archivos reales.
+ * Cuatro giros consecutivos
  * vuelven al slot original, así que el documento tiene que quedar byte a byte
  * igual. Si una tabla estuviera mal, el ciclo no cerraría y este test lo frena.
  */

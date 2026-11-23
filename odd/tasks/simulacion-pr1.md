@@ -37,9 +37,10 @@ la vez.
 **S6.** Las protecciones (`6000`–`6010`) arrancan **abiertas** en la simulación de CADeSimu: el
 F0 bloquea la fase hasta que el usuario la cierra. En la app arrancan conduciendo.
 
-**S7.** En la simulación se puede **accionar un contacto con un clic** (mover el conmutador,
-abrir o cerrar una protección), como en CADeSimu. Hoy sólo se pueden pulsar los pulsadores y
-abrir las protecciones.
+**S7.** En la simulación se puede **accionar un contacto con un clic**, con una excepción
+verificada en Windows: el conmutador que es contacto auxiliar de una protección **no** se
+acciona con el mouse — su posición la marca el aparato (L19). Sí se accionan las protecciones,
+los pulsadores y los conmutadores sueltos.
 
 **S8.** El `8018` (Q1 del mando) y el `6009` (Q1 de potencia) comparten designador: son **el
 mismo aparato**. El conmutador es su contacto auxiliar, así que **no se acciona por
@@ -186,3 +187,14 @@ Consecuencia en el código: se descartan `linkedChangeovers`,
 vuelve a `changeover` no accionable y el clic sobre él acciona el aparato, como en
 L15. También se descartan `test/conmutador-manual.test.ts` y
 `e2e/conmutador.spec.ts`, que fijaban el comportamiento revertido.
+
+**L19. Corrige L18 y L15: el auxiliar no se acciona con el mouse (2026-11-22).**
+La prueba C sobre `PR1_Rodolfo_Giusti_03.cad`, repetida en cuatro puntos del símbolo `8018`,
+no produjo ningún cambio: ni el conmutador, ni el disyuntor, ni las lámparas. Con eso L15
+quedó sin base: CADe **no** deja permutar a mano el contacto auxiliar. Las series F/G/I
+cerraron el modelo: el designador se compara literal, todos los componentes que lo comparten
+forman un solo aparato (no "el primero"), y la misma regla vale para bobinas y contactos.
+En la app: `apparatusKey` (`model/project.ts`) es la única clave, `App.tsx` ignora el clic
+sobre un conmutador enlazado y propaga el estado a todo el grupo; `partKey` y su
+normalización desaparecieron. Evidencia completa en `docs/pruebas-cadesimu-windows.md` y
+`docs/informe-rea-cadesimu-designadores.md`.

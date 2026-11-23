@@ -26,9 +26,10 @@ usuario abriendo `app/samples/rotacion/automaticoin.cad`: se ve igual que `autom
 | Indicador en Propiedades | `app/src/ui/Inspector.tsx` |
 | Tests | `app/test/transform.test.ts` (12) |
 
-Verificación al cerrar: `node --test` 584/584, `tsc --noEmit` y `vite build` en 0, y chequeo
-diferencial contra el código anterior sobre los 8 fixtures del corpus sin diferencias cuando no
-hay orientación.
+Verificación al cerrar la lectura: `node --test` 584/584, `tsc --noEmit` y `vite build` en 0, y
+chequeo diferencial contra el código anterior sobre los 8 fixtures del corpus sin diferencias
+cuando no hay orientación. Verificación actual del featureset completo: 740/741 tests (el único
+fallo es `wiring-performance.test.ts`, ajeno a la orientación), `tsc --noEmit` en 0.
 
 ## 2. El formato, ya confirmado (no re-investigar)
 
@@ -51,7 +52,7 @@ un **bitfield de 3 bits**:
 Todo lo demás del registro no cambia entre variantes: cabecera `#-F##1#3#2#4####`, flags 0-7,
 `geometry[19] = 1`, cola. `geometry[16]`, `[18]` y `[20..22]` siguen sin semántica confirmada.
 
-## 3. Por qué escribir está bloqueado
+## 3. Por qué escribir sólo el slot no alcanza (resuelto el 21-11)
 
 Al escribir **sólo** `geometry[17]` CADe_SIMU dibuja la pieza girada pero **no la puede
 seleccionar**. Evidencia (sondas `app/samples/rotacion/probes/`):
@@ -61,9 +62,12 @@ seleccionar**. Evidencia (sondas `app/samples/rotacion/probes/`):
 - `probe-d` piezas 2-4: `t=5`, `t=7`, `t=6` con la caja base → dibujadas bien, in-seleccionables.
 - `probe-d` pieza 5: caja 3×12 (la que escribió CADe) con `t=0` → in-seleccionable.
 
-Y las métricas que CADe guarda por variante **no son derivables**: para 6001/6002 la base es
-12×15 y aparecen 3×12 (`t=1`), 15×3 (`t=2`), 15×15 (`t=3`) y 15×15 (`t=4`). No es la
-transposición ni la caja del dibujo transformado.
+Y las métricas que CADe guarda por variante no se deducían del dibujo: para 6001/6002 la base
+es 12×15 y aparecen 3×12 (`t=1`), 15×3 (`t=2`), 15×15 (`t=3`) y 15×15 (`t=4`). No es la
+transposición ni la caja del dibujo transformado. **Resuelto el 2026-11-21:** la Parte A
+entregó la tabla de los 8 slots y la Parte B descompiló los cuatro handlers. Las métricas sí
+se derivan con las fórmulas de `app/src/model/orientation.ts`, que se escriben junto con el
+slot. Verificado abriendo en CADe un 6003 girado por la app: se dibuja y se selecciona.
 
 ## 4. Parte A — la muestra de 8 variantes en CADe (lo más rápido)
 
@@ -145,7 +149,7 @@ Pistas de entrada para el análisis:
 
 ```bash
 pnpm install
-cd app && node --test        # 584 tests hoy
+cd app && node --test        # 741 tests hoy (1 fallo conocido de performance)
 npx tsc --noEmit && npx vite build
 pnpm dev                     # app
 ```
@@ -159,9 +163,10 @@ Docs y memoria:
 
 ## 7. Trampas ya pagadas (no repetirlas)
 
-1. **No tocar `geometry[12..15]`** al rotar: transponer la caja deja la pieza rota e
-   in-seleccionable.
-2. **Escribir sólo `geometry[17]` no alcanza**: funciona para algunas variantes y rompe otras.
+1. **No transponer `geometry[12..15]` a mano** al rotar: la app usa las fórmulas de
+   `model/orientation.ts`, verificadas contra el binario y los 8 slots del 6001.
+2. **Escribir el slot sin las métricas no alcanza**: funciona para algunas variantes y rompe
+   otras; `applyOrientation` escribe siempre los cinco campos juntos.
 3. **`geometry[17]` no es un contador de instancia**: vale 0 en todo el corpus y `t=6` tiene
    semántica real de dibujo.
 4. **La caja del archivo en variantes giradas no es el tamaño de dibujo**: la app dibuja con el
