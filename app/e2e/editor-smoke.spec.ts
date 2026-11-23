@@ -384,6 +384,28 @@ test('las pistas del lienzo muestran las teclas de la plataforma, no glyphs de A
   await expect(page.getByRole('tooltip')).not.toContainText('⌘0');
 });
 
+test('Ver → Atajos muestra los atajos agrupados por categoría', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'platform', { configurable: true, value: 'Win32' });
+  });
+  await page.goto('/');
+
+  await page.getByRole('menuitem', { name: 'Ver', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Atajos', exact: true }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Atajos de teclado' });
+  await expect(dialog).toBeVisible();
+  for (const category of ['Archivo', 'Edición', 'Ver', 'Simulación', 'Lienzo']) {
+    await expect(dialog.getByRole('heading', { name: category, exact: true })).toBeVisible();
+  }
+  await expect(dialog).toContainText('Guardar como…');
+  await expect(dialog).toContainText('Simular o detener');
+  await expect(dialog).toContainText('Tab + flechas cablean');
+  // Los hints vienen del registro: en Win32 se ve Ctrl+S, nunca el glyph de Apple.
+  await expect(dialog).toContainText('Ctrl+S');
+  await expect(dialog).not.toContainText('⌘S');
+});
+
 test('the default wire thickness reaches the canvas', async ({ page }) => {
   await page.goto('/');
 

@@ -145,6 +145,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Resizable, ResizableHandle, ResizablePanel, layoutStorage } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/sonner';
 import { SettingsDialog } from './SettingsDialog.tsx';
+import { ShortcutsDialog } from './ShortcutsDialog.tsx';
 import { SaveAsDialog } from './SaveAsDialog.tsx';
 import { getScope, setScope, subscribeScope } from '../symbols/scope.ts';
 import { resolveSymbol } from '../symbols/library.ts';
@@ -204,6 +205,7 @@ export function App(): JSX.Element {
   const scope = useSyncExternalStore(subscribeScope, getScope, getScope);
   const settings = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   /** Propiedades/Avisos: el mismo Drawer lateral con dos entradas. */
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [sheetView, setSheetView] = useState<'propiedades' | 'avisos'>('propiedades');
@@ -1355,6 +1357,10 @@ export function App(): JSX.Element {
                 </MenubarGroup>
                 <MenubarSeparator />
                 <MenubarGroup>
+                  <MenubarItem onSelect={() => setShortcutsOpen(true)}>
+                    <BookOpenIcon />
+                    Atajos
+                  </MenubarItem>
                   <MenubarItem onSelect={() => setSettingsOpen(true)}>
                     <PaletteIcon />
                     Configuración…
@@ -1727,6 +1733,7 @@ export function App(): JSX.Element {
       </Dialog>
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
       <SaveAsDialog
         open={saveAsOpen}
