@@ -92,8 +92,8 @@ import {
   suggestedSaveName,
   writeHandle,
 } from './files.ts';
-import { isTypingTarget, ownsSpaceKey, useShortcut, useShortcutHint } from './shortcuts.ts';
-import { getBindings, subscribeBindings } from './shortcut-bindings.ts';
+import { isApplePlatform, isTypingTarget, ownsSpaceKey, useShortcut, useShortcutHint } from './shortcuts.ts';
+import { getBindings, keyEventToKeys, subscribeBindings } from './shortcut-bindings.ts';
 import { JUNCTION_TEMPLATE, WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { templateForPlacement } from '../symbols/place.ts';
 import { blankDocument } from '../format/blank.ts';
@@ -107,6 +107,12 @@ import { motorDirections } from '../sim/direction.ts';
 import { currentFlow } from '../sim/flow.ts';
 import { visualStatesOf } from '../sim/visual.ts';
 import { isProtectionCode } from '../sim/netlist.ts';
+import {
+  checkComponentBinding,
+  readComponentBindings,
+  writeComponentBindings,
+  type ComponentShortcuts,
+} from './component-shortcuts.ts';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -231,6 +237,8 @@ export function App(): JSX.Element {
    * hasta que el usuario edite el esquema.
    */
   const [lastFault, setLastFault] = useState<SimulationFault | null>(null);
+  /** Atajos por designador, en el sidecar del plano abierto. */
+  const [componentShortcuts, setComponentShortcuts] = useState<ComponentShortcuts>({ version: 1, bindings: {} });
   /** El aviso de arranque espera al primer paso calculado (ver el efecto). */
   const [startPending, setStartPending] = useState(false);
   /** Aparatos accionados durante la simulación (ids de registro). Un pulsador
@@ -385,6 +393,7 @@ export function App(): JSX.Element {
   const openText = useCallback((text: string, name: string, handle: FileSystemFileHandle | null = null) => {
     setState(createEditor(text));
     setFileName(name);
+    setComponentShortcuts(readComponentBindings(name));
     // El handle se reemplaza siempre: el documento que entra manda. Se pasa
     // sólo al abrir un archivo; Nuevo y los ejemplos lo dejan en `null`.
     fileHandle.current = handle;
@@ -968,6 +977,39 @@ export function App(): JSX.Element {
     return project.records.filter((r) => ids.has(r.id));
   }, [project, state]);
 
+  const shortcutTarget = useMemo(() => {
+    if (selectedRecords.length !== 1) return null;
+    const rec = selectedRecords[0]!;
+    if (rec.kind !== 'component') return null;
+    if (!isPushable(rec.code) && !isChangeover(rec.code) && !isProtectionCode(rec.code)) return null;
+    return { designator: apparatusKey(rec), keys: componentShortcuts.bindings[apparatusKey(rec)] ?? null };
+  }, [selectedRecords, componentShortcuts]);
+
+  const assignComponentShortcut = useCallback(
+    (keys: string | null): void => {
+      if (!shortcutTarget) return;
+      const { designator } = shortcutTarget;
+      if (keys !== null) {
+        const check = checkComponentBinding(keys, designator, componentShortcuts.bindings, getBindings());
+        if (!check.ok) {
+          flash(
+            check.reason === 'conflict'
+              ? `esa tecla ya la usa «${check.conflictWith}»`
+              : 'combinación no válida o reservada',
+            'error',
+          );
+          return;
+        }
+      }
+      const bindings = { ...componentShortcuts.bindings };
+      if (keys === null) delete bindings[designator];
+      else bindings[designator] = keys;
+      setComponentShortcuts(writeComponentBindings(fileName, bindings));
+      cue('accionar');
+    },
+    [shortcutTarget, componentShortcuts, fileName, flash],
+  );
+
   // Seleccionar algo abre el Drawer en modo propiedades. Cerrarlo no cambia la
   // selección, así que el efecto no lo vuelve a abrir hasta la próxima selección.
   const lastSelection = useRef<number[]>([]);
@@ -985,42 +1027,28 @@ export function App(): JSX.Element {
     }
   }, [state?.selection, sheetView]);
 
-  const onSelect = useCallback((ids: number[], additive: boolean) => {
-    // Con la simulación activa, un clic sobre un pulsador lo acciona —el
-    // momentáneo vuelve solo, el interruptor se queda accionado— y sobre una
-    // protección la abre/dispara (o la rearma).
-    if (running && ids.length === 1) {
-      const id = ids[0]!;
-      const code = projectOf(state!).records.find((r) => r.id === id)?.code ?? -1;
+  /** Accionar un aparato: la misma lógica para el clic y para su atajo por teclado. */
+  const activateRecord = useCallback(
+    (id: number): boolean => {
+      const records = projectOf(state!).records;
+      const code = records.find((r) => r.id === id)?.code ?? -1;
       if (isPushable(code)) {
-        // Pulsador momentáneo (8000-8007, «Contacto pulsador»): el clic lo
-        // acciona y agenda la vuelta. Interruptores (8008-8011) y selectores
-        // siguen alternando: se quedan donde el usuario los deja.
         if (isMomentary(code)) {
           strikeMomentary(id, code);
         } else {
           setPressedRecords((prev) => [...applyClick(prev, id, code)]);
           cue('accionar');
         }
-        return;
+        return true;
       }
-      const records = projectOf(state!).records;
       if (isChangeover(code)) {
         const rec = records.find((r) => r.id === id);
-        if (rec && linkedProtection(records, rec)) {
-          // CADe no deja accionar el contacto auxiliar con el mouse: su posición
-          // la marca el aparato. Medido en cuatro puntos del símbolo (serie C).
-          return;
-        }
-        // Conmutador suelto: el clic lo pasa de una salida a la otra.
+        if (rec && linkedProtection(records, rec)) return false;
         setChangeovers((prev) => ({ ...prev, [String(id)]: prev[String(id)] === 1 ? 0 : 1 }));
         cue('accionar');
-        return;
+        return true;
       }
       if (isProtectionCode(code)) {
-        // La protección arranca abierta (los automáticos); el clic la cierra y
-        // el siguiente la vuelve a abrir (disparo). El estado es del designador:
-        // CADe acciona juntas todas las piezas que lo comparten (serie F).
         const rec = records.find((r) => r.id === id)!;
         const key = apparatusKey(rec);
         const current = protectionStateOf(code, protectionStates[key]);
@@ -1031,12 +1059,48 @@ export function App(): JSX.Element {
             ? [...new Set([...prev, ...groupIdsWith(records, rec)])]
             : prev,
         );
-        return;
+        return true;
       }
-    }
-    setState((s) => (s ? select(s, ids, additive) : s));
-    setPlacing(null);
-  }, [running, state, protectionStates, strikeMomentary]);
+      return false;
+    },
+    [state, protectionStates, strikeMomentary],
+  );
+
+  // Atajos por componente: sólo con la simulación activa, y reutilizando
+  // `activateRecord` para que pulsador, conmutador y protección se comporten
+  // exactamente igual que con el mouse (S7).
+  useEffect(() => {
+    if (!running || !state) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented || isTypingTarget(event.target)) return;
+      // El drawer de Propiedades es un dialog pero no debe bloquear el atajo:
+      // sólo se calla si el foco está dentro de un modal que captura teclas.
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.closest('[role="dialog"]') !== null) return;
+      const keys = keyEventToKeys(event, isApplePlatform());
+      if (keys === null) return;
+      const records = projectOf(state).records;
+      for (const [designator, bound] of Object.entries(componentShortcuts.bindings)) {
+        if (bound !== keys) continue;
+        const id = records.find((r) => r.kind === 'component' && apparatusKey(r) === designator)?.id;
+        if (id !== undefined && activateRecord(id)) {
+          event.preventDefault();
+          return;
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [running, state, componentShortcuts, activateRecord]);
+
+  const onSelect = useCallback(
+    (ids: number[], additive: boolean) => {
+      if (running && ids.length === 1 && activateRecord(ids[0]!)) return;
+      setState((s) => (s ? select(s, ids, additive) : s));
+      setPlacing(null);
+    },
+    [running, activateRecord],
+  );
 
   const onDragPreview = useCallback((op: DragOp | null) => {
     setPreview(op);
@@ -1747,6 +1811,9 @@ export function App(): JSX.Element {
             onFocusFinding={(f) => setHighlight({ ids: f.ids, at: f.at ?? null })}
             collapsibleSections={styleMode === 'moderno'}
             view={sheetView}
+            componentShortcut={shortcutTarget?.keys ?? null}
+            canAssignShortcut={shortcutTarget !== null}
+            onAssignShortcut={assignComponentShortcut}
           />
         </SheetContent>
       </Sheet>

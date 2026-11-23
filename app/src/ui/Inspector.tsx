@@ -1,9 +1,11 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import type { JSX, ReactNode } from 'react';
+import type { JSX, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { ChevronRightIcon, InfoIcon, MousePointerClickIcon, RotateCwIcon, StarIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import { GEOMETRY, boxOf, wirePoints, LAMP_COLORS, type CadeRecordModel, type LampColor } from '../model/project.ts';
 import { isIdentity, type Transform } from '../model/transform.ts';
 import { hasColorSlot } from '../model/component-spec.ts';
+import { isApplePlatform } from './shortcuts.ts';
+import { keyEventToKeys } from './shortcut-bindings.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import type { Rotation } from '../editor/state.ts';
 import { cableLength, cableNumberOf, cableSegments, type Finding, type Network } from '../editor/network.ts';
@@ -64,6 +66,11 @@ interface Props {
   collapsibleSections: boolean;
   /** El Drawer abre en modo avisos cuando se pulsa el contador del pie. */
   view?: 'propiedades' | 'avisos';
+  /** Atajo del designador seleccionado (sidecar del plano). */
+  componentShortcut?: string | null;
+  /** Sólo los aparatos accionables pueden tener atajo. */
+  canAssignShortcut?: boolean;
+  onAssignShortcut: (keys: string | null) => void;
 }
 
 export function Inspector(props: Props): JSX.Element {
@@ -401,13 +408,41 @@ function Single({
   vertexBlock,
   readOnly,
   collapsibleSections,
+  componentShortcut,
+  canAssignShortcut = false,
+  onAssignShortcut,
 }: Props & { rec: CadeRecordModel; vertexBlock: JSX.Element | null }): JSX.Element {
   const [draft, setDraft] = useState(rec.designator);
   const [cableDraft, setCableDraft] = useState(String(cableNumberOf(rec)));
   const [pinDrafts, setPinDrafts] = useState(rec.pins);
+  const [capturingShortcut, setCapturingShortcut] = useState(false);
+  const [shortcutStatus, setShortcutStatus] = useState('');
+
+  const captureShortcut = (event: ReactKeyboardEvent<HTMLButtonElement>): void => {
+    if (!capturingShortcut) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      setCapturingShortcut(false);
+      setShortcutStatus('Captura cancelada.');
+      return;
+    }
+    const keys = keyEventToKeys(event.nativeEvent, isApplePlatform());
+    if (keys === null) {
+      setShortcutStatus('Combinación no válida o reservada.');
+      return;
+    }
+    onAssignShortcut(keys);
+    setCapturingShortcut(false);
+    setShortcutStatus('');
+  };
   useEffect(() => setDraft(rec.designator), [rec.designator]);
   useEffect(() => setCableDraft(String(cableNumberOf(rec))), [rec.raw]);
   useEffect(() => setPinDrafts(rec.pins), [rec.raw]);
+  useEffect(() => {
+    setCapturingShortcut(false);
+    setShortcutStatus('');
+  }, [rec.id]);
 
   const sym = resolveSymbol(rec.code, rec.pins);
   const box = boxOf(rec);
@@ -492,6 +527,42 @@ function Single({
             <Row label="Orientación" value={orientationLabel(rec.transform)} />
             <Row label="Registro" value={`#${rec.id}`} />
           </dl>
+
+          {canAssignShortcut && (
+            <Section id="atajo" title="Atajo del componente" collapsible={collapsibleSections}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={capturingShortcut ? 'default' : 'outline'}
+                  disabled={readOnly}
+                  aria-label="Asignar atajo al componente"
+                  onClick={() => {
+                    setCapturingShortcut(true);
+                    setShortcutStatus('');
+                  }}
+                  onKeyDown={captureShortcut}
+                >
+                  {capturingShortcut ? 'Presioná una tecla…' : (componentShortcut ?? 'Asignar atajo…')}
+                </Button>
+                {componentShortcut && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={readOnly}
+                    onClick={() => onAssignShortcut(null)}
+                  >
+                    Quitar
+                  </Button>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Escape cancela. El atajo sólo actúa con la simulación en marcha.
+              </p>
+              {shortcutStatus && <p className="text-[10px] text-warn">{shortcutStatus}</p>}
+            </Section>
+          )}
 
           <Section
             id="bornes"

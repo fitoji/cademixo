@@ -9,9 +9,9 @@
  * Sólo lo usa el estilo moderno: el clásico no renderiza secciones plegables.
  */
 
-export type SectionId = 'vertice' | 'avisos' | 'bornes';
+export type SectionId = 'vertice' | 'avisos' | 'bornes' | 'atajo';
 
-const SECTIONS: readonly SectionId[] = ['vertice', 'avisos', 'bornes'];
+const SECTIONS: readonly SectionId[] = ['vertice', 'avisos', 'bornes', 'atajo'];
 const KEY = 'simuelectro:secciones';
 
 /** Sólo se guarda lo plegado: abierto es el estado natural de una sección. */
