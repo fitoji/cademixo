@@ -5,7 +5,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '../src/format/cade.ts';
 import { buildProject } from '../src/model/project.ts';
-import { buildNetlist, isTwoThrow, partKey, kindOf, isProtectionCode, polesOf } from '../src/sim/netlist.ts';
+import { buildNetlist, isTwoThrow, kindOf, isProtectionCode, polesOf } from '../src/sim/netlist.ts';
+import { apparatusKey } from '../src/model/project.ts';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -44,14 +45,14 @@ test('todo aparato con dos bornes conectados declara al menos un polo', () => {
 test('el designador agrupa las partes del mismo aparato', () => {
   // Inversión de giro: KM1 es el contactor principal (2001) y su auxiliar (7001)
   const nl = buildNetlist(load('inversion-giro-cej.cade').records);
-  const km1 = nl.devices.filter((d) => d.part === 'KM1');
-  assert.ok(km1.length >= 2, 'KM1 debe tener varias partes');
+  const km1 = nl.devices.filter((d) => d.part === '-KM1');
+  assert.ok(km1.length >= 2, '-KM1 debe tener varias partes');
   assert.ok(km1.some((d) => d.code === 2001), 'falta el contacto de potencia');
   assert.ok(km1.some((d) => d.code === 7001), 'falta el contacto auxiliar');
 
   // KM2 tiene la bobina: sin eso no hay enclavamiento posible
-  const km2 = nl.devices.filter((d) => d.part === 'KM2');
-  assert.ok(km2.some((d) => d.kind === 'coil'), 'KM2 debe tener bobina');
+  const km2 = nl.devices.filter((d) => d.part === '-KM2');
+  assert.ok(km2.some((d) => d.kind === 'coil'), '-KM2 debe tener bobina');
 });
 
 test('los bornes de un aparato caen en redes distintas cuando el dibujo las separa', () => {
@@ -69,7 +70,7 @@ test('en el arranque, el contacto auxiliar queda en paralelo con STAR y la bobin
   // red que sale de ellos.
   const nl = buildNetlist(load('arranque-paro-motor-3f.cad').records);
   const star = nl.devices.find((d) => d.part === 'STAR' && d.kind === 'pushbutton')!;
-  const aux = nl.devices.find((d) => d.part === 'KM1' && d.code === 7000)!;
+  const aux = nl.devices.find((d) => d.part === '-KM1' && d.code === 7000)!;
   const coil = nl.devices.find((d) => d.kind === 'coil')!;
 
   assert.deepEqual([...aux.nets], [...star.nets], 'el auxiliar puentea al pulsador');
@@ -122,11 +123,42 @@ test('el conmutado de tres bornes conserva los tres bornes como dos polos', () =
   assert.deepEqual(s1.poles, [[0, 1], [0, 2]], 'el 14 ya no se descarta');
 });
 
-test('normalización de designador: el guion inicial no cambia el aparato', () => {
-  assert.equal(partKey('-KM1'), 'KM1');
-  assert.equal(partKey('km1 '), 'KM1');
-  assert.equal(partKey('KM1'), 'KM1');
-  assert.notEqual(partKey('-KM1'), partKey('-KM2'));
+test('la netlist no normaliza: la clave es el designador del archivo', () => {
+  // Serie I: una bobina `KM1` no enclava con un contacto `-KM1`. Si la netlist
+  // normalizara, el plano real (que escribe `-KM1` en todas las piezas) quedaría
+  // agrupado bajo una clave que el archivo no usa.
+  const nl = buildNetlist(load('inversion-giro-cej.cade').records);
+  const parts = new Set(nl.devices.map((d) => d.part));
+  assert.ok(parts.has('-KM1'), 'la clave conserva el guion del archivo');
+  assert.equal(parts.has('KM1'), false, 'no se recorta el guion inicial');
+});
+
+test('el designador del aparato se compara literal, como CADe', () => {
+  // Serie G e I de `docs/pruebas-cadesimu-windows.md`: CADe distingue el guion
+  // inicial, las mayúsculas y los espacios. Normalizar uniría aparatos que el
+  // binario mantiene separados.
+  const aparato = (designator: string, id = 1): string =>
+    apparatusKey({
+      id,
+      code: 9000,
+      kind: 'component',
+      designator,
+      pins: [],
+      pinVisible: [],
+      pinLabelsVisible: true,
+      lampColor: null,
+      transform: { rotation: 0, mirror: false },
+      geometry: [],
+      text: '',
+      raw: '',
+      sheet: 0,
+    });
+  assert.equal(aparato('-KM1'), '-KM1');
+  assert.equal(aparato('KM1'), 'KM1');
+  assert.notEqual(aparato('-KM1'), aparato('KM1'));
+  assert.notEqual(aparato('-KM1'), aparato('-km1'));
+  assert.notEqual(aparato('-KM1'), aparato(' -KM1'));
+  assert.notEqual(aparato(''), aparato('', 2));
 });
 
 test('clasificación de códigos en tipos de aparato', () => {

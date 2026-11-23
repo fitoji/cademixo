@@ -101,6 +101,30 @@ export interface CadeRecordModel {
   sheet: number;
 }
 
+/**
+ * Clave del aparato al que pertenece un registro: **el designador tal cual**.
+ *
+ * CADe_SIMU empareja por texto literal. Medido en el binario V4
+ * (`docs/pruebas-cadesimu-windows.md`):
+ *
+ *  - serie F: todos los componentes con el mismo designador son UN aparato, y
+ *    se accionan juntos; no hay "el primero" ni "el más cercano";
+ *  - serie G: `-F`, `F`, `-f` y ` F` son aparatos distintos (mayúsculas, guion
+ *    y espacios cuentan);
+ *  - serie I: lo mismo vale para bobina y contactos. Una bobina `KM1` enclava
+ *    con un contacto `KM1` y no con un `-KM1`, y el contactor de potencia
+ *    `-KM1` no cierra.
+ *
+ * Por eso no se normaliza: recortar espacios o sacar el guion inicial uniría
+ * aparatos que CADe mantiene separados.
+ *
+ * Los registros sin designador no forman grupo: CADe no los empareja con nadie,
+ * así que cada uno lleva una clave propia y no comparte estado con los demás.
+ */
+export function apparatusKey(rec: CadeRecordModel): string {
+  return rec.designator === '' ? `#id:${rec.id}` : rec.designator;
+}
+
 export interface Sheet {
   index: number;
   /** rango de registros [start, end) dentro de project.records */

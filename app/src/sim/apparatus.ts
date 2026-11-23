@@ -16,6 +16,7 @@
  */
 
 import { isChangeover, startsOpen } from '../model/component-spec.ts';
+import { apparatusKey } from '../model/project.ts';
 import type { CadeRecordModel } from '../model/project.ts';
 
 /** Estado de una protección: `'closed'` conduce, `'open'` corta. */
@@ -23,14 +24,6 @@ export type ProtectionState = 'closed' | 'open';
 
 /** Estado de las protecciones, claveado por designador literal. */
 export type ProtectionStates = Record<string, ProtectionState>;
-
-/**
- * Clave de estado del aparato. Las piezas sin designador no forman grupo: CADe
- * no las empareja con nadie, así que cada una conserva su propio estado.
- */
-export function apparatusKey(rec: CadeRecordModel): string {
-  return rec.designator === '' ? `#id:${rec.id}` : rec.designator;
-}
 
 /**
  * La protección con el **mismo designador literal** que `rec`, si la hay.

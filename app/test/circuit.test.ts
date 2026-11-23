@@ -70,7 +70,7 @@ test('un conmutado de tres bornes arma dos tiros: el 12 NC y el 14 NA', () => {
   const built = circuitFrom(CONMUTADO);
   assert.ok(built, 'el fixture cablea fase, neutro y los tres bornes del pulsador');
 
-  const poles = built.circuit.devices.filter((d) => d.part === 'S1');
+  const poles = built.circuit.devices.filter((d) => d.part === '-S1');
   assert.equal(poles.length, 2, 'el tercer borne agrega el segundo tiro');
   assert.deepEqual(
     poles.map((d) => d.kind),
@@ -113,19 +113,19 @@ test('simKindsOf: el par NA/NC del tercer borne no toca a los demás aparatos', 
 test('la bobina temporizada 9004 llega al circuito con su modo', () => {
   const built = circuitFrom(luzWith('8016#-H1', '9004#-KT1'));
   assert.ok(built, 'el plano debe armar circuito');
-  const device = built.devices.find((d) => d.part === 'KT1');
+  const device = built.devices.find((d) => d.part === '-KT1');
   assert.ok(device, 'la bobina temporizada debe estar en la netlist');
   assert.equal(device.kind, 'coil');
   assert.equal(device.timer, 'on', 'el Device lleva el modo: antes TIMER_COIL esperaba timerReady y nunca llegaba');
-  const sim = built.circuit.devices.find((d) => d.part === 'KT1');
+  const sim = built.circuit.devices.find((d) => d.part === '-KT1');
   assert.ok(sim);
   assert.equal(sim.kind, 'coil');
   assert.equal(sim.timer, 'on', 'el SimDevice hereda el modo de temporizador');
 
   // El timer en una bobina no rompe la detección de carga: se energiza igual.
-  const button = built.circuit.devices.find((d) => d.part === 'S1')!;
+  const button = built.circuit.devices.find((d) => d.part === '-S1')!;
   const pressed = simulate(built.circuit, { pressed: new Set([button.id]) });
-  assert.equal(pressed.energized.has('KT1'), true);
+  assert.equal(pressed.energized.has('-KT1'), true);
 });
 
 test('8100 se comporta igual que un pulsador que ya funcionaba', () => {
@@ -142,11 +142,11 @@ test('8100 se comporta igual que un pulsador que ya funcionaba', () => {
     built.circuit.devices.map((d) => `${d.part}:${d.kind}`).sort();
   assert.deepEqual(kinds(candidate), kinds(reference), 'la netlist de 8100 debe ser la de un pulsador');
 
-  const button = built(candidate, 'S1');
+  const button = built(candidate, '-S1');
   assert.equal(button.kind, 'buttonNO', 'CATALOG lo lista como «Pulsador» (-S)');
 
   const run = (built: NonNullable<typeof candidate>, pressed: boolean): string[] => {
-    const device = built.circuit.devices.find((d) => d.part === 'S1')!;
+    const device = built.circuit.devices.find((d) => d.part === '-S1')!;
     const result = simulate(built.circuit, { pressed: pressed ? new Set([device.id]) : new Set<string>() });
     return [...result.energized].sort();
   };
@@ -157,7 +157,7 @@ test('8100 se comporta igual que un pulsador que ya funcionaba', () => {
 test('8101 se simula como lámpara', () => {
   const built = circuitFrom(luzWith('8016#-H1', '8101#-H1'));
   assert.ok(built);
-  const sim = built.circuit.devices.find((d) => d.part === 'H1');
+  const sim = built.circuit.devices.find((d) => d.part === '-H1');
   assert.ok(sim, 'la lámpara debe llegar al solver');
   assert.equal(sim.kind, 'lamp');
 });
@@ -189,7 +189,7 @@ test('el arranque directo simula de verdad', () => {
 
   const pressed = simulate(built.circuit, { pressed: new Set([star.id]) });
   assert.equal(pressed.stable, true);
-  assert.equal(pressed.energized.has('KM1'), true, 'STAR debe energizar el contactor');
+  assert.equal(pressed.energized.has('-KM1'), true, 'STAR debe energizar el contactor');
   assert.ok(pressed.loads.size > 0, 'la bobina debe quedar como carga activa');
 
   // El lienzo pinta los cables con `liveNets`: en reposo llega la fase, y con
@@ -204,13 +204,13 @@ test('el pulsador de paro corta la maniobra', () => {
   const stop = built.circuit.devices.find((d) => d.kind === 'buttonNC')!;
 
   const running = simulate(built.circuit, { pressed: new Set([star.id]) });
-  assert.equal(running.energized.has('KM1'), true);
+  assert.equal(running.energized.has('-KM1'), true);
 
   const stopped = simulate(built.circuit, {
     pressed: new Set([star.id, stop.id]),
     initialEnergized: running.energized,
   });
-  assert.equal(stopped.energized.has('KM1'), false, 'PARO debe abrir la maniobra');
+  assert.equal(stopped.energized.has('-KM1'), false, 'PARO debe abrir la maniobra');
 });
 
 test('un dibujo sin cables de alimentación no arma circuito', () => {
@@ -279,20 +279,20 @@ test('inversión de giro completa: enclavamiento propio y NC cruzado', () => {
   const built = circuitFrom(INVERSION_MINI.records);
   assert.ok(built, 'el fixture mini debe armar circuito');
 
-  const s1 = built.circuit.devices.find((d) => d.part === 'S1')!;
-  const s2 = built.circuit.devices.find((d) => d.part === 'S2')!;
+  const s1 = built.circuit.devices.find((d) => d.part === '-S1')!;
+  const s2 = built.circuit.devices.find((d) => d.part === '-S2')!;
   assert.ok(s1 && s2, 'faltan los pulsadores');
 
   const km1 = simulate(built.circuit, { pressed: new Set([s1.id]) });
-  assert.equal(km1.energized.has('KM1'), true);
-  assert.equal(km1.energized.has('KM2'), false);
+  assert.equal(km1.energized.has('-KM1'), true);
+  assert.equal(km1.energized.has('-KM2'), false);
 
   const km2 = simulate(built.circuit, { pressed: new Set([s2.id]) });
-  assert.equal(km2.energized.has('KM2'), true);
-  assert.equal(km2.energized.has('KM1'), false);
+  assert.equal(km2.energized.has('-KM2'), true);
+  assert.equal(km2.energized.has('-KM1'), false);
 
   // Con KM1 enclavado, el NC cruzado impide arrancar el otro sentido.
   const cross = simulate(built.circuit, { pressed: new Set([s2.id]), initialEnergized: km1.energized });
-  assert.equal(cross.energized.has('KM1'), true);
-  assert.equal(cross.energized.has('KM2'), false);
+  assert.equal(cross.energized.has('-KM1'), true);
+  assert.equal(cross.energized.has('-KM2'), false);
 });

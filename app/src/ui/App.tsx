@@ -62,7 +62,7 @@ import {
   type EditorState,
 } from '../editor/state.ts';
 import { buildNetwork, validate } from '../editor/network.ts';
-import { boundsOf, roundTrips } from '../model/project.ts';
+import { apparatusKey, boundsOf, roundTrips } from '../model/project.ts';
 import {
   SIMULATION_TICK_MS,
   MOMENTARY_PULSE_MS,
@@ -73,7 +73,7 @@ import {
   specOf,
   startsOpen,
 } from '../model/component-spec.ts';
-import { apparatusKey, changeoverPositions, groupIdsWith, linkedProtection } from '../sim/apparatus.ts';
+import { changeoverPositions, groupIdsWith, linkedProtection } from '../sim/apparatus.ts';
 import type { ProtectionStates } from '../sim/apparatus.ts';
 import type { Point } from '../editor/pins.ts';
 import { Canvas } from './Canvas.tsx';
@@ -102,7 +102,7 @@ import { simulate } from '../sim/solver.ts';
 import { motorDirections } from '../sim/direction.ts';
 import { currentFlow } from '../sim/flow.ts';
 import { visualStatesOf } from '../sim/visual.ts';
-import { isProtectionCode, partKey } from '../sim/netlist.ts';
+import { isProtectionCode } from '../sim/netlist.ts';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -739,7 +739,7 @@ export function App(): JSX.Element {
     for (const id of simulation.loads) loaded.add(Number(id.split(':')[0]));
     for (const rec of project.records) {
       if (rec.kind !== 'component') continue;
-      if (simulation.energized.has(partKey(rec.designator)) || loaded.has(rec.id)) out.add(rec.id);
+      if (simulation.energized.has(apparatusKey(rec)) || loaded.has(rec.id)) out.add(rec.id);
     }
     return out;
   }, [simulation, project]);
@@ -828,7 +828,7 @@ export function App(): JSX.Element {
     for (const rec of project.records) {
       if (rec.kind !== 'component') continue;
       if (rec.code !== 7000 && rec.code !== 7001 && rec.code !== 2001) continue;
-      const live = simulation.energized.has(partKey(rec.designator));
+      const live = simulation.energized.has(apparatusKey(rec));
       if (rec.code === 7001) {
         if (!live) out.add(rec.id);
         else out.delete(rec.id);

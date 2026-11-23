@@ -97,9 +97,9 @@ const CONMUTADO = buildProject(
 function conmutadoCableado() {
   const built = circuitFrom(CONMUTADO);
   assert.ok(built, 'el fixture cablea fase, neutro y los tres bornes del pulsador');
-  const throws = built.circuit.devices.filter((d) => d.part === 'S1');
-  const h1 = built.circuit.devices.find((d) => d.part === 'H1');
-  const h2 = built.circuit.devices.find((d) => d.part === 'H2');
+  const throws = built.circuit.devices.filter((d) => d.part === '-S1');
+  const h1 = built.circuit.devices.find((d) => d.part === '-H1');
+  const h2 = built.circuit.devices.find((d) => d.part === '-H2');
   assert.ok(h1 && h2, 'faltan las lámparas del fixture');
   return { built, throws, h1, h2 };
 }

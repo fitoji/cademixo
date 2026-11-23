@@ -11,10 +11,14 @@
  *     cable sobre la caja (`pins.ts`), en el orden en que el archivo los lista.
  *  3. **Qué partes forman un mismo aparato.** El designador es la única pista:
  *     la bobina `-KM1` y el contacto auxiliar `-KM1` son el mismo contactor.
- *     Sin eso no hay enclavamiento posible.
+ *     Sin eso no hay enclavamiento posible. Se compara **literal**: lo medido
+ *     en CADe_SIMU V4 (series F, G e I de `docs/pruebas-cadesimu-windows.md`)
+ *     muestra que `-KM1` y `KM1` son aparatos distintos. La clave sale de
+ *     `apparatusKey` (`model/project.ts`).
  */
 
 import type { CadeRecordModel } from '../model/project.ts';
+import { apparatusKey } from '../model/project.ts';
 import { specOf } from '../model/component-spec.ts';
 import { attachPoints } from '../editor/pins.ts';
 import { buildNetwork, netKey } from '../editor/network.ts';
@@ -66,11 +70,6 @@ export interface Netlist {
   members: Map<number, Set<number>>;
   /** id de registro -> nets que toca (tramos y uniones incluidos) */
   recordNets: Map<number, number[]>;
-}
-
-/** Normaliza el designador para agrupar partes del mismo aparato. */
-export function partKey(designator: string): string {
-  return designator.trim().toUpperCase().replace(/^[-\s]+/, '');
 }
 
 /**
@@ -250,7 +249,7 @@ export function buildNetlist(records: CadeRecordModel[]): Netlist {
       recordId: rec.id,
       code: rec.code,
       designator: rec.designator,
-      part: partKey(rec.designator),
+      part: apparatusKey(rec),
       kind: spec.kind,
       pinNames: rec.pins,
       nets,
