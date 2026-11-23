@@ -9,7 +9,7 @@ Generated from the read-only Electro-Simulador audit on 2026-11-21. Execute in o
 | 001 | Add browser smoke coverage for critical editor flows | P1 | M | — | DONE |
 | 002 | Preserve dirty documents when opening a file | P1 | S | 001 | DONE |
 | 003 | Measure cable-drag preview cost before optimizing | P2 | M | 001 | TODO |
-| 004 | Detect CADe-style short circuits and earth leakage | P1 | M | — | TODO |
+| 004 | Detect CADe-style short circuits and earth leakage | P1 | M | — | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 

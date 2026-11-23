@@ -1,6 +1,9 @@
 # 004 — Detección de cortocircuito y derivación a tierra estilo CADe_SIMU
 
-> Estado: TODO · Prioridad: P1 · Depende de: — · Fecha: 2026-11-23
+> Estado: DONE · Prioridad: P1 · Depende de: — · Fecha: 2026-11-23
+>
+> Cerrado con `1e40fe9` (tabla de fases), `1aa8c13` (detector + fixtures + docs) y
+> `4f95c22` (UI + e2e + config de Playwright en Windows).
 >
 > Evidencia: descompilación de `CADe_SIMU.exe` V4 con Ghidra vía REA MCP. Direcciones de Ghidra
 > (image base `0x800000`; para la VA del PE restar `0x400000`):
@@ -127,3 +130,16 @@ sin cambiar la firma de `simulate()` ni el formato `.cad`/`.cade`.
   carga: pueden fallar con el umbral de 2,5 ms / ratio 3.2 sin relación con este cambio.
 - Ghidra/REA no analiza el exe desde `E:` (FAT32): copiar a `%TEMP%` antes de otra pasada de REA.
 - No hay tests de componentes React; la frontera de UI se cubre con Playwright, no con unit tests.
+
+## Resultado medido
+
+- `node --test test/phase.test.ts` → 7/7.
+- `node --test test/faults.test.ts test/phase.test.ts` → 15/15.
+- Suite completa `node --test` → 800/801; el único fallo es `wiring-performance.test.ts`
+  (9–11 ms/evento contra el umbral de 2,5 ms, sensible a carga).
+- `npx tsc --noEmit` → exit 0.
+- `npx playwright test e2e/simulation-fault.spec.ts` → 1/1 (mensaje y parada de simulación).
+- `npx playwright test` completo → 20 OK, 3 fallos preexistentes en Windows
+  (`canvas-hover` y dos de `editor-smoke`): antes del cambio de `playwright.config.ts` el
+  webServer ni arrancaba en Windows (`VITE_CACHE_DIR=...` como prefijo de comando), así que no son
+  regresiones de este plan.
