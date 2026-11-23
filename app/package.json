@@ -1,6 +1,6 @@
 {
   "name": "electro-simulador",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "type": "module",
   "description": "Simulador eléctrico compatible con archivos CADe_SIMU",

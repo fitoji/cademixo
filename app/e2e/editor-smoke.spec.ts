@@ -585,7 +585,7 @@ test('ocultar un borne y los nombres se refleja en el lienzo', async ({ page }) 
     );
     if (!reached) continue;
     await page.mouse.click(x, y);
-    if ((await sheet.getByRole('checkbox', { name: 'Ocultar' }).count()) > 0) break;
+    if ((await sheet.getByRole('checkbox', { name: /Mostrar nombre de la conexión 1/ }).count()) > 0) break;
     await page.keyboard.down('Shift');
     await page.mouse.click(x, y);
     await page.keyboard.up('Shift');
@@ -614,15 +614,16 @@ test('ocultar un borne y los nombres se refleja en el lienzo', async ({ page }) 
   await nombres.click();
   await expect(designator).toHaveCount(1);
 
-  // «Ocultar» apaga el nombre de la conexión; el borne queda siempre.
+  // Misma convención en las dos filas: marcado = visible, destildar oculta.
+  // El check de conexión apaga el nombre; el punto del borne queda siempre.
   const bornes = selected.locator('circle.pin');
   const bornesAntes = await bornes.count();
   expect(bornesAntes).toBeGreaterThan(0);
 
-  const hide = sheet.getByRole('checkbox', { name: 'Ocultar' }).first();
-  await expect(hide).not.toBeChecked();
-  await hide.click();
-  await expect(hide).toBeChecked();
+  const mostrarNombre = sheet.getByRole('checkbox', { name: /Mostrar nombre de la conexión 1/ });
+  await expect(mostrarNombre).toBeChecked();
+  await mostrarNombre.click();
+  await expect(mostrarNombre).not.toBeChecked();
   await expect(labels.filter({ hasText: exact })).toHaveCount(0);
   await expect(bornes).toHaveCount(bornesAntes);
   await expect(page.locator('footer span.bg-warn')).toBeVisible();

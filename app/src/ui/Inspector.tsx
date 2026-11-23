@@ -425,9 +425,20 @@ function Single({
       {rec.kind === 'component' ? (
         <>
           <Field className="gap-1.5">
-            <FieldLabel htmlFor="designator" className="text-[10px] tracking-[0.6px] text-muted-foreground uppercase">
-              Designador
-            </FieldLabel>
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel htmlFor="designator" className="text-[10px] tracking-[0.6px] text-muted-foreground uppercase">
+                Designador
+              </FieldLabel>
+              {rec.pins.length > 0 && (
+                <Checkbox
+                  checked={rec.pinLabelsVisible}
+                  disabled={readOnly}
+                  onCheckedChange={(checked) => onPinLabelsVisible(rec.id, checked === true)}
+                  aria-label="Mostrar designador"
+                  title="Mostrar designador"
+                />
+              )}
+            </div>
             <Input
               id="designator"
               className="h-7 font-mono text-xs"
@@ -489,51 +500,40 @@ function Single({
             groupInClassic={false}
           >
             <div className="flex flex-col gap-3">
-              {rec.pins.length > 0 && (
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Checkbox
-                    checked={rec.pinLabelsVisible}
-                    disabled={readOnly}
-                    onCheckedChange={(checked) => onPinLabelsVisible(rec.id, checked === true)}
-                  />
-                  Mostrar designador
-                </label>
-              )}
               {rec.pins.map((pin, i) => (
                 <Field key={i} className="gap-1">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="grid grid-cols-[80px_1fr_auto] items-center gap-2">
                     <FieldLabel
                       htmlFor={`pin-${rec.id}-${i}`}
                       className="text-[10px] tracking-[0.6px] text-muted-foreground uppercase"
                     >
                       Conexión {i + 1}
                     </FieldLabel>
-                    <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                      <Checkbox
-                        checked={!rec.pinVisible[i]}
-                        disabled={readOnly}
-                        onCheckedChange={(checked) => onPinVisible(rec.id, i, checked !== true)}
-                      />
-                      Ocultar
-                    </label>
+                    <Input
+                      id={`pin-${rec.id}-${i}`}
+                      className="h-7 font-mono text-xs"
+                      disabled={readOnly}
+                      value={pinDrafts[i] ?? pin}
+                      onChange={(event) =>
+                        setPinDrafts((prev) => prev.map((value, j) => (j === i ? event.target.value : value)))
+                      }
+                      onBlur={() => {
+                        const value = (pinDrafts[i] ?? pin).trim();
+                        if (value !== '' && value !== pin) onPinName(rec.id, i, value);
+                        else setPinDrafts((prev) => prev.map((old, j) => (j === i ? pin : old)));
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
+                      }}
+                    />
+                    <Checkbox
+                      checked={rec.pinVisible[i] !== false}
+                      disabled={readOnly}
+                      onCheckedChange={(checked) => onPinVisible(rec.id, i, checked === true)}
+                      aria-label={`Mostrar nombre de la conexión ${i + 1}${pin ? ` (${pin})` : ''}`}
+                      title="Mostrar nombre de la conexión"
+                    />
                   </div>
-                  <Input
-                    id={`pin-${rec.id}-${i}`}
-                    className="h-7 font-mono text-xs"
-                    disabled={readOnly}
-                    value={pinDrafts[i] ?? pin}
-                    onChange={(event) =>
-                      setPinDrafts((prev) => prev.map((value, j) => (j === i ? event.target.value : value)))
-                    }
-                    onBlur={() => {
-                      const value = (pinDrafts[i] ?? pin).trim();
-                      if (value !== '' && value !== pin) onPinName(rec.id, i, value);
-                      else setPinDrafts((prev) => prev.map((old, j) => (j === i ? pin : old)));
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
-                    }}
-                  />
                 </Field>
               ))}
               {rec.pins.length === 0 && (
