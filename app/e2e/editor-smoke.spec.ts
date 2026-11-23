@@ -366,6 +366,24 @@ test('la barra espaciadora arranca y detiene la simulación', async ({ page }) =
   await expect(simulate).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('las pistas del lienzo muestran las teclas de la plataforma, no glyphs de Apple', async ({ page }) => {
+  // ui-sdk decide Apple desde navigator.platform. Forzar Win32 hace que el test
+  // sea igual en macOS y comprueba que los hints vienen del registro, no escritos a mano.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'platform', { configurable: true, value: 'Win32' });
+  });
+  await page.goto('/');
+
+  const hints = page.getByText(/borra el vértice enfocado/);
+  await expect(hints).toContainText('Backspace');
+  await expect(hints).not.toContainText('⌫');
+
+  await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
+  await page.getByRole('button', { name: 'Ajustar a la ventana' }).hover();
+  await expect(page.getByRole('tooltip')).toContainText('Ctrl+0');
+  await expect(page.getByRole('tooltip')).not.toContainText('⌘0');
+});
+
 test('the default wire thickness reaches the canvas', async ({ page }) => {
   await page.goto('/');
 

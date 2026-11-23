@@ -23,6 +23,7 @@ import { isProtection } from '../model/component-spec.ts';
 import type { VisualState } from '../sim/visual.ts';
 import { WIRE_CORNER_TOL, wireCornerPaths, type WireSegment } from './wire-corner.ts';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useShortcutHint } from './shortcuts.ts';
 
 export interface View {
   x: number;
@@ -161,6 +162,9 @@ export function Canvas(props: Props): JSX.Element {
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 4 });
   /** Las pistas de teclado dejaron de ser una barra fija: se piden desde el dock. */
   const [hintsOpen, setHintsOpen] = useState(false);
+  // Hints del registro compartido: ⌘0/⌫ en Apple, Ctrl+0/Backspace en el resto.
+  const fitHint = useShortcutHint('mod+0').text;
+  const backspaceHint = useShortcutHint('backspace').text;
   // Un solo estado de gesto (máquina de wiring/controller.ts): paneo, marquee,
   // arrastre de selección, de vértice y de doblez. Escape y pointercancel
   // cancelan; un gesto confirmado entra una sola vez al historial.
@@ -711,6 +715,16 @@ export function Canvas(props: Props): JSX.Element {
 
   const selectedWires = records.filter((r) => r.kind === 'connection' && selection.has(r.id));
 
+  // Una sola redacción para las dos variantes del panel (dock y clásico). Las
+  // teclas con glyph propio vienen del registro para no quedar trabadas en Apple.
+  const canvasHints = (
+    <>
+      arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
+      <b>{backspaceHint}</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar ·{' '}
+      <b>espacio</b> simula y detiene
+    </>
+  );
+
   return (
     <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
       <svg
@@ -901,7 +915,7 @@ export function Canvas(props: Props): JSX.Element {
         <DockButton
           onClick={onFit}
           label="Ajustar a la ventana"
-          shortcut="⌘0"
+          shortcut={fitHint}
           icon={<MaximizeIcon className="size-3.5" />}
         />
         <DockButton
@@ -914,18 +928,14 @@ export function Canvas(props: Props): JSX.Element {
 
       {hintsOpen && (
         <div className="absolute bottom-14 left-1/2 max-w-[min(640px,calc(100%-1.5rem))] -translate-x-1/2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] text-muted-foreground shadow-float">
-          arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
-          <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar ·{' '}
-          <b>espacio</b> simula y detiene
+          {canvasHints}
         </div>
       )}
         </>
       ) : (
         <>
           <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-border/70 bg-background/85 px-2 py-1 text-[11px] text-muted-foreground backdrop-blur-sm">
-            arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
-            <b>⌫</b> borra el vértice enfocado · <b>clic derecho</b> cancela · <b>alt</b>+arrastrar para desplazar ·{' '}
-            <b>espacio</b> simula y detiene
+            {canvasHints}
           </div>
           <div className="pointer-events-none absolute right-3 bottom-3 rounded-md border border-border/70 bg-background/85 px-2 py-0.5 font-mono text-[11px] text-muted-foreground backdrop-blur-sm">
             {Math.round(view.k * 100)}%
