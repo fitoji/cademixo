@@ -24,6 +24,7 @@ import type { VisualState } from '../sim/visual.ts';
 import { WIRE_CORNER_TOL, wireCornerPaths, type WireSegment } from './wire-corner.ts';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useShortcutHint } from './shortcuts.ts';
+import { getBindings, subscribeBindings } from './shortcut-bindings.ts';
 
 export interface View {
   x: number;
@@ -162,9 +163,10 @@ export function Canvas(props: Props): JSX.Element {
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 4 });
   /** Las pistas de teclado dejaron de ser una barra fija: se piden desde el dock. */
   const [hintsOpen, setHintsOpen] = useState(false);
-  // Hints del registro compartido: ⌘0/⌫ en Apple, Ctrl+0/Backspace en el resto.
-  const fitHint = useShortcutHint('mod+0').text;
-  const backspaceHint = useShortcutHint('backspace').text;
+  // Hints del registro compartido, con las teclas que el usuario tenga guardadas.
+  const bindings = useSyncExternalStore(subscribeBindings, getBindings, getBindings);
+  const fitHint = useShortcutHint(bindings.fit).text;
+  const backspaceHint = useShortcutHint(bindings.backspace).text;
   // Un solo estado de gesto (máquina de wiring/controller.ts): paneo, marquee,
   // arrastre de selección, de vértice y de doblez. Escape y pointercancel
   // cancelan; un gesto confirmado entra una sola vez al historial.

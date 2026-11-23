@@ -1,4 +1,4 @@
-import type { JSX } from 'react';
+import { useState, useSyncExternalStore, type JSX, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -9,51 +9,62 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useShortcutHint } from './shortcuts.ts';
+import { isApplePlatform, useShortcutHint } from './shortcuts.ts';
+import {
+  getBindings,
+  keyEventToKeys,
+  resetBindings,
+  setBinding,
+  subscribeBindings,
+  type ShortcutId,
+} from './shortcut-bindings.ts';
 
 /**
  * Diálogo «Ver → Atajos».
  *
- * Las teclas son las mismas que se registran en `App.tsx`; el texto visible se
- * calcula con `useShortcutHint`, así que ⌘ en Apple y Ctrl en el resto salen del
- * registro y no de una cadena escrita a mano. Los gestos del lienzo no pasan por
- * el registro compartido (viven en el `<svg>`), por eso se describen con palabras.
+ * Los atajos registrados se agrupan por categoría y se editan desde acá. El
+ * texto de cada tecla sale de `useShortcutHint` con la combinación vigente del
+ * store, así que ⌘ en Apple y Ctrl en el resto siguen viniendo del registro.
+ * Los gestos del lienzo no son atajos registrados y se muestran como texto.
  */
-type Entry = { label: string; keys: string } | { label: string; text: string };
+type Entry =
+  | { label: string; id: ShortcutId }
+  | { label: string; keys: string; fixed: true }
+  | { label: string; text: string };
 
 const CATEGORIES: Array<{ name: string; entries: Entry[] }> = [
   {
     name: 'Archivo',
     entries: [
-      { label: 'Guardar', keys: 'mod+s' },
-      { label: 'Guardar como…', keys: 'mod+shift+s' },
+      { label: 'Guardar', id: 'save' },
+      { label: 'Guardar como…', id: 'saveAs' },
     ],
   },
   {
     name: 'Edición',
     entries: [
-      { label: 'Deshacer', keys: 'mod+z' },
-      { label: 'Rehacer', keys: 'mod+shift+z' },
-      { label: 'Copiar la selección', keys: 'mod+c' },
-      { label: 'Pegar', keys: 'mod+v' },
-      { label: 'Rotar 90°', keys: 'r' },
-      { label: 'Rotar −90°', keys: 'shift+r' },
-      { label: 'Borrar la selección', keys: 'delete' },
-      { label: 'Borrar el vértice enfocado', keys: 'backspace' },
+      { label: 'Deshacer', id: 'undo' },
+      { label: 'Rehacer', id: 'redo' },
+      { label: 'Copiar la selección', id: 'copy' },
+      { label: 'Pegar', id: 'paste' },
+      { label: 'Rotar 90°', id: 'rotateRight' },
+      { label: 'Rotar −90°', id: 'rotateLeft' },
+      { label: 'Borrar la selección', id: 'delete' },
+      { label: 'Borrar el vértice enfocado', id: 'backspace' },
     ],
   },
   {
     name: 'Ver',
-    entries: [{ label: 'Encuadrar el dibujo', keys: 'mod+0' }],
+    entries: [{ label: 'Encuadrar el dibujo', id: 'fit' }],
   },
   {
     name: 'Simulación',
-    entries: [{ label: 'Simular o detener la simulación', keys: 'space' }],
+    entries: [{ label: 'Simular o detener la simulación', id: 'simulate' }],
   },
   {
     name: 'Lienzo',
     entries: [
-      { label: 'Cancelar lo que esté en curso', keys: 'escape' },
+      { label: 'Cancelar lo que esté en curso', keys: 'escape', fixed: true },
       { label: 'Tab + flechas cablean', text: 'Tab + Flechas' },
       { label: 'Elegir el borne y conectar el cable', text: 'Intro' },
       { label: 'Cancelar el gesto del lienzo', text: 'Clic derecho' },
@@ -62,23 +73,83 @@ const CATEGORIES: Array<{ name: string; entries: Entry[] }> = [
   },
 ];
 
-/** Fila con un atajo registrado: el hint se deriva de las mismas teclas. */
-function RegisteredRow({ label, keys }: { label: string; keys: string }): JSX.Element {
+const STATUS_ID = 'shortcut-capture-status';
+
+const EDITABLE_LABELS: Record<ShortcutId, string> = Object.fromEntries(
+  CATEGORIES.flatMap((category) =>
+    category.entries.flatMap((entry) => ('id' in entry ? [[entry.id, entry.label]] : [])),
+  ),
+) as Record<ShortcutId, string>;
+
+const ROW_CLASS = 'flex items-center justify-between gap-4 py-1 text-sm';
+
+/** Fila editable: muestra el hint o, mientras captura, el botón que lo graba. */
+function EditableRow({
+  id,
+  label,
+  keys,
+  editing,
+  capturing,
+  onStart,
+  onCapture,
+}: {
+  id: ShortcutId;
+  label: string;
+  keys: string;
+  editing: boolean;
+  capturing: boolean;
+  onStart: () => void;
+  onCapture: (event: KeyboardEvent<HTMLButtonElement>) => void;
+}): JSX.Element {
   const hint = useShortcutHint(keys).text;
   return (
-    <li className="flex items-center justify-between gap-4 py-1 text-sm">
+    <li data-shortcut-id={id} className={ROW_CLASS}>
       <span>{label}</span>
-      <kbd className="shrink-0 font-mono text-xs text-muted-foreground">{hint}</kbd>
+      {editing ? (
+        <button
+          type="button"
+          aria-label={
+            capturing
+              ? `Capturando atajo de ${label}. Presioná la combinación…`
+              : `Cambiar atajo de ${label}: ${hint}`
+          }
+          aria-describedby={capturing ? STATUS_ID : undefined}
+          onClick={onStart}
+          onKeyDown={capturing ? onCapture : undefined}
+          className="min-h-6 shrink-0 rounded-md px-2 py-0.5 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50 data-[capturing=true]:bg-accent"
+          data-capturing={capturing}
+        >
+          {capturing ? 'Presioná la combinación…' : <kbd aria-hidden="true">{hint}</kbd>}
+        </button>
+      ) : (
+        <kbd aria-hidden="true" className="shrink-0 font-mono text-xs text-muted-foreground">
+          {hint}
+        </kbd>
+      )}
     </li>
   );
 }
 
-/** Fila de un gesto del lienzo, que no tiene atajo registrado que formatear. */
+/** Atajo fijo: se muestra igual que los demás pero no se puede cambiar. */
+function FixedRow({ label, keys }: { label: string; keys: string }): JSX.Element {
+  const hint = useShortcutHint(keys).text;
+  return (
+    <li className={ROW_CLASS}>
+      <span>{label}</span>
+      <kbd aria-hidden="true" className="shrink-0 font-mono text-xs text-muted-foreground">
+        {hint}
+      </kbd>
+    </li>
+  );
+}
+
 function TextRow({ label, text }: { label: string; text: string }): JSX.Element {
   return (
-    <li className="flex items-center justify-between gap-4 py-1 text-sm">
+    <li className={ROW_CLASS}>
       <span>{label}</span>
-      <kbd className="shrink-0 font-mono text-xs text-muted-foreground">{text}</kbd>
+      <kbd aria-hidden="true" className="shrink-0 font-mono text-xs text-muted-foreground">
+        {text}
+      </kbd>
     </li>
   );
 }
@@ -90,15 +161,67 @@ export function ShortcutsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }): JSX.Element {
+  const [editing, setEditing] = useState(false);
+  const [capturing, setCapturing] = useState<ShortcutId | null>(null);
+  const [status, setStatus] = useState('');
+  const bindings = useSyncExternalStore(subscribeBindings, getBindings, getBindings);
+
+  const startCapture = (id: ShortcutId): void => {
+    setCapturing(id);
+    setStatus(`Presioná la combinación nueva para «${EDITABLE_LABELS[id]}». Escape cancela.`);
+  };
+
+  const capture = (id: ShortcutId, event: KeyboardEvent<HTMLButtonElement>): void => {
+    // IME: una tecla de composición no es una combinación; se deja pasar.
+    if (event.nativeEvent.isComposing || event.key === 'Process') return;
+    // El botón tiene el foco: la tecla es nuestra, no del atajo global ni del
+    // navegador. React corre antes del listener de document de ui-sdk.
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      setCapturing(null);
+      setStatus('Captura cancelada.');
+      return;
+    }
+    const keys = keyEventToKeys(event.nativeEvent, isApplePlatform());
+    if (keys === null) {
+      setStatus('Combinación no válida o reservada por el navegador.');
+      return;
+    }
+    const result = setBinding(id, keys);
+    if (result.ok) {
+      setCapturing(null);
+      setStatus('Atajo actualizado.');
+    } else if (result.reason === 'conflict' && result.conflictWith) {
+      setStatus(`Esa tecla ya la usa «${EDITABLE_LABELS[result.conflictWith]}».`);
+    } else if (result.reason === 'reserved') {
+      setStatus('Esa tecla está reservada por el navegador.');
+    } else {
+      setStatus('Combinación incompleta: agregá una tecla.');
+    }
+  };
+
+  const toggleEditing = (): void => {
+    setEditing((value) => !value);
+    setCapturing(null);
+    setStatus('');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[min(32rem,85vh)] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Atajos de teclado</DialogTitle>
-          <DialogDescription>
-            Los atajos disponibles, agrupados por lo que hacen. Las teclas se muestran para tu plataforma.
-          </DialogDescription>
-        </DialogHeader>
+        <div className="flex items-start justify-between gap-4">
+          <DialogHeader>
+            <DialogTitle>Atajos de teclado</DialogTitle>
+            <DialogDescription>
+              Los atajos disponibles, agrupados por lo que hacen. Las teclas se muestran para tu
+              plataforma.
+            </DialogDescription>
+          </DialogHeader>
+          <Button size="sm" variant="outline" aria-pressed={editing} onClick={toggleEditing}>
+            {editing ? 'Listo' : 'Personalizar'}
+          </Button>
+        </div>
 
         {CATEGORIES.map((category) => (
           <section key={category.name}>
@@ -107,8 +230,19 @@ export function ShortcutsDialog({
             </h3>
             <ul>
               {category.entries.map((entry) =>
-                'keys' in entry ? (
-                  <RegisteredRow key={entry.label} label={entry.label} keys={entry.keys} />
+                'id' in entry ? (
+                  <EditableRow
+                    key={entry.id}
+                    id={entry.id}
+                    label={entry.label}
+                    keys={bindings[entry.id]}
+                    editing={editing}
+                    capturing={capturing === entry.id}
+                    onStart={() => startCapture(entry.id)}
+                    onCapture={(event) => capture(entry.id, event)}
+                  />
+                ) : 'keys' in entry ? (
+                  <FixedRow key={entry.label} label={entry.label} keys={entry.keys} />
                 ) : (
                   <TextRow key={entry.label} label={entry.label} text={entry.text} />
                 ),
@@ -117,7 +251,22 @@ export function ShortcutsDialog({
           </section>
         ))}
 
+        <p id={STATUS_ID} role="status" aria-live="polite" className="min-h-4 pt-2 text-xs text-muted-foreground">
+          {status}
+        </p>
+
         <DialogFooter>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              resetBindings();
+              setCapturing(null);
+              setStatus('Atajos restablecidos.');
+            }}
+          >
+            Restablecer
+          </Button>
           <DialogClose asChild>
             <Button size="sm" variant="secondary">
               Listo

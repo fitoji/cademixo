@@ -384,6 +384,64 @@ test('las pistas del lienzo muestran las teclas de la plataforma, no glyphs de A
   await expect(page.getByRole('tooltip')).not.toContainText('⌘0');
 });
 
+async function openShortcuts(page: import('@playwright/test').Page) {
+  await page.getByRole('menuitem', { name: 'Ver', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Atajos', exact: true }).click();
+  return page.getByRole('dialog', { name: 'Atajos de teclado' });
+}
+
+test('Ver → Atajos permite editar, persiste y detecta conflictos', async ({ page }) => {
+  await page.goto('/');
+  let dialog = await openShortcuts(page);
+  await dialog.getByRole('button', { name: 'Personalizar' }).click();
+
+  const saveRow = dialog.locator('[data-shortcut-id="save"]');
+  await saveRow.getByRole('button').click();
+  await page.keyboard.press('t');
+  await expect(saveRow.locator('kbd')).toContainText('T');
+  await expect(dialog.getByRole('status')).toContainText('Atajo actualizado');
+
+  const undoRow = dialog.locator('[data-shortcut-id="undo"]');
+  await undoRow.getByRole('button').click();
+  await page.keyboard.press('t');
+  await expect(dialog.getByRole('status')).toContainText('Guardar');
+  await page.keyboard.press('Escape');
+  await expect(undoRow.locator('kbd')).toContainText(process.platform === 'darwin' ? '⌘Z' : 'Ctrl+Z');
+
+  await page.keyboard.press('Escape');
+  await page.reload();
+  dialog = await openShortcuts(page);
+  await expect(dialog.locator('[data-shortcut-id="save"]').locator('kbd')).toContainText('T');
+
+  await dialog.getByRole('button', { name: 'Restablecer' }).click();
+  await expect(dialog.locator('[data-shortcut-id="save"]').locator('kbd')).toContainText(
+    process.platform === 'darwin' ? '⌘S' : 'Ctrl+S',
+  );
+});
+
+test('el atajo rebindeado ejecuta la acción', async ({ page }) => {
+  await page.goto('/');
+  const dialog = await openShortcuts(page);
+  await dialog.getByRole('button', { name: 'Personalizar' }).click();
+  await dialog.locator('[data-shortcut-id="rotateRight"]').getByRole('button').click();
+  await page.keyboard.press('y');
+  await page.keyboard.press('Escape');
+
+  const canvas = page.getByRole('application', { name: /Lienzo del esquema/ });
+  const component = canvas.locator('g[data-id]').first();
+  await expect(component).toBeVisible();
+  const bounds = await component.boundingBox();
+  if (!bounds) throw new Error('The first canvas component has no bounding box');
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width / 2 + 24, bounds.y + bounds.height / 2 + 18, { steps: 4 });
+  await page.mouse.up();
+
+  const before = await getDocumentSnapshot(page);
+  await page.keyboard.press('y');
+  await expect.poll(async () => (await getDocumentSnapshot(page)).components).not.toEqual(before.components);
+});
+
 test('Ver → Atajos muestra los atajos agrupados por categoría', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'platform', { configurable: true, value: 'Win32' });

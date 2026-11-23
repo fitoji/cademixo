@@ -20,6 +20,16 @@
 export { useShortcut, useShortcutHint } from '@ui-sdk/react/shortcuts';
 
 /**
+ * ui-sdk decide Apple desde `navigator.platform || userAgent`, pero no expone
+ * esa función en su API pública. La repetimos acá, en la única puerta al
+ * paquete, para normalizar las combinaciones que graba el usuario.
+ */
+export function isApplePlatform(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
+}
+
+/**
  * Controles que ya usan la barra espaciadora: un `<button>` dispara su clic, una
  * opción de lista elige, un renglón con `role="button"` se activa. Si el foco
  * está ahí, la tecla es del control y no de la app: el atajo se saltea y el

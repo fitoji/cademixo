@@ -93,6 +93,7 @@ import {
   writeHandle,
 } from './files.ts';
 import { isTypingTarget, ownsSpaceKey, useShortcut, useShortcutHint } from './shortcuts.ts';
+import { getBindings, subscribeBindings } from './shortcut-bindings.ts';
 import { JUNCTION_TEMPLATE, WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { templateForPlacement } from '../symbols/place.ts';
 import { blankDocument } from '../format/blank.ts';
@@ -1081,6 +1082,9 @@ export function App(): JSX.Element {
   // tecla que escriba le gana al campo de texto que tiene el foco.
   const editable = (): boolean => !running && !isTypingTarget(document.activeElement);
 
+  // Las teclas salen del store de bindings; cada cambio re-registra ese atajo.
+  const bindings = useSyncExternalStore(subscribeBindings, getBindings, getBindings);
+
   const deleteSelected = (): void =>
     setState((s) => {
       if (!s) return s;
@@ -1092,59 +1096,64 @@ export function App(): JSX.Element {
     allowInInput: true,
     description: 'Cancelar lo que esté en curso',
   });
-  useShortcut('space', () => toggleSimulation(), {
+  useShortcut(bindings.simulate, () => toggleSimulation(), {
     // Un control con foco ya usa la barra espaciadora: se deja pasar para que la
     // resuelva él, una sola vez.
     when: () => !ownsSpaceKey(document.activeElement),
     description: 'Simular o detener la simulación',
   });
-  useShortcut('mod+s', () => void saveDocument('save'), { description: 'Guardar' });
-  useShortcut('mod+shift+s', () => void saveDocument('save-as'), { description: 'Guardar como…' });
-  useShortcut('mod+z', () => setState((s) => (s ? undo(s) : s)), {
+  useShortcut(bindings.save, () => void saveDocument('save'), { description: 'Guardar' });
+  useShortcut(bindings.saveAs, () => void saveDocument('save-as'), { description: 'Guardar como…' });
+  useShortcut(bindings.undo, () => setState((s) => (s ? undo(s) : s)), {
     when: editable,
     description: 'Deshacer',
   });
-  useShortcut('mod+shift+z', () => setState((s) => (s ? redo(s) : s)), {
+  useShortcut(bindings.redo, () => setState((s) => (s ? redo(s) : s)), {
     when: editable,
     description: 'Rehacer',
   });
   useShortcut(
-    'mod+c',
+    bindings.copy,
     () => {
       setState((s) => (s ? copySelection(s) : s));
       flash('copiado');
     },
     { when: editable, description: 'Copiar la selección' },
   );
-  useShortcut('mod+v', () => setState((s) => (s ? paste(s) : s)), {
+  useShortcut(bindings.paste, () => setState((s) => (s ? paste(s) : s)), {
     when: editable,
     description: 'Pegar',
   });
-  useShortcut('mod+0', () => setFitToken((t) => t + 1), {
+  useShortcut(bindings.fit, () => setFitToken((t) => t + 1), {
     when: editable,
     description: 'Encuadrar el dibujo',
   });
-  useShortcut('delete', deleteSelected, { when: editable, description: 'Borrar la selección' });
-  useShortcut('backspace', deleteSelected, { when: editable, description: 'Borrar la selección' });
-  useShortcut('r', () => setState((s) => (s ? rotateSelection(s) : s)), {
+  useShortcut(bindings.delete, deleteSelected, { when: editable, description: 'Borrar la selección' });
+  useShortcut(bindings.backspace, deleteSelected, {
+    when: editable,
+    description: 'Borrar el vértice enfocado',
+  });
+  useShortcut(bindings.rotateRight, () => setState((s) => (s ? rotateSelection(s) : s)), {
     when: editable,
     description: 'Rotar 90°',
   });
-  useShortcut('shift+r', () => setState((s) => (s ? rotateLeftSelection(s) : s)), {
+  useShortcut(bindings.rotateLeft, () => setState((s) => (s ? rotateLeftSelection(s) : s)), {
     when: editable,
     description: 'Rotar −90°',
   });
 
-  // Hints por plataforma —⌘S en Apple, Ctrl+S en el resto— derivados de las
-  // mismas teclas que registran los atajos: no pueden desincronizarse.
-  const hintSave = useShortcutHint('mod+s').text;
-  const hintSaveAs = useShortcutHint('mod+shift+s').text;
-  const hintUndo = useShortcutHint('mod+z').text;
-  const hintRedo = useShortcutHint('mod+shift+z').text;
-  const hintCopy = useShortcutHint('mod+c').text;
-  const hintPaste = useShortcutHint('mod+v').text;
-  const hintRotateLeft = useShortcutHint('shift+r').text;
-  const hintFit = useShortcutHint('mod+0').text;
+  // Hints por plataforma derivados de las teclas vigentes del store: si el
+  // usuario rebindea, el menú y los tooltips muestran la tecla nueva.
+  const hintSave = useShortcutHint(bindings.save).text;
+  const hintSaveAs = useShortcutHint(bindings.saveAs).text;
+  const hintUndo = useShortcutHint(bindings.undo).text;
+  const hintRedo = useShortcutHint(bindings.redo).text;
+  const hintCopy = useShortcutHint(bindings.copy).text;
+  const hintPaste = useShortcutHint(bindings.paste).text;
+  const hintRotateRight = useShortcutHint(bindings.rotateRight).text;
+  const hintRotateLeft = useShortcutHint(bindings.rotateLeft).text;
+  const hintDelete = useShortcutHint(bindings.delete).text;
+  const hintFit = useShortcutHint(bindings.fit).text;
 
   if (!state || !project) {
     return (
@@ -1313,7 +1322,7 @@ export function App(): JSX.Element {
                   <MenubarItem disabled={running} onSelect={() => setState(rotateSelection(state))}>
                     <RotateCwIcon />
                     Girar a la derecha
-                    <MenubarShortcut>R</MenubarShortcut>
+                    <MenubarShortcut>{hintRotateRight}</MenubarShortcut>
                   </MenubarItem>
                   <MenubarItem disabled={running} onSelect={() => setState((s) => (s ? rotateLeftSelection(s) : s))}>
                     <RotateCcwIcon />
@@ -1331,7 +1340,7 @@ export function App(): JSX.Element {
                   <MenubarItem variant="destructive" disabled={running || state.selection.length === 0} onSelect={() => setState(deleteSelection(state))}>
                     <Trash2Icon />
                     Borrar selección
-                    <MenubarShortcut>⌫</MenubarShortcut>
+                    <MenubarShortcut>{hintDelete}</MenubarShortcut>
                   </MenubarItem>
                 </MenubarGroup>
               </MenubarContent>
