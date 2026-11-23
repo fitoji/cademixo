@@ -58,6 +58,8 @@ test('corto L–N del fixture real: sólo con el pulsador cerrado', () => {
   assert.equal(fault?.kind, 'short');
   assert.deepEqual([...fault!.nets].sort((a, b) => a - b), [0, 1]);
   assert.ok(fault!.recordIds.includes(2), 'el pulsador que cierra el corto queda marcado');
+  assert.equal(fault!.culprit?.recordId, 2, 'el culpable es el contacto que cierra, no la fase');
+  assert.equal(fault!.culprit?.pins.length, 2);
   assert.equal(detectFaults(netlist, { closed: new Set() }), null);
 });
 
@@ -66,6 +68,7 @@ test('fase contra PE del fixture real: derivación a tierra', () => {
   const fault = detectFaults(netlist, closedFromFixture('earth-test.cad'));
   assert.equal(fault?.kind, 'earth');
   assert.ok(fault!.recordIds.includes(2));
+  assert.equal(fault!.culprit?.recordId, 2);
 });
 
 test('L1 contra L2 con contacto cerrado es corto', () => {
@@ -77,6 +80,8 @@ test('L1 contra L2 con contacto cerrado es corto', () => {
   const fault = detectFaults(netlist, { closed: new Set(['9:0-1']) });
   assert.equal(fault?.kind, 'short');
   assert.deepEqual([...fault!.nets].sort((a, b) => a - b), [1, 3]);
+  assert.equal(fault!.culprit?.recordId, 9);
+  assert.deepEqual(fault!.culprit?.pins, [0, 1]);
 });
 
 test('dos tramos de la misma fase no son fallo', () => {
@@ -121,4 +126,6 @@ test('derivación gana sobre corto si conviven en la misma red', () => {
   ]);
   const fault = detectFaults(netlist, { closed: new Set(['9:0-1', '10:0-1']) });
   assert.equal(fault?.kind, 'earth');
+  // El culpable es el contacto que completa la derivación (10), no el corto previo (9).
+  assert.equal(fault!.culprit?.recordId, 10);
 });

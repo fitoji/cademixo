@@ -38,12 +38,33 @@ const SUPPLY_TAGS: Readonly<Record<number, readonly PhaseTag[]>> = {
   3011: ['1', 'N', 'P'],
 };
 
+/** ¿El código es un símbolo de alimentación (no un componente accionable)? */
+export function isSupplyCode(code: number): boolean {
+  return SUPPLY_TAGS[code] !== undefined;
+}
+
 export interface SimulationFault {
   kind: PhaseConflict;
   /** nets involucradas, en orden de detección */
   nets: [number, number];
   /** registros que tocan esas nets, para resaltarlos en el lienzo */
   recordIds: number[];
+  /**
+   * Contacto cerrado que une las dos etiquetas y por lo tanto genera el fallo.
+   * `null` cuando el corto ya existe sin cerrar ningún polo (cables/uniones).
+   */
+  culprit: FaultCulprit | null;
+}
+
+export interface FaultCulprit {
+  recordId: number;
+  /** índices de borne del polo, en el orden de `Device.nets` */
+  pins: [number, number];
+}
+
+interface SupplyTag {
+  net: number;
+  tag: PhaseTag;
 }
 
 class UnionFind {
@@ -94,6 +115,84 @@ function closedPoles(state: Pick<SimState, 'closed'>, devices: Netlist['devices'
   return poles;
 }
 
+/** Etiquetas de alimentación ya resueltas a nets concretas. */
+function supplyTags(netlist: Netlist): SupplyTag[] {
+  const out: SupplyTag[] = [];
+  for (const device of netlist.devices) {
+    const tags = SUPPLY_TAGS[device.code];
+    if (!tags) continue;
+    for (let pin = 0; pin < Math.min(tags.length, device.nets.length); pin++) {
+      const net = device.nets[pin];
+      if (net === undefined || net < 0) continue;
+      out.push({ net, tag: tags[pin] });
+    }
+  }
+  return out;
+}
+
+/** ¿La gráfica actual ya junta dos etiquetas incompatibles de este tipo? */
+function reachesKind(tags: readonly SupplyTag[], uf: UnionFind, kind: PhaseConflict): boolean {
+  const seen = new Map<number, PhaseTag[]>();
+  for (const { net, tag } of tags) {
+    const root = uf.find(net);
+    const list = seen.get(root) ?? [];
+    for (const previous of list) {
+      if (phaseConflict(previous, tag) === kind) return true;
+    }
+    list.push(tag);
+    seen.set(root, list);
+  }
+  return false;
+}
+
+/**
+ * Busca el polo cerrado que hace aparecer el fallo. Se parte de la conexión de
+ * cables y se van cerrando los polos en orden estable: el primero que produce
+ * el mismo tipo de fallo que se reporta es el que lo genera. En una cadena de
+ * contactos, marca el último que completa el camino, no la alimentación.
+ */
+function findCulprit(
+  netlist: Netlist,
+  state: Pick<SimState, 'closed'>,
+  kind: PhaseConflict,
+): FaultCulprit | null {
+  const tags = supplyTags(netlist);
+  const uf = new UnionFind();
+  for (const net of netlist.sizes.keys()) uf.add(net);
+  for (const nets of netlist.recordNets.values()) {
+    if (nets.length >= 2) uf.union(nets[0], nets[1]);
+  }
+  // Si los cables ya unen las etiquetas, no hay contacto culpable.
+  if (reachesKind(tags, uf, kind)) return null;
+
+  const byRecord = new Map(netlist.devices.map((device) => [device.recordId, device]));
+  const poles: { culprit: FaultCulprit; netA: number; netB: number }[] = [];
+  for (const id of state.closed) {
+    const sep = id.indexOf(':');
+    if (sep < 0) continue;
+    const recordId = Number(id.slice(0, sep));
+    const device = byRecord.get(recordId);
+    if (!device) continue;
+    const [a, b] = id.slice(sep + 1).split('-').map(Number);
+    if (!Number.isInteger(a) || !Number.isInteger(b)) continue;
+    const netA = device.nets[a];
+    const netB = device.nets[b];
+    if (netA === undefined || netB === undefined || netA < 0 || netB < 0) continue;
+    poles.push({ culprit: { recordId, pins: [a, b] }, netA, netB });
+  }
+  poles.sort(
+    (x, y) =>
+      x.culprit.recordId - y.culprit.recordId ||
+      x.culprit.pins[0] - y.culprit.pins[0] ||
+      x.culprit.pins[1] - y.culprit.pins[1],
+  );
+  for (const pole of poles) {
+    uf.union(pole.netA, pole.netB);
+    if (reachesKind(tags, uf, kind)) return pole.culprit;
+  }
+  return null;
+}
+
 export function detectFaults(netlist: Netlist, state: Pick<SimState, 'closed'>): SimulationFault | null {
   const uf = new UnionFind();
   for (const net of netlist.sizes.keys()) uf.add(net);
@@ -141,5 +240,10 @@ export function detectFaults(netlist: Netlist, state: Pick<SimState, 'closed'>):
   for (const net of [fault.a, fault.b]) {
     for (const id of netlist.members.get(net) ?? []) recordIds.add(id);
   }
-  return { kind: fault.kind, nets: [fault.a, fault.b], recordIds: [...recordIds].sort((a, b) => a - b) };
+  return {
+    kind: fault.kind,
+    nets: [fault.a, fault.b],
+    recordIds: [...recordIds].sort((a, b) => a - b),
+    culprit: findCulprit(netlist, state, fault.kind),
+  };
 }

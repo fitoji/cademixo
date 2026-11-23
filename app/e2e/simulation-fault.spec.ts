@@ -14,11 +14,22 @@ test('cortocircuito: muestra el error de CADe y detiene la simulación', async (
 
   await page.keyboard.press('Space');
 
-  const dialog = page.getByRole('dialog');
+  // El aviso abre además el panel de avisos, que también es un diálogo: se
+  // ancla el del error por su texto para no matchear los dos.
+  const dialog = page.getByRole('dialog').filter({ hasText: 'Se ha producido un cortocircuito' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText('Se ha producido un cortocircuito')).toBeVisible();
   await expect(page.locator('footer').getByText(/simulación estable/)).toHaveCount(0);
 
   await dialog.getByRole('button', { name: 'Aceptar' }).click();
   await expect(dialog).toBeHidden();
+
+  // El mismo corte queda en el sistema de avisos y el lienzo marca el punto.
+  await expect(page.getByText('Cortocircuito detectado al simular')).toBeVisible();
+  await expect(page.locator('circle.mark')).toHaveCount(1);
+  // Sólo el contacto culpable queda en rojo, no la alimentación.
+  const marked = page.locator('g[data-bad]');
+  await expect(marked).toHaveCount(1);
+  await expect(marked).toContainText('-S1');
+  await expect(marked).not.toContainText('-X1');
 });

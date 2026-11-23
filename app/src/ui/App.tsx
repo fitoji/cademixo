@@ -101,6 +101,7 @@ import { DEFAULT_FILE_NAME, cadFileName } from '../format/filename.ts';
 import { isCadeDocument } from '../format/cade.ts';
 import { circuitFrom } from '../sim/circuit.ts';
 import { detectFaults, type SimulationFault } from '../sim/faults.ts';
+import { faultFinding } from './fault-avisos.ts';
 import { simulate } from '../sim/solver.ts';
 import { motorDirections } from '../sim/direction.ts';
 import { currentFlow } from '../sim/flow.ts';
@@ -224,6 +225,12 @@ export function App(): JSX.Element {
   const [running, setRunning] = useState(false);
   /** Fallo eléctrico detectado en el paso actual: abre el diálogo y para la simulación. */
   const [faultDialog, setFaultDialog] = useState<SimulationFault | null>(null);
+  /**
+   * Último corte detectado, conservado después de cerrar el diálogo para que el
+   * aviso y la marca del lienzo sigan visibles hasta la próxima simulación o
+   * hasta que el usuario edite el esquema.
+   */
+  const [lastFault, setLastFault] = useState<SimulationFault | null>(null);
   /** El aviso de arranque espera al primer paso calculado (ver el efecto). */
   const [startPending, setStartPending] = useState(false);
   /** Aparatos accionados durante la simulación (ids de registro). Un pulsador
@@ -608,6 +615,13 @@ export function App(): JSX.Element {
 
   const network = useMemo(() => buildNetwork(project?.records ?? []), [project]);
   const findings = useMemo(() => validate(project?.records ?? []), [project]);
+  // El corte de la última simulación se suma a los avisos del documento con su
+  // propia ubicación, para que el lienzo lo marque igual que cualquier aviso.
+  const faultAviso = useMemo(
+    () => (lastFault && project ? faultFinding(project.records, lastFault) : null),
+    [lastFault, project],
+  );
+  const allFindings = faultAviso ? [...findings, faultAviso] : findings;
 
   /**
    * Circuito armado desde el dibujo: la alimentación sale de los símbolos de
@@ -747,8 +761,22 @@ export function App(): JSX.Element {
     setChangeovers({});
     lastEnergized.current = new Set();
     setFaultDialog(fault);
+    // El mismo corte entra al sistema de avisos: queda en la lista y el lienzo
+    // marca el punto detectado, aunque el diálogo se cierre.
+    setLastFault(fault);
+    const aviso = project ? faultFinding(project.records, fault) : null;
+    setHighlight({ ids: aviso?.ids ?? fault.recordIds, at: aviso?.at ?? null });
+    setSheetView('avisos');
+    setPropertiesOpen(true);
     cue('error');
-  }, [fault, clearPulses]);
+  }, [fault, clearPulses, project]);
+
+  // Editar el esquema invalida un corte de simulación previo: el aviso dejaría
+  // de describir el dibujo actual y la marca quedaría en un punto ya movido.
+  useEffect(() => {
+    setLastFault(null);
+    setHighlight(null);
+  }, [state?.text]);
 
   /**
    * Aviso de arranque: usa el MISMO resultado que el badge (este `step`), no un
@@ -924,6 +952,9 @@ export function App(): JSX.Element {
       return;
     }
     setFaultDialog(null);
+    // Un nuevo arranque invalida el corte anterior y su marca en el lienzo.
+    setLastFault(null);
+    setHighlight(null);
     setRunning(true);
     cue('simulación inicia');
     // El aviso lo da el efecto, con el primer paso del `useMemo`: el mismo
@@ -1664,7 +1695,7 @@ export function App(): JSX.Element {
               {simulation.stable ? 'simulación estable' : 'oscila'} · {simulation.energized.size}
             </Badge>
           )}
-          {findings.length > 0 && (
+          {allFindings.length > 0 && (
             <Button
               variant="destructive"
               size="xs"
@@ -1674,7 +1705,7 @@ export function App(): JSX.Element {
                 setPropertiesOpen(true);
               }}
             >
-              {findings.length} aviso{findings.length === 1 ? '' : 's'}
+              {allFindings.length} aviso{allFindings.length === 1 ? '' : 's'}
             </Button>
           )}
           {state.selection.length > 0 && <span>{state.selection.length} seleccionados</span>}
@@ -1686,7 +1717,7 @@ export function App(): JSX.Element {
       <Sheet open={propertiesOpen} onOpenChange={setPropertiesOpen} side="right">
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>{sheetView === 'avisos' ? `Avisos (${findings.length})` : 'Propiedades'}</SheetTitle>
+            <SheetTitle>{sheetView === 'avisos' ? `Avisos (${allFindings.length})` : 'Propiedades'}</SheetTitle>
             <SheetClose />
           </SheetHeader>
           <SheetDescription className="sr-only">
@@ -1698,7 +1729,7 @@ export function App(): JSX.Element {
             selected={selectedRecords}
             rotation={state.rotation}
             network={network}
-            findings={findings}
+            findings={allFindings}
             vertex={state.vertex}
             canDeleteVertex={state && state.vertex ? canDeleteVertex(state, state.vertex) : false}
             onDeleteVertex={() => setState((s) => (s && s.vertex ? deleteVertex(s, s.vertex) : s))}
