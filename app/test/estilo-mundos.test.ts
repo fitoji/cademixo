@@ -106,3 +106,25 @@ test('cada familia importada está declarada y no queda peso muerto', () => {
   assert.ok(!CSS.includes('space-grotesk'), 'el @import de Space Grotesk volvió');
   assert.ok(!('@fontsource-variable/space-grotesk' in pkg.dependencies), 'Space Grotesk volvió a package.json');
 });
+
+test('la apertura animada es del moderno y respeta el movimiento reducido', () => {
+  assert.ok(
+    CSS.includes('@supports (interpolate-size: allow-keywords)'),
+    'la animación perdió su guard de soporte',
+  );
+  assert.ok(
+    CSS.includes(':root.moderno details::details-content'),
+    'la animación de secciones no está acotada al mundo moderno',
+  );
+  assert.match(
+    CSS,
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]*details::details-content[\s\S]*transition: none/,
+    'falta el apagado para quien pide movimiento reducido',
+  );
+  // Fuera del moderno nadie anima `details`: el clásico ni siquiera los renderiza.
+  const fueraDelModerno = CSS.replace(/:root\.moderno[^{]*\{[^}]*\}/g, '');
+  assert.ok(
+    !fueraDelModerno.includes('details::details-content'),
+    'se animan secciones fuera del mundo moderno',
+  );
+});

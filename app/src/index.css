@@ -400,6 +400,39 @@
   background: var(--card);
 }
 
+/*
+ * Apertura de las secciones: el contenido se despliega midiendo su altura real.
+ *
+ * Un `<details>` no acepta `transition: height` porque la altura es `auto`. La
+ * solución nativa son `interpolate-size` más el pseudo `::details-content`, sin
+ * JS ni altura medida a mano. Es un solo gesto, corto y con salida exponencial;
+ * sin soporte abre de golpe -que es exactamente lo que hacía antes- y nada se
+ * rompe.
+ */
+@supports (interpolate-size: allow-keywords) {
+  :root.moderno {
+    interpolate-size: allow-keywords;
+  }
+
+  :root.moderno details::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition:
+      block-size 180ms cubic-bezier(0.2, 0.7, 0.3, 1),
+      content-visibility 180ms allow-discrete;
+  }
+
+  :root.moderno details[open]::details-content {
+    block-size: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root.moderno details::details-content {
+    transition: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
