@@ -2,6 +2,12 @@
 packages:
   - app
 
+# E: es FAT32: pnpm no puede crear los symlinks del linker aislado ni el del
+# paquete workspace. El node_modules del repo es hoisted (directorios reales),
+# así que alineamos el linker y desactivamos el auto-install previo a `run`/`exec`.
+nodeLinker: hoisted
+verifyDepsBeforeRun: false
+
 # esbuild ships a native binary and needs its postinstall script to finish the
 # install. Everything else stays unapproved by default, so a new dependency with
 # scripts fails the install instead of running code silently.
