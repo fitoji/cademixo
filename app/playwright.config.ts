@@ -18,8 +18,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command:
-      'VITE_CACHE_DIR=/private/tmp/rea-ing-inversa-vite-cache pnpm dev --host 127.0.0.1 --port 5173 --strictPort',
+    command: 'pnpm dev --host 127.0.0.1 --port 5173 --strictPort',
+    // En Windows el prefijo `VAR=valor` del command no es un comando válido.
+    env: { ...process.env, VITE_CACHE_DIR: join(tmpdir(), 'rea-ing-inversa-vite-cache') },
     url: 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

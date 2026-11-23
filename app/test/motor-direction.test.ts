@@ -52,8 +52,19 @@ function circuit(): BuiltCircuit {
       simDevices.push({ id: `${d.recordId}:${d.nets[i]}-${d.nets[j]}`, kind: 'contactNO', a: d.nets[i]!, b: d.nets[j]!, part: d.part });
     }
   }
+  const sizes = new Map<number, number>();
+  const members = new Map<number, Set<number>>();
+  for (const d of devices) {
+    for (const net of d.nets) {
+      sizes.set(net, (sizes.get(net) ?? 0) + 1);
+      const set = members.get(net) ?? new Set<number>();
+      set.add(d.recordId);
+      members.set(net, set);
+    }
+  }
   return {
     circuit: { devices: simDevices, supply: [10, 13] },
+    netlist: { sizes, devices, members, recordNets: new Map() },
     recordNets: new Map(),
     supply: [10, 13],
     devices,

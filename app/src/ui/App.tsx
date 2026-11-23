@@ -99,6 +99,7 @@ import { blankDocument } from '../format/blank.ts';
 import { DEFAULT_FILE_NAME, cadFileName } from '../format/filename.ts';
 import { isCadeDocument } from '../format/cade.ts';
 import { circuitFrom } from '../sim/circuit.ts';
+import { detectFaults, type SimulationFault } from '../sim/faults.ts';
 import { simulate } from '../sim/solver.ts';
 import { motorDirections } from '../sim/direction.ts';
 import { currentFlow } from '../sim/flow.ts';
@@ -114,6 +115,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Menubar,
   MenubarLabel,
@@ -210,6 +219,8 @@ export function App(): JSX.Element {
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   const [running, setRunning] = useState(false);
+  /** Fallo eléctrico detectado en el paso actual: abre el diálogo y para la simulación. */
+  const [faultDialog, setFaultDialog] = useState<SimulationFault | null>(null);
   /** El aviso de arranque espera al primer paso calculado (ver el efecto). */
   const [startPending, setStartPending] = useState(false);
   /** Aparatos accionados durante la simulación (ids de registro). Un pulsador
@@ -679,11 +690,13 @@ export function App(): JSX.Element {
       latched: lastEnergized.current,
       changeovers: new Map(Object.entries(positions)),
     });
-    return { state, timerReady };
+    const fault = detectFaults(built.netlist, state);
+    return { state, timerReady, fault };
   }, [running, built, pressed, positions, tick]);
 
   const simulation = step === null ? null : step.state;
   const timerReady = step === null ? NO_TIMER_READY : step.timerReady;
+  const fault = step === null ? null : step.fault;
 
   /**
    * Estado retenido del paso anterior: se avanza en un efecto, no durante el
@@ -714,6 +727,25 @@ export function App(): JSX.Element {
       if (!previous.tripped.has(id)) cue('protección disparada');
     }
   }, [step, trippedProtections]);
+
+  /**
+   * Un corte detectado es un flanco: CADe para la simulación y muestra el error.
+   * Se hace en efecto, no durante el render, y se limpia el estado transitorio
+   * igual que en el botón de parada para que no sobreviva un pulso agendado.
+   */
+  useEffect(() => {
+    if (!fault) return;
+    setRunning(false);
+    setStartPending(false);
+    clearPulses();
+    setPressedRecords([]);
+    setProtectionStates({});
+    setTrippedProtections([]);
+    setChangeovers({});
+    lastEnergized.current = new Set();
+    setFaultDialog(fault);
+    cue('error');
+  }, [fault, clearPulses]);
 
   /**
    * Aviso de arranque: usa el MISMO resultado que el badge (este `step`), no un
@@ -888,6 +920,7 @@ export function App(): JSX.Element {
       flash('el dibujo no tiene alimentación: agregá un símbolo de fase y otro de neutro', 'error');
       return;
     }
+    setFaultDialog(null);
     setRunning(true);
     cue('simulación inicia');
     // El aviso lo da el efecto, con el primer paso del `useMemo`: el mismo
@@ -1671,6 +1704,27 @@ export function App(): JSX.Element {
           />
         </SheetContent>
       </Sheet>
+
+      <Dialog open={faultDialog !== null} onOpenChange={(open) => !open && setFaultDialog(null)}>
+        <DialogContent aria-describedby="fault-description">
+          <DialogHeader>
+            <DialogTitle>Error</DialogTitle>
+            <DialogDescription id="fault-description">
+              {faultDialog?.kind === 'earth'
+                ? 'Se ha producido una derivación a tierra'
+                : 'Se ha producido un cortocircuito'}
+            </DialogDescription>
+          </DialogHeader>
+          {faultDialog && faultDialog.recordIds.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Registros implicados: {faultDialog.recordIds.join(', ')}
+            </p>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setFaultDialog(null)}>Aceptar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
 

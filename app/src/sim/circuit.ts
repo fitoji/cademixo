@@ -122,6 +122,8 @@ export interface CircuitOptions {
 
 export interface BuiltCircuit {
   circuit: Circuit;
+  /** netlist sin remapear: la usa el detector de cortocircuitos para conservar la identidad de fase */
+  netlist: Netlist;
   /** id de registro -> nets que toca; permite pintar los cables con tensión */
   recordNets: Map<number, number[]>;
   /** net tomada como fase y net tomada como retorno */
@@ -219,6 +221,7 @@ export function circuitFrom(records: CadeRecordModel[], options: CircuitOptions 
 
   return {
     circuit: { devices, supply: [live, ret] },
+    netlist,
     recordNets: netlist.recordNets,
     supply: [live, ret],
     devices: netlist.devices,
