@@ -51,7 +51,7 @@ fixtures y planos existentes siguen abriendo y guardando igual.
 | T3 | Render: giro + espejo compuestos en el glifo, con caja canónica cuando hay transformación. Hecho. | ui | `19a94c1` |
 | T4 | Caja e hit-test: `boundsOf`/hitbox sobre el dibujo transformado, ampliado a la envolvente de la tinta. Hecho. | editor/ui | `19a94c1`, `83c6617` |
 | T5 | Indicador «Orientación» en Propiedades y acciones de girar/espejar persistentes. Hecho. | ui | `19a94c1`, `6da15bd` |
-| T6 | Tests actualizados a que la capa visual no altera `record.transform`, más `orientation-writer.test.ts` y `orientacion-sample.test.ts`. Hecho. | tests | `3bf7ca2`, `6da15bd`, sin commitear el último |
+| T6 | Tests actualizados a que la capa visual no altera `record.transform`, más `orientation-writer.test.ts` y `orientacion-sample.test.ts`. Hecho. | tests | `3bf7ca2`, `6da15bd`, `d481e49` |
 
 ## Log
 
