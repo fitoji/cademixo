@@ -10,3 +10,4 @@
 [x] biblioteca de sonidos: pnpm add cuelume
 [] utilizar https://ui.shadcn.com/docs/components/base/hover-card o https://ui.shadcn.com/docs/components/base/tooltip para los componentes, ver nombre completoy codigo
 [] revisar cruces de cables, se forma puntos, se mueven cables quedan puntos
+[] https://ui.shadcn.com/docs/components/base/kbd para los atajos o https://ui-sdk.dev/docs/react/components
