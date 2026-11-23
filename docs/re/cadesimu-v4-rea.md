@@ -87,7 +87,7 @@ Protecciones / potencia:
 UI / edición:
 `Zoom Previous/Normal/+/-/Windows/All`, `Grid`, `Redraw`, `Line`, `Rectangle`, `Ellipse`, `Colored Rectangle`, `Colored Ellipse`, `Fill color`, `Color`, `Text`, `Bookstore`, `Exchange E/S (PLC)`.
 
-## Cómo aplicarlo a Electro-Simulador
+## Cómo aplicarlo a cadeMixo
 
 1. **Primitivas D/U**: las 12 primitivas de dibujo (arco, elipse, línea, número, relleno, texto) tienen variante down/up. Sirven para las herramientas de dibujo, no para los símbolos de componentes (esos son GDI/SVG).
 2. **Categorías como paleta**: agrupar la paleta de componentes por las barras detectadas (motores, bobinas, contactos, potencia, fusibles, automáticos, E/S, Grafcet, Ladder, lógica).
@@ -106,7 +106,7 @@ Ejecutado con la clave de acceso `4962` (shareware). Ventana MDI: documento `CAD
 - **Zoom**: `Ver → Zoom Todo` ajusta la vista al circuito completo (necesario porque el encuadre inicial muestra solo una esquina de la hoja).
 - **Clave de acceso**: el diálogo `CLAVE DE ACCESO` acepta `4962` y desbloquea guardado/opciones completas; sin ella el programa queda limitado.
 
-Implicación para Electro-Simulador: el pipeline de simulación debe (1) cambiar de modo edición→simulación, (2) propagar estados por contactos/bobinas, y (3) pintar energía (rojo) y animar el motor. El `.cad` propio es aceptado por el CADe_SIMU original, así que el parser actual es un buen punto de partida.
+Implicación para cadeMixo: el pipeline de simulación debe (1) cambiar de modo edición→simulación, (2) propagar estados por contactos/bobinas, y (3) pintar energía (rojo) y animar el motor. El `.cad` propio es aceptado por el CADe_SIMU original, así que el parser actual es un buen punto de partida.
 
 ## Decompilación con Ghidra (REA)
 

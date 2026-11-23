@@ -1,5 +1,5 @@
 /**
- * Modelo de dominio de Electro-Simulador.
+ * Modelo de dominio de cadeMixo.
  *
  * Principio: el `Project` es una VISTA sobre los registros crudos del archivo,
  * no una reconstrucción. Cada registro conserva su texto original, y la

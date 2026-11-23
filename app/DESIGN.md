@@ -1,5 +1,5 @@
 ---
-name: Electro-Simulador
+name: cadeMixo
 description: Editor de esquemas eléctricos que abre y guarda archivos CADe_SIMU sin perder un byte.
 colors:
   plano-bg: "#0e1116"
@@ -185,10 +185,10 @@ components:
     rounded: "{rounded.lg}"
 ---
 
-# Design System: Electro-Simulador
+# Design System: cadeMixo
 
 <!-- impeccable:design-map -->
-Name: Electro-Simulador
+Name: cadeMixo
 Colors: primary: plano-primary #2c4a7c; secondary: plano-secondary #24344d; tertiary: plano-warn #f0b429; neutral: plano-bg #0e1116; primary: plano-primary-ink #dce9ff; primary: plano-select #5b9dff (+20 more in the sidecar)
 Fonts: Geist Variable (body, wordmark, menu, button, label); ui-monospace (data); DM Sans Variable (moderno-body); JetBrains Mono Variable (moderno-data); Arial (designator)
 Spacing: xs 4px, sm 6px, md 8px, lg 12px, xl 16px

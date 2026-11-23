@@ -1,4 +1,4 @@
-# Electro-Simulador
+# cadeMixo
 
 Simulador eléctrico con manejo de cables moderno, compatible con archivos de **CADe_SIMU** (`.cade` / `.cad`).
 
