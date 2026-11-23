@@ -159,7 +159,7 @@ test('la posición del conmutador la marca el disyuntor', () => {
   const conmutador = PR1.records.find((r) => r.code === 8018)!;
   const disyuntor = PR1.records.find((r) => r.code === 6009)!;
   const posiciones = (cerrado: boolean): Record<string, number> =>
-    changeoverPositions(PR1.records, { [disyuntor.id]: cerrado ? 'closed' : 'open' }, {});
+    changeoverPositions(PR1.records, { [disyuntor.designator]: cerrado ? 'closed' : 'open' }, {});
   assert.equal(
     posiciones(true)[String(conmutador.id)],
     1,
@@ -176,7 +176,7 @@ test('el estado de la captura 02 sale del disyuntor, sin tocar el conmutador', (
   // El usuario activa el Q1 de potencia y el F0: el conmutador del mando se
   // permuta solo y se enciende H1 (nada más).
   const disyuntor = PR1.records.find((r) => r.code === 6009)!;
-  const posiciones = changeoverPositions(PR1.records, { [disyuntor.id]: 'closed' }, {});
+  const posiciones = changeoverPositions(PR1.records, { [disyuntor.designator]: 'closed' }, {});
   const { encendidas } = simular({
     cerradas: [automato.id, disyuntor.id],
     conmutadores: posiciones,
@@ -187,7 +187,7 @@ test('el estado de la captura 02 sale del disyuntor, sin tocar el conmutador', (
 
 test('al abrir el disyuntor de potencia se enciende H2 y se apaga H1', () => {
   const disyuntor = PR1.records.find((r) => r.code === 6009)!;
-  const posiciones = changeoverPositions(PR1.records, { [disyuntor.id]: 'open' }, {});
+  const posiciones = changeoverPositions(PR1.records, { [disyuntor.designator]: 'open' }, {});
   const { encendidas } = simular({
     cerradas: [automato.id, disyuntor.id],
     conmutadores: posiciones,

@@ -72,7 +72,7 @@ test('el conmutador del mando es el contacto auxiliar del disyuntor de potencia'
   assert.equal(linkedProtection(PR2.records, auxiliar!)?.id, aparato!.id);
 
   const posiciones = (cerrado: boolean) =>
-    changeoverPositions(PR2.records, { [aparato!.id]: cerrado ? 'closed' : 'open' }, {});
+    changeoverPositions(PR2.records, { [aparato!.designator]: cerrado ? 'closed' : 'open' }, {});
   assert.equal(posiciones(true)[String(auxiliar!.id)], 1, 'disyuntor cerrado → posición de maniobra');
   assert.equal(posiciones(false)[String(auxiliar!.id)], 0, 'disyuntor abierto → posición de reposo');
 });

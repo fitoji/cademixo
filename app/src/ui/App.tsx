@@ -73,7 +73,8 @@ import {
   specOf,
   startsOpen,
 } from '../model/component-spec.ts';
-import { changeoverPositions, linkedProtection } from '../sim/apparatus.ts';
+import { apparatusKey, changeoverPositions, groupIdsWith, linkedProtection } from '../sim/apparatus.ts';
+import type { ProtectionStates } from '../sim/apparatus.ts';
 import type { Point } from '../editor/pins.ts';
 import { Canvas } from './Canvas.tsx';
 // Esquinas redondeadas: sólo pintado, y sólo en el estilo moderno (S3).
@@ -214,15 +215,17 @@ export function App(): JSX.Element {
    * momentáneo entra acá mientras dura su pulso y sale solo. */
   const [pressedRecords, setPressedRecords] = useState<number[]>([]);
   /**
-   * Estado de las protecciones durante la simulación, por id de registro:
-   * `'closed'` conduce, `'open'` corta. Sin entrada, vale el del código: en
-   * CADeSimu los automáticos, disyuntores y diferenciales arrancan **abiertos**
-   * y el usuario los cierra con un clic (`startsOpen`).
+   * Estado de las protecciones durante la simulación, por **designador literal**:
+   * `'closed'` conduce, `'open'` corta. Todas las piezas que comparten designador
+   * son un único aparato para CADe, así que comparten entrada (serie F). Sin
+   * entrada, vale el del código: en CADeSimu los automáticos, disyuntores y
+   * diferenciales arrancan **abiertos** y el usuario los cierra con un clic
+   * (`startsOpen`).
    *
    * `trippedProtections` son las que el usuario volvió a abrir después de
    * cerrarlas: ésas se pintan de rojo.
    */
-  const [protectionStates, setProtectionStates] = useState<Record<number, 'closed' | 'open'>>({});
+  const [protectionStates, setProtectionStates] = useState<ProtectionStates>({});
   const [trippedProtections, setTrippedProtections] = useState<number[]>([]);
   /** Posición de cada conmutador de dos posiciones, por id de registro. */
   const [changeovers, setChangeovers] = useState<Record<string, number>>({});
@@ -605,7 +608,7 @@ export function App(): JSX.Element {
     for (const rec of project.records) {
       if (rec.kind !== 'component') continue;
       if (!isProtectionCode(rec.code)) continue;
-      if (protectionStateOf(rec.code, protectionStates[rec.id]) === 'open') open.add(rec.id);
+      if (protectionStateOf(rec.code, protectionStates[apparatusKey(rec)]) === 'open') open.add(rec.id);
     }
     return circuitFrom(project.records, { openRecords: open });
   }, [project, protectionStates]);
@@ -933,17 +936,12 @@ export function App(): JSX.Element {
         }
         return;
       }
+      const records = projectOf(state!).records;
       if (isChangeover(code)) {
-        const rec = projectOf(state!).records.find((r) => r.id === id);
-        const protection = rec ? linkedProtection(projectOf(state!).records, rec) : undefined;
-        if (protection) {
-          // Es el contacto auxiliar de un disyuntor: el clic acciona el aparato.
-          const current = protectionStateOf(protection.code, protectionStates[protection.id]);
-          const next = current === 'closed' ? 'open' : 'closed';
-          setProtectionStates((prev) => ({ ...prev, [protection.id]: next }));
-          setTrippedProtections((prev) =>
-            next === 'open' && current === 'closed' ? [...new Set([...prev, protection.id])] : prev,
-          );
+        const rec = records.find((r) => r.id === id);
+        if (rec && linkedProtection(records, rec)) {
+          // CADe no deja accionar el contacto auxiliar con el mouse: su posición
+          // la marca el aparato. Medido en cuatro puntos del símbolo (serie C).
           return;
         }
         // Conmutador suelto: el clic lo pasa de una salida a la otra.
@@ -953,12 +951,17 @@ export function App(): JSX.Element {
       }
       if (isProtectionCode(code)) {
         // La protección arranca abierta (los automáticos); el clic la cierra y
-        // el siguiente la vuelve a abrir (disparo).
-        const current = protectionStateOf(code, protectionStates[id]);
+        // el siguiente la vuelve a abrir (disparo). El estado es del designador:
+        // CADe acciona juntas todas las piezas que lo comparten (serie F).
+        const rec = records.find((r) => r.id === id)!;
+        const key = apparatusKey(rec);
+        const current = protectionStateOf(code, protectionStates[key]);
         const next = current === 'closed' ? 'open' : 'closed';
-        setProtectionStates((prev) => ({ ...prev, [id]: next }));
+        setProtectionStates((prev) => ({ ...prev, [key]: next }));
         setTrippedProtections((prev) =>
-          next === 'open' && current === 'closed' ? [...new Set([...prev, id])] : prev,
+          next === 'open' && current === 'closed'
+            ? [...new Set([...prev, ...groupIdsWith(records, rec)])]
+            : prev,
         );
         return;
       }
