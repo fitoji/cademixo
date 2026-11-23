@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import pkg from '../../package.json';
+import mascotUrl from '../mascot.webp';
 import {
   createEditor,
   projectOf,
@@ -1177,6 +1178,12 @@ export function App(): JSX.Element {
         )}
         <header className="relative z-10 flex h-[46px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 shadow-chrome-down">
           <div className="mr-0.5 flex shrink-0 items-baseline gap-1.5">
+            <img
+              src={mascotUrl}
+              alt=""
+              aria-hidden="true"
+              className="h-6 w-6 shrink-0 self-center object-contain"
+            />
             <strong className="text-[13.5px] font-semibold tracking-tight">cadeMixo</strong>
             <span className="font-mono text-[10.5px] text-muted-foreground">v{pkg.version}</span>
           </div>
