@@ -1828,11 +1828,15 @@ export function App(): JSX.Element {
                 : 'Se ha producido un cortocircuito'}
             </DialogDescription>
           </DialogHeader>
-          {faultDialog && faultDialog.recordIds.length > 0 && (
+          {faultDialog?.shortNode ? (
+            <p className="text-xs text-muted-foreground">
+              Cruce de conductores en la hoja {faultDialog.shortNode.sheet + 1}
+            </p>
+          ) : faultDialog && faultDialog.recordIds.length > 0 ? (
             <p className="text-xs text-muted-foreground">
               Registros implicados: {faultDialog.recordIds.join(', ')}
             </p>
-          )}
+          ) : null}
           <DialogFooter>
             <Button onClick={() => setFaultDialog(null)}>Aceptar</Button>
           </DialogFooter>

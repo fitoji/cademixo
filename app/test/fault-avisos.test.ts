@@ -20,6 +20,8 @@ const short = (ids: number[], kind: 'short' | 'earth' = 'short'): SimulationFaul
   nets: [1, 2],
   recordIds: ids,
   culprit: null,
+  tags: ['1', 'N'],
+  shortNode: null,
 });
 
 test('el cortocircuito se ubica en el centro del primer componente implicado', () => {
@@ -60,6 +62,19 @@ test('la derivación a tierra se distingue del cortocircuito', () => {
   const finding = faultFinding(project.records, short([component.id], 'earth'));
   assert.equal(finding.code, 'earth-fault');
   assert.match(finding.message, /tierra/);
+});
+
+test('un corto por cruce de cables marca el cruce, no el fusible', () => {
+  const text = readFileSync(new URL('./fixtures/short-cross-test.cad', import.meta.url), 'latin1');
+  const records = buildProject(parse(text)).records;
+  const fault = detectFaults(buildNetlist(records), {
+    closed: new Set(['46:0-2', '46:1-3', '2:0-2']),
+  })!;
+  const finding = faultFinding(records, fault);
+  assert.deepEqual(finding.at, { x: 39, y: 144 });
+  assert.match(finding.message, /cruce de conductores/);
+  assert.ok(finding.ids.includes(152));
+  assert.ok(!finding.ids.includes(46), 'el fusible no se marca como punto del corto');
 });
 
 test('marca el contacto que genera el corto, no la alimentación', () => {

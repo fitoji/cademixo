@@ -13,6 +13,7 @@
  * `circuitFrom()` devuelva `null` (`live === ret`) y aun así debe avisar.
  */
 
+import type { NetNode } from '../editor/network.ts';
 import type { Netlist } from './netlist.ts';
 import type { SimState } from './solver.ts';
 import { phaseConflict, type PhaseConflict, type PhaseTag } from './phase.ts';
@@ -54,12 +55,38 @@ export interface SimulationFault {
    * `null` cuando el corto ya existe sin cerrar ningún polo (cables/uniones).
    */
   culprit: FaultCulprit | null;
+  /** Las dos etiquetas que chocan, para poder seguir sus caminos por el cableado. */
+  tags: [PhaseTag, PhaseTag];
+  /**
+   * Nodo de cableado donde se tocan las dos etiquetas: el cruce o unión que
+   * genera el corto. `null` si el corte sólo existe por un polo cerrado.
+   */
+  shortNode: FaultNode | null;
 }
 
 export interface FaultCulprit {
   recordId: number;
   /** índices de borne del polo, en el orden de `Device.nets` */
   pins: [number, number];
+}
+
+export interface FaultNode {
+  key: string;
+  sheet: number;
+  x: number;
+  y: number;
+  kind: NetNode['kind'];
+  /** registros que pasan o terminan en el cruce, para resaltarlos */
+  records: number[];
+}
+
+interface ClosedPole {
+  recordId: number;
+  pins: [number, number];
+  netA: number;
+  netB: number;
+  keyA: string | null;
+  keyB: string | null;
 }
 
 interface SupplyTag {
@@ -97,20 +124,28 @@ class UnionFind {
  * Los ids de `SimState.closed` son `recordId:a-b`, donde `a` y `b` son
  * ÍNDICES DE BORNE (no nets). El netlist conserva esa correspondencia.
  */
-function closedPoles(state: Pick<SimState, 'closed'>, devices: Netlist['devices']): [number, number][] {
-  const byRecord = new Map(devices.map((device) => [device.recordId, device]));
-  const poles: [number, number][] = [];
+function closedPoleList(state: Pick<SimState, 'closed'>, netlist: Netlist): ClosedPole[] {
+  const byRecord = new Map(netlist.devices.map((device) => [device.recordId, device]));
+  const poles: ClosedPole[] = [];
   for (const id of state.closed) {
     const sep = id.indexOf(':');
     if (sep < 0) continue;
-    const device = byRecord.get(Number(id.slice(0, sep)));
+    const recordId = Number(id.slice(0, sep));
+    const device = byRecord.get(recordId);
     if (!device) continue;
     const [a, b] = id.slice(sep + 1).split('-').map(Number);
     if (!Number.isInteger(a) || !Number.isInteger(b)) continue;
     const netA = device.nets[a];
     const netB = device.nets[b];
     if (netA === undefined || netB === undefined || netA < 0 || netB < 0) continue;
-    poles.push([netA, netB]);
+    poles.push({
+      recordId,
+      pins: [a, b],
+      netA,
+      netB,
+      keyA: device.pinNodes?.[a] ?? null,
+      keyB: device.pinNodes?.[b] ?? null,
+    });
   }
   return poles;
 }
@@ -165,21 +200,11 @@ function findCulprit(
   // Si los cables ya unen las etiquetas, no hay contacto culpable.
   if (reachesKind(tags, uf, kind)) return null;
 
-  const byRecord = new Map(netlist.devices.map((device) => [device.recordId, device]));
-  const poles: { culprit: FaultCulprit; netA: number; netB: number }[] = [];
-  for (const id of state.closed) {
-    const sep = id.indexOf(':');
-    if (sep < 0) continue;
-    const recordId = Number(id.slice(0, sep));
-    const device = byRecord.get(recordId);
-    if (!device) continue;
-    const [a, b] = id.slice(sep + 1).split('-').map(Number);
-    if (!Number.isInteger(a) || !Number.isInteger(b)) continue;
-    const netA = device.nets[a];
-    const netB = device.nets[b];
-    if (netA === undefined || netB === undefined || netA < 0 || netB < 0) continue;
-    poles.push({ culprit: { recordId, pins: [a, b] }, netA, netB });
-  }
+  const poles = closedPoleList(state, netlist).map((pole) => ({
+    culprit: { recordId: pole.recordId, pins: pole.pins } satisfies FaultCulprit,
+    netA: pole.netA,
+    netB: pole.netB,
+  }));
   poles.sort(
     (x, y) =>
       x.culprit.recordId - y.culprit.recordId ||
@@ -193,6 +218,135 @@ function findCulprit(
   return null;
 }
 
+/** Nodo de cada borne de alimentación, con su etiqueta. */
+function supplySeeds(netlist: Netlist): { key: string; tag: PhaseTag }[] {
+  const out: { key: string; tag: PhaseTag }[] = [];
+  for (const device of netlist.devices) {
+    const tags = SUPPLY_TAGS[device.code];
+    if (!tags) continue;
+    const pins = device.pinNodes ?? [];
+    for (let pin = 0; pin < Math.min(tags.length, pins.length); pin++) {
+      out.push({ key: pins[pin]!, tag: tags[pin] });
+    }
+  }
+  return out;
+}
+
+/** Grafo de conducción: tramos de cable + polos cerrados. */
+function conductionAdjacency(netlist: Netlist, state: Pick<SimState, 'closed'>): Map<string, Set<string>> {
+  const adjacency = new Map<string, Set<string>>();
+  const add = (a: string | null, b: string | null): void => {
+    if (a === null || b === null || a === b) return;
+    const setA = adjacency.get(a) ?? new Set<string>();
+    setA.add(b);
+    adjacency.set(a, setA);
+    const setB = adjacency.get(b) ?? new Set<string>();
+    setB.add(a);
+    adjacency.set(b, setB);
+  };
+  for (const segment of netlist.segments?.values() ?? []) add(segment.a, segment.b);
+  // Un nodo `through` vive en el MEDIO de un tramo: hay que unirlo a los
+  // extremos del tramo o el cruce queda aislado del cable que lo atraviesa.
+  for (const node of netlist.nodes?.values() ?? []) {
+    for (const segmentId of node.through) {
+      const segment = netlist.segments?.get(segmentId);
+      if (segment) add(node.key, segment.a);
+    }
+  }
+  for (const pole of closedPoleList(state, netlist)) add(pole.keyA, pole.keyB);
+  return adjacency;
+}
+
+/** Nodos alcanzables desde las fuentes, opcionalmente ignorando un tramo. */
+function reachable(
+  adjacency: Map<string, Set<string>>,
+  sources: readonly string[],
+  skip?: { a: string; b: string },
+): Set<string> {
+  const seen = new Set<string>();
+  const queue: string[] = [];
+  for (const source of sources) {
+    if (!seen.has(source)) {
+      seen.add(source);
+      queue.push(source);
+    }
+  }
+  for (let i = 0; i < queue.length; i++) {
+    const node = queue[i]!;
+    for (const next of adjacency.get(node) ?? []) {
+      if (skip && ((node === skip.a && next === skip.b) || (node === skip.b && next === skip.a))) continue;
+      if (seen.has(next)) continue;
+      seen.add(next);
+      queue.push(next);
+    }
+  }
+  return seen;
+}
+
+/**
+ * Ubica el cruce/uníon que genera un corto por cableado. Prueba cada tramo:
+ * si al quitarlo las dos etiquetas en conflicto dejan de estar conectadas, ese
+ * tramo es el puente. Se prefiere el extremo que cae en un nodo `through` o
+ * `junction` (unión en T o cruce) y, entre iguales, el tramo más nuevo.
+ */
+function locateCableShort(
+  netlist: Netlist,
+  state: Pick<SimState, 'closed'>,
+  tags: [PhaseTag, PhaseTag],
+): FaultNode | null {
+  if (!netlist.nodes || !netlist.segments) return null;
+  const seeds = supplySeeds(netlist);
+  const sourcesA = seeds.filter((seed) => seed.tag === tags[0]).map((seed) => seed.key);
+  const sourcesB = seeds.filter((seed) => seed.tag === tags[1]).map((seed) => seed.key);
+  if (sourcesA.length === 0 || sourcesB.length === 0) return null;
+  const adjacency = conductionAdjacency(netlist, state);
+
+  const candidates: { node: NetNode; records: number[]; score: number; segment: number }[] = [];
+  for (const segment of netlist.segments.values()) {
+    if (segment.a === segment.b) continue;
+    const reachA = reachable(adjacency, sourcesA, segment);
+    const reachB = reachable(adjacency, sourcesB, segment);
+    let connected = false;
+    for (const key of reachA) {
+      if (reachB.has(key)) {
+        connected = true;
+        break;
+      }
+    }
+    if (connected) continue;
+
+    // El extremo del tramo que queda del lado de la segunda etiqueta.
+    const aOnA = reachA.has(segment.a);
+    const bOnA = reachA.has(segment.b);
+    const side = aOnA && !bOnA ? [segment.b] : bOnA && !aOnA ? [segment.a] : [segment.a, segment.b];
+    for (const key of side) {
+      const node = netlist.nodes.get(key);
+      if (!node || (node.through.length === 0 && !node.junction)) continue;
+      const records = [...new Set([segment.id, ...node.through, ...node.ends])].sort((x, y) => x - y);
+      candidates.push({ node, records, score: node.junction ? 2 : 1, segment: segment.id });
+    }
+  }
+  if (candidates.length === 0) return null;
+  // El tramo más nuevo es el que el usuario acaba de dibujar; entre varios
+  // cortes en serie, ése es el que generó el corto. El nodo `through`/`junction`
+  // desempata para quedarse con el cruce y no con un extremo suelto.
+  candidates.sort(
+    (x, y) =>
+      y.segment - x.segment ||
+      y.score - x.score ||
+      x.node.key.localeCompare(y.node.key),
+  );
+  const best = candidates[0]!;
+  return {
+    key: best.node.key,
+    sheet: best.node.sheet,
+    x: best.node.x,
+    y: best.node.y,
+    kind: best.node.kind,
+    records: best.records,
+  };
+}
+
 export function detectFaults(netlist: Netlist, state: Pick<SimState, 'closed'>): SimulationFault | null {
   const uf = new UnionFind();
   for (const net of netlist.sizes.keys()) uf.add(net);
@@ -203,11 +357,11 @@ export function detectFaults(netlist: Netlist, state: Pick<SimState, 'closed'>):
   for (const nets of netlist.recordNets.values()) {
     if (nets.length >= 2) uf.union(nets[0], nets[1]);
   }
-  for (const [a, b] of closedPoles(state, netlist.devices)) uf.union(a, b);
+  for (const pole of closedPoleList(state, netlist)) uf.union(pole.netA, pole.netB);
 
   const firstTag = new Map<number, PhaseTag>();
   const firstNet = new Map<number, number>();
-  const conflicts: { kind: PhaseConflict; a: number; b: number }[] = [];
+  const conflicts: { kind: PhaseConflict; a: number; b: number; ta: PhaseTag; tb: PhaseTag }[] = [];
 
   for (const device of netlist.devices) {
     const tags = SUPPLY_TAGS[device.code];
@@ -224,7 +378,7 @@ export function detectFaults(netlist: Netlist, state: Pick<SimState, 'closed'>):
         continue;
       }
       const kind = phaseConflict(seen, tag);
-      if (kind) conflicts.push({ kind, a: firstNet.get(root)!, b: net });
+      if (kind) conflicts.push({ kind, a: firstNet.get(root)!, b: net, ta: seen, tb: tag });
     }
   }
 
@@ -240,10 +394,13 @@ export function detectFaults(netlist: Netlist, state: Pick<SimState, 'closed'>):
   for (const net of [fault.a, fault.b]) {
     for (const id of netlist.members.get(net) ?? []) recordIds.add(id);
   }
+  const tags: [PhaseTag, PhaseTag] = [fault.ta, fault.tb];
   return {
     kind: fault.kind,
     nets: [fault.a, fault.b],
     recordIds: [...recordIds].sort((a, b) => a - b),
     culprit: findCulprit(netlist, state, fault.kind),
+    tags,
+    shortNode: locateCableShort(netlist, state, tags),
   };
 }

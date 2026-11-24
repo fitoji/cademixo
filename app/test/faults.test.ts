@@ -71,6 +71,29 @@ test('fase contra PE del fixture real: derivación a tierra', () => {
   assert.equal(fault!.culprit?.recordId, 2);
 });
 
+test('el conductor nuevo al neutro se ubica en el cruce, no en F1', () => {
+  const netlist = fixture('short-cross-test.cad');
+  // F1 cerrado + el auxiliar de Q1 en reposo (salida 96), como en la app.
+  const fault = detectFaults(netlist, { closed: new Set(['46:0-2', '46:1-3', '2:0-2']) });
+  assert.equal(fault?.kind, 'short');
+  assert.deepEqual(fault?.tags, ['1', 'N']);
+  assert.equal(fault?.shortNode?.x, 39);
+  assert.equal(fault?.shortNode?.y, 144);
+  assert.equal(fault?.shortNode?.kind, 'tee');
+  assert.ok(fault?.shortNode?.records.includes(152), 'el tramo nuevo queda marcado');
+  assert.ok(fault?.shortNode?.records.includes(48), 'el neutro que atraviesa queda marcado');
+  // El culpable sigue siendo el aparato que energiza, pero no es el punto.
+  assert.equal(fault?.culprit?.recordId, 46);
+});
+
+test('un corto por contacto no inventa un cruce de cables', () => {
+  const netlist = fixture('short-nc-test.cad');
+  const fault = detectFaults(netlist, closedFromFixture('short-nc-test.cad'));
+  assert.equal(fault?.kind, 'short');
+  assert.equal(fault?.shortNode, null);
+  assert.equal(fault?.culprit?.recordId, 2);
+});
+
 test('L1 contra L2 con contacto cerrado es corto', () => {
   const netlist = synthetic([
     supply(1, 3000, [1]),

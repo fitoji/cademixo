@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
  * la simulación. No hace falta accionar nada: CADe mostraría el mismo error.
  */
 const fixture = fileURLToPath(new URL('../test/fixtures/short-nc-test.cad', import.meta.url));
+const crossFixture = fileURLToPath(new URL('../test/fixtures/short-cross-test.cad', import.meta.url));
 
 test('cortocircuito: muestra el error de CADe y detiene la simulación', async ({ page }) => {
   await page.goto('/');
@@ -32,4 +33,23 @@ test('cortocircuito: muestra el error de CADe y detiene la simulación', async (
   await expect(marked).toHaveCount(1);
   await expect(marked).toContainText('-S1');
   await expect(marked).not.toContainText('-X1');
+});
+
+test('cortocircuito por conductor nuevo: marca el cruce con el neutro', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').setInputFiles(crossFixture);
+  await page.keyboard.press('Space');
+
+  // En simulación, F1 se cierra con un clic; el auxiliar de Q1 queda en 96.
+  await page.locator('g[data-id="46"]').click();
+
+  const dialog = page.getByRole('dialog').filter({ hasText: 'Se ha producido un cortocircuito' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Aceptar' }).click();
+
+  await expect(page.getByText(/cruce de conductores/)).toBeVisible();
+  const mark = page.locator('circle.mark');
+  await expect(mark).toHaveCount(1);
+  await expect(mark).toHaveAttribute('cx', '39');
+  await expect(mark).toHaveAttribute('cy', '144');
 });

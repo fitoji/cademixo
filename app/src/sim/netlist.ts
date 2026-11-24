@@ -21,7 +21,7 @@ import type { CadeRecordModel } from '../model/project.ts';
 import { apparatusKey } from '../model/project.ts';
 import { specOf } from '../model/component-spec.ts';
 import { attachPoints } from '../editor/pins.ts';
-import { buildNetwork, netKey } from '../editor/network.ts';
+import { buildNetwork, netKey, type NetNode, type NetSegment } from '../editor/network.ts';
 
 export type DeviceKind =
   | 'coil'
@@ -49,6 +49,8 @@ export interface Device {
   pinNames: string[];
   /** net de cada borne; -1 si el borne no está conectado */
   nets: number[];
+  /** nodo del grafo de cables de cada borne, en el mismo orden que `nets` */
+  pinNodes?: string[];
   /**
    * Pares de bornes que forman polos: [a, b] sobre índices de `nets`. Un
    * conmutado de tres bornes (`11`/`12`/`14`) tiene dos, con el común repetido
@@ -70,6 +72,9 @@ export interface Netlist {
   members: Map<number, Set<number>>;
   /** id de registro -> nets que toca (tramos y uniones incluidos) */
   recordNets: Map<number, number[]>;
+  /** nodos y tramos del grafo de cables, para ubicar un corto por cruce */
+  nodes?: Map<string, NetNode>;
+  segments?: Map<number, NetSegment>;
 }
 
 /**
@@ -235,7 +240,8 @@ export function buildNetlist(records: CadeRecordModel[]): Netlist {
     const points = pinPoints.get(rec.id);
     if (!points || points.length === 0) continue;
 
-    const nets = points.map((p) => netOf(netKey(rec.sheet, p.x, p.y)));
+    const pinNodes = points.map((p) => netKey(rec.sheet, p.x, p.y));
+    const nets = pinNodes.map((key) => netOf(key));
     for (const net of nets) {
       const set = members.get(net) ?? new Set<number>();
       set.add(rec.id);
@@ -253,6 +259,7 @@ export function buildNetlist(records: CadeRecordModel[]): Netlist {
       kind: spec.kind,
       pinNames: rec.pins,
       nets,
+      pinNodes,
       poles: polesOf(rec.pins, nets.length),
       timer: spec.timer,
       timerNC: spec.timer !== undefined && spec.rest === 'closed',
@@ -260,7 +267,7 @@ export function buildNetlist(records: CadeRecordModel[]): Netlist {
     });
   }
 
-  return { sizes, devices, members, recordNets };
+  return { sizes, devices, members, recordNets, nodes: network.nodes, segments: network.segments };
 }
 
 function wirePointsOf(rec: CadeRecordModel): { x1: number; y1: number; x2: number; y2: number } | null {

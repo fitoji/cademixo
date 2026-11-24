@@ -18,6 +18,10 @@ import { isSupplyCode, type SimulationFault } from '../sim/faults.ts';
  * se cae al primer registro implicado, como antes.
  */
 export function faultLocation(records: readonly CadeRecordModel[], fault: SimulationFault): Point | null {
+  // Un cruce/uníon de cables es más preciso que el componente que energiza:
+  // es el lugar físico donde se tocan las dos etiquetas.
+  if (fault.shortNode) return { x: fault.shortNode.x, y: fault.shortNode.y };
+
   const culprit = fault.culprit;
   if (culprit) {
     const record = records.find((candidate) => candidate.id === culprit.recordId);
@@ -64,17 +68,29 @@ export function faultLocation(records: readonly CadeRecordModel[], fault: Simula
 /** Aviso de error que se suma a los del documento mientras dure el corte. */
 export function faultFinding(records: readonly CadeRecordModel[], fault: SimulationFault): Finding {
   const at = faultLocation(records, fault);
-  const culprit = fault.culprit
-    ? records.find((candidate) => candidate.id === fault.culprit!.recordId)
-    : null;
+  const code = fault.kind === 'earth' ? 'earth-fault' : 'short-circuit';
   const base =
     fault.kind === 'earth'
       ? 'Derivación a tierra detectada al simular'
       : 'Cortocircuito detectado al simular';
+
+  if (fault.shortNode) {
+    return {
+      level: 'error',
+      code,
+      message: `${base} en el cruce de conductores`,
+      ids: [...fault.shortNode.records],
+      at: { x: fault.shortNode.x, y: fault.shortNode.y },
+    };
+  }
+
+  const culprit = fault.culprit
+    ? records.find((candidate) => candidate.id === fault.culprit!.recordId)
+    : null;
   const where = culprit?.designator ? ` en ${culprit.designator}` : '';
   return {
     level: 'error',
-    code: fault.kind === 'earth' ? 'earth-fault' : 'short-circuit',
+    code,
     message: `${base}${where}`,
     // Sólo el contacto culpable queda en rojo: marcar toda la red pintaba de
     // rojo también la alimentación y parecía que el fallo estaba en la fase.
