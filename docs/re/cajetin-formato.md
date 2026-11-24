@@ -148,10 +148,21 @@ Escritura confirmada con corridas de una sola variable sobre `pr1`:
 Es decir que el diálogo, al aceptar, **reescribe los 14** con su estado: visibilidad de cada fila y
 alineación de cada fila.
 
-**Ojo con la lectura**: no está resuelta, y ahora sabemos por qué. El loader `FUN_0042c290`
-(`0x42c290`) lee el trailer carácter por carácter y guarda **13** flags, no 14: escribe
-`+0x104`, después `+0x10c`, `+0x110`, `+0x114`, `+0x118`, `+0x11c`, `+0x120`, `+0x124`, `+0x128`,
-`+0x12c`, `+0x130`, `+0x134` y `+0x138`, y **nunca toca `+0x108`**:
+**Ojo con la lectura: los flags no se usan al abrir.** Se probaron cuatro archivos y el diálogo
+mostró siempre el mismo estado (solo Comprobado tildado, todo en «Izq.»):
+
+| Flags en el archivo | Estado del diálogo |
+|---------------------|--------------------|
+| `1 1 1 1 1 1 1  0 0 0 0 0 0 0` | solo Comprobado |
+| `0 0 0 1 0 0 0  0 0 0 0 0 0 0` | solo Comprobado |
+| `0 0 0 0 0 0 0  0 0 0 0 0 0 1` | solo Comprobado |
+| `0 0 0 0 0 0 0  0 0 0 0 0 0 0` | solo Comprobado |
+
+O sea: `Editar → Cajetín` **no restaura** los checks desde el trailer; arranca con un estado interno
+y al aceptar reescribe los 14 flags. Además el loader `FUN_0042c290` (`0x42c290`) lee el trailer
+carácter por carácter y guarda **13** flags, no 14: escribe `+0x104`, después `+0x10c`, `+0x110`,
+`+0x114`, `+0x118`, `+0x11c`, `+0x120`, `+0x124`, `+0x128`, `+0x12c`, `+0x130`, `+0x134` y `+0x138`,
+y **nunca toca `+0x108`**:
 
 ```
 0x42fcee: MOV dword ptr [ECX + 0x104], EAX
@@ -161,16 +172,15 @@ alineación de cada fila.
 0x43031e: MOV dword ptr [ECX + 0x138], EAX
 ```
 
-El writer sí lee los 14 (incluido `+0x108`). Resultado: al cargar, el flag 1 va al slot 1, el flag
-2 al slot 3, y así; el slot 2 queda con el valor del constructor (`1`) y el flag 14 se descarta.
-Es un defecto de CADe, no del formato.
+El writer sí lee los 14 (incluido `+0x108`).
 
-Por el lado del dibujado, `FUN_00873130` (`0x873130`) confirma la semántica: copia los 7 primeros
-globales a los campos de visibilidad y usa los 7 siguientes como enums `0/1/2` para posicionar el
-texto (Izq/Cen/Der).
+Por el lado del dibujado, `FUN_00873130` (`0x873130`) confirma la semántica: usa los 7 primeros
+valores como visibilidad y los 7 siguientes como enums `0/1/2` para posicionar el texto
+(Izq/Cen/Der).
 
-Nuestra UI hoy muestra 7 filas visibles para `pr1`, que **no** coincide con CADe: es una desviación
-conocida. Reproducir el bug del loader no parece deseable; queda documentado para decidirlo.
+Conclusión práctica: en CADe los flags son **de sólo escritura**. Nuestra app hoy los lee como
+están en el archivo, que es la única forma de no perder información; imitar a CADe significaría
+ignorarlos. La desviación queda documentada y la decisión es de producto.
 
 El `2` de alineación derecha se observó en el experimento original (Título en «Der.»).
 
