@@ -73,6 +73,11 @@ test('cambiar visibilidad y alineación modifica sólo los flags elegidos', () =
   assert.equal(serialize(parse(next)), next);
 });
 
+test('un valor con * no corrompe el trailer', () => {
+  assert.equal(withTitleField(BASE, 5, 'A*B'), BASE);
+  assert.equal(withTitleField(BASE, 5, 'A***$$$&&&B'), BASE);
+});
+
 test('un documento sin cajetín no se modifica', () => {
   const plain = 'CADe_SIMU*0*20000#XXX#########*0*0#';
   assert.equal(parseTitleBlock(plain), null);

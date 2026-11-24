@@ -2,10 +2,17 @@
  * Cajetín estilo CADe_SIMU: 7 filas con check de visibilidad, alineación y
  * campos de texto. Toda la persistencia la hacen las funciones puras de
  * `model/title-block.ts`; acá sólo se edita el estado local del formulario.
+ *
+ * El formulario usa las primitivas de shadcn (`FieldSet`, `FieldGroup`, `Field`,
+ * `FieldLabel`, `FieldError`) y `RadioGroup`; no hay `react-hook-form` porque el
+ * resto del proyecto usa el mismo patrón controlado.
  */
 
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
+import { FileTextIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -14,10 +21,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Field, FieldLabel } from '@/components/ui/field';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+  FieldTitle,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   parseTitleBlock,
   withTitleField,
@@ -42,7 +58,7 @@ const ROWS: readonly Row[] = [
   { label: 'Archivo', fields: [{ index: 9, label: 'Archivo' }] },
 ];
 
-/** Anchos que CADe escribe en el trailer; sirven también como `maxlength` nativo. */
+/** Respaldo si el documento no trae el cajetín; el ancho real sale del trailer. */
 const FIELD_WIDTHS: readonly number[] = [11, 11, 11, 11, 25, 25, 11, 11, 11, 21];
 
 const ALIGNMENTS: ReadonlyArray<{ value: Alignment; label: string }> = [
@@ -65,29 +81,58 @@ export function TitleBlockDialog({
   disabled?: boolean;
 }): JSX.Element {
   const [values, setValues] = useState<string[]>([]);
+  const [widths, setWidths] = useState<number[]>([...FIELD_WIDTHS]);
   const [visibility, setVisibility] = useState<boolean[]>([]);
   const [alignment, setAlignment] = useState<Alignment[]>([]);
+  const [errors, setErrors] = useState<Record<number, string>>({});
   const [available, setAvailable] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const block = parseTitleBlock(text);
     setAvailable(block !== null);
-    setValues(block ? block.fields.map((f) => f.value.trimEnd()) : []);
+    setValues(block ? block.fields.map((field) => field.value.trimEnd()) : []);
+    setWidths(block ? block.fields.map((field) => field.width) : [...FIELD_WIDTHS]);
     setVisibility(block ? block.visibility : ROWS.map(() => true));
-    setAlignment(block ? (block.alignment.map((n) => (n === 2 ? 2 : n === 1 ? 1 : 0)) as Alignment[]) : ROWS.map(() => 0));
+    setAlignment(
+      block
+        ? (block.alignment.map((n) => (n === 2 ? 2 : n === 1 ? 1 : 0)) as Alignment[])
+        : ROWS.map(() => 0),
+    );
+    setErrors({});
   }, [open, text]);
+
+  const updateValue = (index: TitleFieldIndex, value: string): void => {
+    setValues((prev) => prev.map((current, i) => (i === index ? value : current)));
+    setErrors((prev) => {
+      if (!(index in prev)) return prev;
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+  };
 
   const apply = (): void => {
     if (!available) return;
+    const invalid: Record<number, string> = {};
+    values.forEach((value, index) => {
+      if (value.includes('*')) invalid[index] = 'El cajetín no admite el carácter *.';
+    });
+    setErrors(invalid);
+    if (Object.keys(invalid).length > 0) return;
+
     let next = text;
     values.forEach((value, index) => {
       next = withTitleField(next, index as TitleFieldIndex, value);
     });
     const vis: Record<number, boolean> = {};
     const align: Record<number, Alignment> = {};
-    visibility.forEach((value, i) => { vis[i] = value; });
-    alignment.forEach((value, i) => { align[i] = value; });
+    visibility.forEach((value, i) => {
+      vis[i] = value;
+    });
+    alignment.forEach((value, i) => {
+      align[i] = value;
+    });
     next = withTitleFlags(next, { visibility: vis, alignment: align });
     if (next !== text) onApply(next);
     onOpenChange(false);
@@ -95,7 +140,7 @@ export function TitleBlockDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(36rem,90vh)] overflow-y-auto">
+      <DialogContent className="max-h-[min(42rem,90vh)] w-[min(620px,calc(100vw-2rem))]">
         <DialogHeader>
           <DialogTitle>Cajetín</DialogTitle>
           <DialogDescription>
@@ -104,7 +149,17 @@ export function TitleBlockDialog({
         </DialogHeader>
 
         {!available ? (
-          <p className="text-sm text-muted-foreground">El documento no tiene un cajetín que se pueda editar.</p>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FileTextIcon />
+              </EmptyMedia>
+              <EmptyTitle>Sin cajetín editable</EmptyTitle>
+              <EmptyDescription>
+                Este documento no tiene un trailer de cajetín que la app pueda editar.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <form
             id="title-block-form"
@@ -113,71 +168,120 @@ export function TitleBlockDialog({
               event.preventDefault();
               apply();
             }}
-            className="flex flex-col gap-2"
+            className="max-h-[min(28rem,60vh)] overflow-y-auto pr-1"
           >
-            {ROWS.map((row, rowIndex) => (
-              <div key={row.label} className="grid grid-cols-[92px_1fr_auto] items-center gap-2">
-                <span className="text-xs font-medium">{row.label}</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {row.fields.map((field) => (
-                    <Field key={field.index} className="min-w-24 flex-1 gap-0.5">
-                      <FieldLabel htmlFor={`tb-field-${field.index}`} className="text-[10px] text-muted-foreground">
-                        {field.label}
-                      </FieldLabel>
-                      <Input
-                        id={`tb-field-${field.index}`}
-                        className="h-7 text-xs"
-                        disabled={disabled || !visibility[rowIndex]}
-                        maxLength={FIELD_WIDTHS[field.index]}
-                        value={values[field.index] ?? ''}
-                        onChange={(event) =>
-                          setValues((prev) => prev.map((v, i) => (i === field.index ? event.target.value : v)))
-                        }
-                      />
-                    </Field>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <Checkbox
-                      id={`tb-visible-${rowIndex}`}
-                      checked={visibility[rowIndex] ?? true}
-                      disabled={disabled}
-                      onCheckedChange={(checked) =>
-                        setVisibility((prev) => prev.map((v, i) => (i === rowIndex ? checked === true : v)))
-                      }
-                    />
-                    <label htmlFor={`tb-visible-${rowIndex}`} className="text-[10px] text-muted-foreground">
-                      Mostrar
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-1" role="radiogroup" aria-label={`Alineación de ${row.label}`}>
-                    {ALIGNMENTS.map((option) => (
-                      <label key={option.value} className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                        <input
-                          type="radio"
-                          name={`align-${rowIndex}`}
-                          className="size-3 accent-foreground"
-                          disabled={disabled}
-                          checked={(alignment[rowIndex] ?? 0) === option.value}
-                          aria-label={`${row.label} ${option.label}`}
-                          onChange={() =>
-                            setAlignment((prev) => prev.map((v, i) => (i === rowIndex ? option.value : v)))
+            <FieldSet>
+              <FieldGroup className="gap-2">
+                {ROWS.map((row, rowIndex) => (
+                  <Field
+                    key={row.label}
+                    className="gap-2 border-b border-border/60 pb-3 last:border-0 last:pb-0"
+                  >
+                    <FieldTitle className="text-xs">{row.label}</FieldTitle>
+                    <FieldContent className="gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        {row.fields.map((field) => {
+                          const error = errors[field.index];
+                          return (
+                            <Field
+                              key={field.index}
+                              data-invalid={error !== undefined}
+                              className="min-w-40 flex-1 gap-1"
+                            >
+                              <FieldLabel
+                                htmlFor={`tb-field-${field.index}`}
+                                className="text-[10px] text-muted-foreground"
+                              >
+                                {field.label}
+                              </FieldLabel>
+                              <Input
+                                id={`tb-field-${field.index}`}
+                                className="h-7 text-xs"
+                                disabled={disabled}
+                                maxLength={widths[field.index] ?? FIELD_WIDTHS[field.index]}
+                                value={values[field.index] ?? ''}
+                                aria-invalid={error !== undefined}
+                                aria-describedby={error ? `tb-error-${field.index}` : undefined}
+                                onChange={(event) => updateValue(field.index, event.target.value)}
+                              />
+                              <FieldError id={`tb-error-${field.index}`}>{error}</FieldError>
+                            </Field>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <Field orientation="horizontal" className="w-auto items-center gap-1.5">
+                          <Checkbox
+                            id={`tb-visible-${rowIndex}`}
+                            checked={visibility[rowIndex] ?? true}
+                            disabled={disabled}
+                            aria-label={`Mostrar ${row.label}`}
+                            onCheckedChange={(checked) =>
+                              setVisibility((prev) =>
+                                prev.map((value, i) => (i === rowIndex ? checked === true : value)),
+                              )
+                            }
+                          />
+                          <FieldLabel
+                            htmlFor={`tb-visible-${rowIndex}`}
+                            className="text-[10px] font-normal text-muted-foreground"
+                          >
+                            Mostrar
+                          </FieldLabel>
+                        </Field>
+
+                        <RadioGroup
+                          value={String(alignment[rowIndex] ?? 0)}
+                          onValueChange={(value) =>
+                            setAlignment((prev) =>
+                              prev.map((current, i) =>
+                                i === rowIndex ? (Number(value) as Alignment) : current,
+                              ),
+                            )
                           }
-                        />
-                        {option.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
+                          disabled={disabled}
+                          aria-label={`Alineación de ${row.label}`}
+                          className="flex flex-wrap items-center gap-3"
+                        >
+                          {ALIGNMENTS.map((option) => (
+                            <Field
+                              key={option.value}
+                              orientation="horizontal"
+                              className="w-auto items-center gap-1"
+                            >
+                              <RadioGroupItem
+                                value={String(option.value)}
+                                id={`tb-align-${rowIndex}-${option.value}`}
+                              />
+                              <FieldLabel
+                                htmlFor={`tb-align-${rowIndex}-${option.value}`}
+                                className="text-[10px] font-normal text-muted-foreground"
+                              >
+                                {option.label}
+                              </FieldLabel>
+                            </Field>
+                          ))}
+                        </RadioGroup>
+                      </div>
+                    </FieldContent>
+                  </Field>
+                ))}
+              </FieldGroup>
+            </FieldSet>
+            <FieldDescription className="pt-2 text-[10px]">
+              La visibilidad y la alineación se conservan en el archivo; CADe no las usa al dibujar.
+            </FieldDescription>
           </form>
         )}
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button type="submit" form="title-block-form" disabled={disabled || !available}>Aceptar</Button>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="title-block-form" disabled={disabled || !available}>
+            Aceptar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

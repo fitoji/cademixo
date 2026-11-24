@@ -126,6 +126,8 @@ export function withTitleField(text: string, index: TitleFieldIndex, value: stri
   if (!block) return text;
   const field = block.fields[index];
   if (!field) return text;
+  // `*` es el delimitador del trailer: escribirlo rompería el cajetín.
+  if (value.includes('*')) return text;
   const tokens = tokenList(block);
   const padded = value.slice(0, field.width).padEnd(field.width, ' ');
   tokens[field.token] = padded;
