@@ -8,7 +8,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SAVE_EXTENSION, cadFileName } from '../src/format/filename.ts';
+import {
+  NATIVE_EXTENSION,
+  SAVE_EXTENSION,
+  cadFileName,
+  isMixoFileName,
+  mixoFileName,
+  suggestedSaveName,
+} from '../src/format/filename.ts';
 
 test('la extensión de guardado es .cad', () => {
   assert.equal(SAVE_EXTENSION, '.cad');
@@ -43,4 +50,21 @@ test('un nombre vacío cae en el nombre por defecto', () => {
 test('sólo se toca la extensión final', () => {
   assert.equal(cadFileName('a.b.cade'), 'a.b.cad');
   assert.equal(cadFileName('panel.cad.viejo'), 'panel.cad.viejo.cad');
+});
+
+test('el proyecto nativo usa .mixo', () => {
+  assert.equal(NATIVE_EXTENSION, '.mixo');
+  assert.equal(mixoFileName('plano.cad'), 'plano.mixo');
+  assert.equal(mixoFileName('plano.cade'), 'plano.mixo');
+  assert.equal(mixoFileName('plano.mixo'), 'plano.mixo');
+  assert.equal(mixoFileName(''), 'sin título.mixo');
+  assert.equal(isMixoFileName('plano.mixo'), true);
+  assert.equal(isMixoFileName('PLANO.MIXO'), true);
+  assert.equal(isMixoFileName('plano.cad'), false);
+});
+
+test('el nombre sugerido respeta el destino', () => {
+  assert.equal(suggestedSaveName('plano.mixo', false), 'plano.cad');
+  assert.equal(suggestedSaveName('plano.cad', true), 'plano.mixo');
+  assert.equal(suggestedSaveName('plano'), 'plano.cad');
 });

@@ -14,11 +14,19 @@
  * `showOpenFilePicker`. Se declaran acá abajo, con lo mínimo que se usa.
  */
 
-import { cadFileName } from '../format/filename.ts';
+import {
+  cadFileName,
+  isMixoFileName,
+  mixoFileName,
+  suggestedSaveName as fileNameFor,
+} from '../format/filename.ts';
 
 /** Lo poco que se usa de los selectores del navegador. */
 interface PickerScope {
-  showSaveFilePicker?: (options?: { suggestedName?: string }) => Promise<FileSystemFileHandle>;
+  showSaveFilePicker?: (options?: {
+    suggestedName?: string;
+    types?: { description?: string; accept: Record<string, string[]> }[];
+  }) => Promise<FileSystemFileHandle>;
   showOpenFilePicker?: (options?: {
     multiple?: boolean;
     types?: { description?: string; accept: Record<string, string[]> }[];
@@ -80,8 +88,8 @@ export function planSaveAction(input: {
  * Nombre con el que se sugiere guardar: delega en `cadFileName` para que la
  * regla de la extensión `.cad` viva en un solo lugar (`format/filename.ts`).
  */
-export function suggestedSaveName(current: string): string {
-  return cadFileName(current);
+export function suggestedSaveName(current: string, native = false): string {
+  return fileNameFor(current, native);
 }
 
 /**
@@ -95,7 +103,8 @@ export function suggestedSaveName(current: string): string {
 export function normalizeSaveName(input: string): string | null {
   const trimmed = input.trim();
   if (trimmed === '') return null;
-  return cadFileName(trimmed);
+  // `.mixo` es un destino nativo válido; `.cade`/`.cad` se normalizan a `.cad`.
+  return isMixoFileName(trimmed) ? mixoFileName(trimmed) : cadFileName(trimmed);
 }
 
 // --- envoltorios de navegador ------------------------------------------------
@@ -105,14 +114,43 @@ export function normalizeSaveName(input: string): string | null {
  * usuario cierra el diálogo: quien llama no debe escribir nada. Si el selector
  * falla, lanza `PickerError`, que es otra cosa y se avisa distinto.
  */
-export async function pickSaveHandle(name: string): Promise<FileSystemFileHandle | null> {
+export async function pickSaveHandle(name: string, native = false): Promise<FileSystemFileHandle | null> {
   const scope = globalThis as PickerScope;
   if (typeof scope.showSaveFilePicker !== 'function') return null;
+  const nativeType = {
+    description: 'Proyecto cadeMixo',
+    accept: { 'application/octet-stream': ['.mixo'] },
+  };
+  const cadeType = {
+    description: 'Esquema CADe',
+    accept: { 'text/plain': ['.cad', '.cade'] },
+  };
   try {
-    return await scope.showSaveFilePicker({ suggestedName: name });
+    return await scope.showSaveFilePicker({
+      suggestedName: name,
+      types: native ? [nativeType, cadeType] : [cadeType, nativeType],
+    });
   } catch (error) {
     if (isAbort(error)) return null;
     throw new PickerError('no se pudo abrir el selector de destino');
+  }
+}
+
+/**
+ * Pide destino para el sidecar `.keys.json`. Mismo contrato que
+ * `pickSaveHandle`: `null` es cancelación; un fallo del selector lanza.
+ */
+export async function pickSidecarHandle(name: string): Promise<FileSystemFileHandle | null> {
+  const scope = globalThis as PickerScope;
+  if (typeof scope.showSaveFilePicker !== 'function') return null;
+  try {
+    return await scope.showSaveFilePicker({
+      suggestedName: name,
+      types: [{ description: 'Atajos de componentes', accept: { 'application/json': ['.json'] } }],
+    });
+  } catch (error) {
+    if (isAbort(error)) return null;
+    throw new PickerError('no se pudo abrir el selector del sidecar');
   }
 }
 

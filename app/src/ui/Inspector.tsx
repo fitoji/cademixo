@@ -1,10 +1,20 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { JSX, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
-import { ChevronRightIcon, InfoIcon, MousePointerClickIcon, RotateCwIcon, StarIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import {
+  ChevronRightIcon,
+  InfoIcon,
+  KeyboardIcon,
+  MousePointerClickIcon,
+  RotateCwIcon,
+  StarIcon,
+  Trash2Icon,
+  TriangleAlertIcon,
+  XIcon,
+} from 'lucide-react';
 import { GEOMETRY, boxOf, wirePoints, LAMP_COLORS, type CadeRecordModel, type LampColor } from '../model/project.ts';
 import { isIdentity, type Transform } from '../model/transform.ts';
 import { hasColorSlot } from '../model/component-spec.ts';
-import { isApplePlatform } from './shortcuts.ts';
+import { isApplePlatform, useShortcutHint } from './shortcuts.ts';
 import { keyEventToKeys } from './shortcut-bindings.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import type { Rotation } from '../editor/state.ts';
@@ -21,6 +31,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const DL = 'grid grid-cols-[88px_1fr] gap-x-2 gap-y-1 text-xs';
 const DT = 'text-muted-foreground';
@@ -417,6 +428,9 @@ function Single({
   const [pinDrafts, setPinDrafts] = useState(rec.pins);
   const [capturingShortcut, setCapturingShortcut] = useState(false);
   const [shortcutStatus, setShortcutStatus] = useState('');
+  const shortcutHint = useShortcutHint(componentShortcut ?? 'space');
+  const shortcutHelpId = `atajo-${rec.id}-ayuda`;
+  const shortcutLabel = rec.designator === '' ? `componente #${rec.id}` : rec.designator;
 
   const captureShortcut = (event: ReactKeyboardEvent<HTMLButtonElement>): void => {
     if (!capturingShortcut) return;
@@ -474,19 +488,115 @@ function Single({
                 />
               )}
             </div>
-            <Input
-              id="designator"
-              className="h-7 font-mono text-xs"
-              disabled={readOnly}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={() => {
-                if (draft !== rec.designator) onDesignator(rec.id, draft);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-              }}
-            />
+            <div className="flex items-center gap-1.5">
+              <Input
+                id="designator"
+                className="h-7 min-w-0 flex-1 font-mono text-xs"
+                disabled={readOnly}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={() => {
+                  if (draft !== rec.designator) onDesignator(rec.id, draft);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                }}
+              />
+              {canAssignShortcut && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={capturingShortcut ? 'secondary' : 'outline'}
+                      disabled={readOnly}
+                      data-slot="component-shortcut"
+                      aria-pressed={capturingShortcut}
+                      aria-label={
+                        capturingShortcut
+                          ? `Capturando atajo de ${shortcutLabel}. Presioná una combinación o Escape para cancelar`
+                          : componentShortcut
+                            ? `Cambiar atajo de ${shortcutLabel}: ${shortcutHint.text}`
+                            : `Asignar atajo de teclado a ${shortcutLabel}`
+                      }
+                      aria-describedby={capturingShortcut || shortcutStatus !== '' ? shortcutHelpId : undefined}
+                      onClick={() => {
+                        if (capturingShortcut) {
+                          setCapturingShortcut(false);
+                          setShortcutStatus('');
+                          return;
+                        }
+                        setCapturingShortcut(true);
+                        setShortcutStatus('');
+                      }}
+                      onKeyDown={captureShortcut}
+                      onBlur={() => {
+                        if (!capturingShortcut) return;
+                        setCapturingShortcut(false);
+                        setShortcutStatus('');
+                      }}
+                      className={cn(
+                        'h-7 shrink-0 gap-1 px-1.5 text-[11px]',
+                        componentShortcut ? 'min-w-7' : capturingShortcut ? 'w-7 px-0' : '',
+                        capturingShortcut && 'motion-safe:animate-pulse',
+                      )}
+                    >
+                      {capturingShortcut ? (
+                        <span aria-hidden="true">…</span>
+                      ) : componentShortcut ? (
+                        <kbd aria-hidden="true" className="font-mono">
+                          {shortcutHint.text}
+                        </kbd>
+                      ) : (
+                        <>
+                          <KeyboardIcon className="size-3.5" aria-hidden="true" />
+                          <span className="text-[10px]">Atajo</span>
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px]">
+                    {capturingShortcut ? (
+                      'Presioná la combinación. Escape cancela.'
+                    ) : componentShortcut ? (
+                      <>
+                        Atajo <span className="font-mono">{shortcutHint.text}</span> · sólo en simulación
+                      </>
+                    ) : (
+                      <>Asignar atajo de teclado · sólo en simulación</>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {canAssignShortcut && componentShortcut && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      disabled={readOnly}
+                      aria-label={`Quitar atajo de ${shortcutLabel}`}
+                      onClick={() => onAssignShortcut(null)}
+                      className="size-7 shrink-0 px-0 text-muted-foreground"
+                    >
+                      <XIcon className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Quitar atajo</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+            {(capturingShortcut || shortcutStatus !== '') && (
+              <p
+                id={shortcutHelpId}
+                role="status"
+                aria-live="polite"
+                className={cn('text-[10px]', shortcutStatus !== '' ? 'text-warn' : 'text-muted-foreground')}
+              >
+                {shortcutStatus !== '' ? shortcutStatus : 'Presioná la combinación. Escape cancela.'}
+              </p>
+            )}
           </Field>
 
           {hasColorSlot(rec.code) && (
@@ -527,42 +637,6 @@ function Single({
             <Row label="Orientación" value={orientationLabel(rec.transform)} />
             <Row label="Registro" value={`#${rec.id}`} />
           </dl>
-
-          {canAssignShortcut && (
-            <Section id="atajo" title="Atajo del componente" collapsible={collapsibleSections}>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={capturingShortcut ? 'default' : 'outline'}
-                  disabled={readOnly}
-                  aria-label="Asignar atajo al componente"
-                  onClick={() => {
-                    setCapturingShortcut(true);
-                    setShortcutStatus('');
-                  }}
-                  onKeyDown={captureShortcut}
-                >
-                  {capturingShortcut ? 'Presioná una tecla…' : (componentShortcut ?? 'Asignar atajo…')}
-                </Button>
-                {componentShortcut && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={readOnly}
-                    onClick={() => onAssignShortcut(null)}
-                  >
-                    Quitar
-                  </Button>
-                )}
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                Escape cancela. El atajo sólo actúa con la simulación en marcha.
-              </p>
-              {shortcutStatus && <p className="text-[10px] text-warn">{shortcutStatus}</p>}
-            </Section>
-          )}
 
           <Section
             id="bornes"

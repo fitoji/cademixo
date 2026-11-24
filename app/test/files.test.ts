@@ -100,6 +100,8 @@ test('el nombre sugerido es el nombre de guardado normalizado', () => {
   assert.equal(suggestedSaveName('x.cade'), 'x.cad');
   assert.equal(suggestedSaveName('x.cad'), 'x.cad');
   assert.equal(suggestedSaveName('x.txt'), 'x.txt.cad');
+  assert.equal(suggestedSaveName('x.cad', true), 'x.mixo');
+  assert.equal(suggestedSaveName('x.mixo', false), 'x.cad');
 });
 
 // «Guardar como…» sin selectores pide el nombre en un diálogo: lo que el
@@ -114,6 +116,11 @@ test('el nombre escrito se normaliza a la extensión .cad', () => {
   assert.equal(normalizeSaveName('nota'), 'nota.cad');
   assert.equal(normalizeSaveName('nota.cade'), 'nota.cad');
   assert.equal(normalizeSaveName('nota.cad'), 'nota.cad');
+});
+
+test('el nombre escrito conserva .mixo', () => {
+  assert.equal(normalizeSaveName('nota.mixo'), 'nota.mixo');
+  assert.equal(normalizeSaveName('  nota.MIXO  '), 'nota.mixo');
 });
 
 test('los espacios de los costados no llegan al nombre del archivo', () => {
@@ -204,7 +211,30 @@ test('el selector de guardado propone el nombre normalizado', async () => {
   } finally {
     restore();
   }
-  assert.deepEqual(calls, [{ suggestedName: 'x.cad' }]);
+  const options = calls[0] as { suggestedName: string; types: { description?: string }[] };
+  assert.equal(options.suggestedName, 'x.cad');
+  assert.deepEqual(
+    options.types.map((type) => type.description),
+    ['Esquema CADe', 'Proyecto cadeMixo'],
+  );
+});
+
+test('el selector nativo propone .mixo primero', async () => {
+  const calls: { suggestedName?: string; types?: { description?: string }[] }[] = [];
+  const restore = withPicker('showSaveFilePicker', async (options) => {
+    calls.push(options ?? {});
+    return { name: 'x.mixo' };
+  });
+  try {
+    await pickSaveHandle('x.mixo', true);
+  } finally {
+    restore();
+  }
+  assert.equal(calls[0]?.suggestedName, 'x.mixo');
+  assert.deepEqual(calls[0]?.types?.map((type) => type.description), [
+    'Proyecto cadeMixo',
+    'Esquema CADe',
+  ]);
 });
 
 test('cancelar el guardado no es un fallo: devuelve null en silencio', async () => {

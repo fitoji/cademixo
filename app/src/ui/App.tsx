@@ -4,6 +4,7 @@ import {
   BookOpenIcon,
   ClipboardPasteIcon,
   CopyIcon,
+  DownloadIcon,
   FolderOpenIcon,
   FilePlusIcon,
   FileTextIcon,
@@ -26,6 +27,7 @@ import {
   SunIcon,
   Trash2Icon,
   Undo2Icon,
+  UploadIcon,
   Volume2Icon,
   VolumeXIcon,
 } from 'lucide-react';
@@ -90,6 +92,7 @@ import {
   normalizeSaveName,
   pickOpenHandle,
   pickSaveHandle,
+  pickSidecarHandle,
   planSaveAction,
   suggestedSaveName,
   writeHandle,
@@ -99,8 +102,9 @@ import { getBindings, keyEventToKeys, subscribeBindings } from './shortcut-bindi
 import { JUNCTION_TEMPLATE, WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { templateForPlacement } from '../symbols/place.ts';
 import { blankDocument } from '../format/blank.ts';
-import { DEFAULT_FILE_NAME, cadFileName } from '../format/filename.ts';
+import { DEFAULT_FILE_NAME, cadFileName, isMixoFileName } from '../format/filename.ts';
 import { isCadeDocument } from '../format/cade.ts';
+import { parseMixo, serializeMixo } from '../format/mixo.ts';
 import { circuitFrom } from '../sim/circuit.ts';
 import { detectFaults, type SimulationFault } from '../sim/faults.ts';
 import { faultFinding } from './fault-avisos.ts';
@@ -111,7 +115,12 @@ import { visualStatesOf } from '../sim/visual.ts';
 import { isProtectionCode } from '../sim/netlist.ts';
 import {
   checkComponentBinding,
-  readComponentBindings,
+  downloadSidecar,
+  drawingHash,
+  parseSidecar,
+  readBindingsForDocument,
+  serializeSidecar,
+  sidecarFileName,
   writeComponentBindings,
   type ComponentShortcuts,
 } from './component-shortcuts.ts';
@@ -194,6 +203,18 @@ const LAYOUT_STORAGE = layoutStorage();
  * usuario vale el del código: los automáticos y disyuntores arrancan abiertos
  * (`startsOpen`), como en CADeSimu.
  */
+/**
+ * Prioridad al accionar un designador compartido por varias piezas: primero la
+ * protección (el disyuntor real), después el pulsador y al final el conmutador.
+ * El contacto auxiliar de una protección no se acciona por separado.
+ */
+function activationRank(code: number): number {
+  if (isProtectionCode(code)) return 0;
+  if (isPushable(code)) return 1;
+  if (isChangeover(code)) return 2;
+  return 3;
+}
+
 function protectionStateOf(code: number, state?: 'closed' | 'open'): 'closed' | 'open' {
   return state ?? (startsOpen(code) ? 'open' : 'closed');
 }
@@ -204,6 +225,8 @@ const NO_TIMER_READY: ReadonlySet<number> = new Set<number>();
 export function App(): JSX.Element {
   const [state, setState] = useState<EditorState | null>(null);
   const [fileName, setFileName] = useState('');
+  /** `.cad` compatible o `.mixo` con las features custom adentro. */
+  const [documentMode, setDocumentMode] = useState<'cade' | 'mixo'>('cade');
   const [activeSheet, setActiveSheet] = useState(0);
   const [placing, setPlacing] = useState<number | null>(null);
   const [preview, setPreview] = useState<DragOp | null>(null);
@@ -226,6 +249,7 @@ export function App(): JSX.Element {
    * donde pedir el nombre, así que se pide acá antes de descargar.
    */
   const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [saveAsTarget, setSaveAsTarget] = useState<'cade' | 'mixo'>('cade');
   /** Primer clic de un cable: origen. El segundo clic lo cierra. */
   const [wireStart, setWireStart] = useState<{ x: number; y: number } | null>(null);
   // Drop de archivos: profundidad de `dragenter` para que el aviso no parpadee
@@ -242,7 +266,9 @@ export function App(): JSX.Element {
    */
   const [lastFault, setLastFault] = useState<SimulationFault | null>(null);
   /** Atajos por designador, en el sidecar del plano abierto. */
-  const [componentShortcuts, setComponentShortcuts] = useState<ComponentShortcuts>({ version: 1, bindings: {} });
+  const [componentShortcuts, setComponentShortcuts] = useState<ComponentShortcuts>({ version: 2, bindings: {} });
+  /** Handle del `.keys.json` para reescribirlo sin volver a preguntar. */
+  const sidecarHandle = useRef<FileSystemFileHandle | null>(null);
   /** El aviso de arranque espera al primer paso calculado (ver el efecto). */
   const [startPending, setStartPending] = useState(false);
   /** Aparatos accionados durante la simulación (ids de registro). Un pulsador
@@ -394,17 +420,65 @@ export function App(): JSX.Element {
     armAudio();
   }, []);
 
-  const openText = useCallback((text: string, name: string, handle: FileSystemFileHandle | null = null) => {
-    setState(createEditor(text));
-    setFileName(name);
-    setComponentShortcuts(readComponentBindings(name));
-    // El handle se reemplaza siempre: el documento que entra manda. Se pasa
-    // sólo al abrir un archivo; Nuevo y los ejemplos lo dejan en `null`.
-    fileHandle.current = handle;
-    setActiveSheet(0);
-    setPlacing(null);
-    setPreview(null);
-    setFitToken((t) => t + 1);
+  const openText = useCallback(
+    (
+      text: string,
+      name: string,
+      handle: FileSystemFileHandle | null = null,
+      options: { bindings?: Record<string, string>; mode?: 'cade' | 'mixo' } = {},
+    ) => {
+      const mode = options.mode ?? 'cade';
+      const hash = drawingHash(text);
+      setState(createEditor(text));
+      setFileName(name);
+      setDocumentMode(mode);
+      if (options.bindings) {
+        setComponentShortcuts(writeComponentBindings(hash, options.bindings, { drawingHash: hash, sourceName: name }));
+      } else {
+        setComponentShortcuts(readBindingsForDocument(name, hash));
+      }
+      // El handle se reemplaza siempre: el documento que entra manda. Se pasa
+      // sólo al abrir un archivo; Nuevo y los ejemplos lo dejan en `null`.
+      fileHandle.current = handle;
+      sidecarHandle.current = null;
+      setActiveSheet(0);
+      setPlacing(null);
+      setPreview(null);
+      setFitToken((t) => t + 1);
+    },
+    [],
+  );
+
+  /**
+   * Abre un archivo cargado: si es un `.mixo`, extrae el dibujo y las keys; si
+   * es un `.cad`/`.cade`, sigue el camino compatible. Devuelve si abrió.
+   */
+  const openLoaded = useCallback(
+    (text: string, name: string, handle: FileSystemFileHandle | null = null): boolean => {
+      const bundle = parseMixo(text);
+      if (bundle) {
+        if (!isCadeDocument(bundle.drawing)) {
+          flash('no se cargó: el proyecto no contiene un esquema CADe_SIMU', 'error');
+          return false;
+        }
+        const keys = parseSidecar(bundle.keys);
+        openText(bundle.drawing, name, handle, { bindings: keys?.bindings ?? {}, mode: 'mixo' });
+        return true;
+      }
+      if (!isCadeDocument(text)) {
+        flash('no se cargó: el archivo no parece un esquema CADe_SIMU', 'error');
+        return false;
+      }
+      openText(text, name, handle);
+      return true;
+    },
+    [flash, openText],
+  );
+
+  /** El contenido es abrible si es un `.cad` o un `.mixo` con dibujo CADe. */
+  const isValidOpenText = useCallback((text: string): boolean => {
+    const bundle = parseMixo(text);
+    return isCadeDocument(bundle?.drawing ?? text);
   }, []);
 
   /** Proyecto nuevo: si hay cambios sin guardar, primero pregunta. */
@@ -427,21 +501,115 @@ export function App(): JSX.Element {
    * Devuelve si el archivo se escribió: el drop de un `.cad` necesita saber si el
    * proyecto quedó guardado antes de reemplazarlo.
    */
+  /**
+   * Escribe el sidecar de atajos junto al `.cad`. La primera vez pide el
+   * destino; después reescribe el mismo handle. Sin selectores, lo descarga.
+   */
+  const writeSidecar = useCallback(
+    async (text: string, cadName: string, bindings: Record<string, string>): Promise<void> => {
+      const hasBindings = Object.keys(bindings).length > 0;
+      if (!hasBindings && sidecarHandle.current === null) return;
+      const hash = drawingHash(text);
+      const metadata: ComponentShortcuts = { version: 2, drawingHash: hash, sourceName: cadName, bindings };
+      writeComponentBindings(hash, bindings, { drawingHash: hash, sourceName: cadName });
+      if (!hasFileSystemAccess()) {
+        if (hasBindings) downloadSidecar(cadName, metadata);
+        return;
+      }
+      let handle = sidecarHandle.current;
+      if (handle === null) {
+        try {
+          handle = await pickSidecarHandle(sidecarFileName(cadName));
+        } catch {
+          flash('el .cad se guardó sin los atajos: no se pudo abrir el selector del sidecar', 'error');
+          return;
+        }
+        if (handle === null) {
+          flash('el .cad se guardó sin el archivo de atajos', 'error');
+          return;
+        }
+        sidecarHandle.current = handle;
+      }
+      try {
+        await writeHandle(handle, serializeSidecar(metadata));
+      } catch {
+        flash('el .cad se guardó pero falló la escritura de los atajos', 'error');
+      }
+    },
+    [flash],
+  );
+
+  const exportComponentShortcuts = useCallback((): void => {
+    const bindings = componentShortcuts.bindings;
+    if (Object.keys(bindings).length === 0) {
+      flash('no hay atajos para exportar');
+      return;
+    }
+    const hash = state ? drawingHash(state.text) : '';
+    downloadSidecar(fileName, { version: 2, drawingHash: hash, sourceName: fileName, bindings });
+  }, [componentShortcuts, state, fileName, flash]);
+
+  const importSidecarFile = useCallback(
+    async (file: File): Promise<void> => {
+      const parsed = parseSidecar(await file.text());
+      if (!parsed) {
+        flash('el archivo de atajos no es válido', 'error');
+        return;
+      }
+      const hash = state ? drawingHash(state.text) : '';
+      if (parsed.drawingHash && hash !== parsed.drawingHash) {
+        flash('los atajos son de otro dibujo; revisalos', 'error');
+      }
+      setComponentShortcuts(writeComponentBindings(hash, parsed.bindings, { drawingHash: hash, sourceName: fileName }));
+      flash(`${Object.keys(parsed.bindings).length} atajos importados`, 'abrir archivo');
+    },
+    [state, fileName, flash],
+  );
+
+  const importComponentShortcuts = useCallback((): void => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (file) void importSidecarFile(file);
+    };
+    input.click();
+  }, [importSidecarFile]);
+
   const writeDocument = useCallback(
     async (handle: FileSystemFileHandle, text: string): Promise<boolean> => {
+      const native = isMixoFileName(handle.name);
+      const hash = drawingHash(text);
+      const bindings = componentShortcuts.bindings;
+      const output = native
+        ? serializeMixo({
+            drawing: text,
+            keys: serializeSidecar({ version: 2, drawingHash: hash, sourceName: handle.name, bindings }),
+            manifest: { format: 'cademixo', version: 1, sourceName: handle.name },
+          })
+        : text;
       try {
-        await writeHandle(handle, text);
+        await writeHandle(handle, output);
       } catch {
         flash('no se guardó: no se pudo escribir el archivo', 'error');
         return false;
       }
       fileHandle.current = handle;
       setFileName(handle.name);
+      setDocumentMode(native ? 'mixo' : 'cade');
+      writeComponentBindings(hash, bindings, { drawingHash: hash, sourceName: handle.name });
+      if (native) {
+        // Todo vive adentro del `.mixo`; el sidecar hermano deja de tener sentido.
+        sidecarHandle.current = null;
+      } else {
+        await writeSidecar(text, handle.name, bindings);
+      }
       setState((s) => (s && s.text === text ? markSaved(s) : s));
       cue('guardar');
       return true;
     },
-    [flash],
+    [flash, componentShortcuts, writeSidecar],
   );
 
   /**
@@ -453,8 +621,9 @@ export function App(): JSX.Element {
    * se escribe por ningún camino.
    */
   const saveDocument = useCallback(
-    async (mode: 'save' | 'save-as'): Promise<boolean> => {
+    async (mode: 'save' | 'save-as', targetArg?: 'cade' | 'mixo'): Promise<boolean> => {
       if (!state) return false;
+      const target = targetArg ?? documentMode;
       if (!roundTrips(state.text)) {
         flash('no se guardó: el documento no re-parsea igual', 'error');
         return false;
@@ -473,7 +642,7 @@ export function App(): JSX.Element {
         // el del archivo que el usuario eligió.
         let picked: FileSystemFileHandle | null;
         try {
-          picked = await pickSaveHandle(suggestedSaveName(fileName));
+          picked = await pickSaveHandle(suggestedSaveName(fileName, target === 'mixo'), target === 'mixo');
         } catch {
           flash('no se guardó: no se pudo abrir el selector de destino', 'error');
           return false;
@@ -483,6 +652,8 @@ export function App(): JSX.Element {
           flash('no se guardó: no se eligió destino', 'error');
           return false;
         }
+        // Otro archivo es otro sidecar: se vuelve a pedir destino.
+        sidecarHandle.current = null;
         return writeDocument(picked, text);
       }
       // Sin selectores: se descarga, con el `.cad` normalizado como nombre. La
@@ -493,17 +664,35 @@ export function App(): JSX.Element {
       // reescribir el original es cosa de la File System Access API, no de este
       // camino.
       if (mode === 'save-as') {
+        setSaveAsTarget(target);
         setSaveAsOpen(true);
         return false;
       }
-      const name = suggestedSaveName(fileName);
-      downloadCade(text, name);
+      const native = target === 'mixo';
+      const name = suggestedSaveName(fileName, native);
+      const hash = drawingHash(text);
+      if (native) {
+        downloadCade(
+          serializeMixo({
+            drawing: text,
+            keys: serializeSidecar({ version: 2, drawingHash: hash, sourceName: name, bindings: componentShortcuts.bindings }),
+            manifest: { format: 'cademixo', version: 1, sourceName: name },
+          }),
+          name,
+        );
+        sidecarHandle.current = null;
+      } else {
+        downloadCade(text, name);
+        await writeSidecar(text, name, componentShortcuts.bindings);
+      }
+      writeComponentBindings(hash, componentShortcuts.bindings, { drawingHash: hash, sourceName: name });
+      setDocumentMode(native ? 'mixo' : 'cade');
       setFileName(name);
       setState((s) => (s && s.text === text ? markSaved(s) : s));
       cue('guardar');
       return true;
     },
-    [state, fileName, flash, writeDocument],
+    [state, fileName, flash, writeDocument, componentShortcuts, writeSidecar, documentMode],
   );
 
   const canOpenFile = useCallback(
@@ -544,14 +733,14 @@ export function App(): JSX.Element {
     }
     if (!picked) return;
     const { text, name } = await loadFile(picked.file);
-    if (!isCadeDocument(text)) {
+    if (!isValidOpenText(text)) {
       flash('no se cargó: el archivo no parece un esquema CADe_SIMU', 'error');
       return;
     }
     if (!(await canOpenFile(name))) return;
-    openText(text, name, picked.handle);
+    if (!openLoaded(text, name, picked.handle)) return;
     cue('abrir archivo');
-  }, [openText, flash, canOpenFile]);
+  }, [openLoaded, isValidOpenText, flash, canOpenFile]);
 
   /**
    * Drop de un archivo CADe sobre la app (S1). La extensión no importa: se
@@ -566,16 +755,16 @@ export function App(): JSX.Element {
   const openDropped = useCallback(
     async (file: File): Promise<void> => {
       const { text, name } = await loadFile(file);
-      if (!isCadeDocument(text)) {
+      if (!isValidOpenText(text)) {
         flash('no se cargó: el archivo no parece un esquema CADe_SIMU', 'error');
         return;
       }
       if (!(await canOpenFile(name))) return;
-      openText(text, name);
+      if (!openLoaded(text, name)) return;
       cue('abrir archivo');
       toast(`abierto ${name}`);
     },
-    [flash, canOpenFile, openText],
+    [flash, canOpenFile, openLoaded, isValidOpenText],
   );
 
   /**
@@ -599,13 +788,59 @@ export function App(): JSX.Element {
       const name = normalizeSaveName(chosen);
       if (name === null) return;
       const text = state.text;
-      downloadCade(text, name);
+      const native = isMixoFileName(name);
+      const hash = drawingHash(text);
+      if (native) {
+        downloadCade(
+          serializeMixo({
+            drawing: text,
+            keys: serializeSidecar({ version: 2, drawingHash: hash, sourceName: name, bindings: componentShortcuts.bindings }),
+            manifest: { format: 'cademixo', version: 1, sourceName: name },
+          }),
+          name,
+        );
+        sidecarHandle.current = null;
+      } else {
+        downloadCade(text, name);
+        void writeSidecar(text, name, componentShortcuts.bindings);
+      }
+      writeComponentBindings(hash, componentShortcuts.bindings, { drawingHash: hash, sourceName: name });
+      setDocumentMode(native ? 'mixo' : 'cade');
       setFileName(name);
       setState((s) => (s && s.text === text ? markSaved(s) : s));
       flash(`guardado como ${name}`, 'guardar como');
     },
-    [state, flash],
+    [state, flash, componentShortcuts, writeSidecar],
   );
+
+  /** Copia limpia para CADe, sin cambiar el archivo ni el modo actual. */
+  const exportToCade = useCallback(async (): Promise<void> => {
+    if (!state) return;
+    if (!roundTrips(state.text)) {
+      flash('no se exportó: el documento no re-parsea igual', 'error');
+      return;
+    }
+    const name = suggestedSaveName(fileName, false);
+    if (!hasFileSystemAccess()) {
+      downloadCade(state.text, name);
+      flash(`exportado ${name}`, 'guardar como');
+      return;
+    }
+    let picked: FileSystemFileHandle | null;
+    try {
+      picked = await pickSaveHandle(name, false);
+    } catch {
+      flash('no se exportó: no se pudo abrir el selector de destino', 'error');
+      return;
+    }
+    if (!picked) return;
+    try {
+      await writeHandle(picked, state.text);
+      flash(`exportado ${picked.name}`, 'guardar como');
+    } catch {
+      flash('no se exportó: no se pudo escribir el archivo', 'error');
+    }
+  }, [state, fileName, flash]);
 
   useEffect(() => {
     void loadSample(SAMPLES[0]!).then((text) => openText(text, SAMPLES[0]!.name));
@@ -985,8 +1220,11 @@ export function App(): JSX.Element {
     if (selectedRecords.length !== 1) return null;
     const rec = selectedRecords[0]!;
     if (rec.kind !== 'component') return null;
+    // Sin designador no hay identidad estable: el id se renumera al guardar en CADe.
+    if (rec.designator === '') return null;
     if (!isPushable(rec.code) && !isChangeover(rec.code) && !isProtectionCode(rec.code)) return null;
-    return { designator: apparatusKey(rec), keys: componentShortcuts.bindings[apparatusKey(rec)] ?? null };
+    const designator = apparatusKey(rec);
+    return { designator, keys: componentShortcuts.bindings[designator] ?? null };
   }, [selectedRecords, componentShortcuts]);
 
   const assignComponentShortcut = useCallback(
@@ -1008,10 +1246,32 @@ export function App(): JSX.Element {
       const bindings = { ...componentShortcuts.bindings };
       if (keys === null) delete bindings[designator];
       else bindings[designator] = keys;
-      setComponentShortcuts(writeComponentBindings(fileName, bindings));
+      const hash = state ? drawingHash(state.text) : '';
+      setComponentShortcuts(writeComponentBindings(hash, bindings, { drawingHash: hash, sourceName: fileName }));
       cue('accionar');
     },
-    [shortcutTarget, componentShortcuts, fileName, flash],
+    [shortcutTarget, componentShortcuts, state, fileName, flash],
+  );
+
+  /** Renombrar el designador mueve el atajo: la clave del sidecar es el nombre. */
+  const renameDesignator = useCallback(
+    (id: number, value: string): void => {
+      if (!state) return;
+      const rec = projectOf(state).records.find((candidate) => candidate.id === id);
+      if (!rec) return;
+      const oldKey = apparatusKey(rec);
+      const next = setDesignator(state, id, value);
+      setState(next);
+      if (!(oldKey in componentShortcuts.bindings)) return;
+      const newKey = value === '' ? `#id:${id}` : value;
+      if (oldKey === newKey) return;
+      const bindings = { ...componentShortcuts.bindings };
+      bindings[newKey] = bindings[oldKey]!;
+      delete bindings[oldKey];
+      const hash = drawingHash(next.text);
+      setComponentShortcuts(writeComponentBindings(hash, bindings, { drawingHash: hash, sourceName: fileName }));
+    },
+    [state, componentShortcuts, fileName],
   );
 
   // Seleccionar algo abre el Drawer en modo propiedades. Cerrarlo no cambia la
@@ -1080,14 +1340,27 @@ export function App(): JSX.Element {
       // El drawer de Propiedades es un dialog pero no debe bloquear el atajo:
       // sólo se calla si el foco está dentro de un modal que captura teclas.
       const active = document.activeElement;
-      if (active instanceof HTMLElement && active.closest('[role="dialog"]') !== null) return;
+      const dialog = active instanceof HTMLElement ? active.closest('[role="dialog"]') : null;
+      // El drawer de Propiedades también es `role=dialog`, pero no es un modal
+      // que captura teclas: sus atajos de componente deben seguir funcionando.
+      if (dialog instanceof HTMLElement && dialog.dataset.slot !== 'drawer-content') return;
       const keys = keyEventToKeys(event, isApplePlatform());
       if (keys === null) return;
       const records = projectOf(state).records;
       for (const [designator, bound] of Object.entries(componentShortcuts.bindings)) {
         if (bound !== keys) continue;
-        const id = records.find((r) => r.kind === 'component' && apparatusKey(r) === designator)?.id;
-        if (id !== undefined && activateRecord(id)) {
+        // Un designador puede tener varias piezas (el disyuntor Q1 y su
+        // auxiliar 8018). Se prueba primero la protección, después el pulsador
+        // y por último el conmutador suelto: el auxiliar ligado a una
+        // protección no se acciona por separado y no debe consumir la tecla.
+        const candidates = records
+          .filter((r) => r.kind === 'component' && apparatusKey(r) === designator)
+          .sort(
+            (a, b) =>
+              activationRank(a.code) - activationRank(b.code) || a.id - b.id,
+          );
+        for (const candidate of candidates) {
+          if (!activateRecord(candidate.id)) continue;
           event.preventDefault();
           return;
         }
@@ -1373,10 +1646,35 @@ export function App(): JSX.Element {
                     Guardar
                     <MenubarShortcut>{hintSave}</MenubarShortcut>
                   </MenubarItem>
-                  <MenubarItem onSelect={() => void saveDocument('save-as')}>
-                    <SaveAllIcon />
-                    Guardar como…
-                    <MenubarShortcut>{hintSaveAs}</MenubarShortcut>
+                  <MenubarSub>
+                    <MenubarSubTrigger>
+                      <SaveAllIcon />
+                      Guardar como
+                      <MenubarShortcut>{hintSaveAs}</MenubarShortcut>
+                    </MenubarSubTrigger>
+                    <MenubarSubContent>
+                      <MenubarItem onSelect={() => void saveDocument('save-as', 'cade')}>
+                        Esquema CADe (.cad)
+                      </MenubarItem>
+                      <MenubarItem onSelect={() => void saveDocument('save-as', 'mixo')}>
+                        Proyecto cadeMixo (.mixo)
+                      </MenubarItem>
+                    </MenubarSubContent>
+                  </MenubarSub>
+                  <MenubarItem onSelect={() => void exportToCade()}>
+                    <DownloadIcon />
+                    Exportar para CADe…
+                  </MenubarItem>
+                </MenubarGroup>
+                <MenubarSeparator />
+                <MenubarGroup>
+                  <MenubarItem onSelect={importComponentShortcuts}>
+                    <UploadIcon />
+                    Importar atajos…
+                  </MenubarItem>
+                  <MenubarItem onSelect={exportComponentShortcuts}>
+                    <DownloadIcon />
+                    Exportar atajos
                   </MenubarItem>
                 </MenubarGroup>
               </MenubarContent>
@@ -1548,12 +1846,12 @@ export function App(): JSX.Element {
               if (!file) return;
               void (async () => {
                 const { text, name } = await loadFile(file);
-                if (!isCadeDocument(text)) {
+                if (!isValidOpenText(text)) {
                   flash('no se cargó: el archivo no parece un esquema CADe_SIMU', 'error');
                   return;
                 }
                 if (!(await canOpenFile(name))) return;
-                openText(text, name);
+                if (!openLoaded(text, name)) return;
                 cue('abrir archivo');
               })();
               e.target.value = '';
@@ -1561,6 +1859,11 @@ export function App(): JSX.Element {
           />
 
           <span className="max-w-[200px] shrink-0 truncate font-mono text-[11px] text-muted-foreground">{fileName}</span>
+          {documentMode === 'mixo' && (
+            <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+              cadeMixo
+            </Badge>
+          )}
 
           <div className="flex-1" />
 
@@ -1808,7 +2111,7 @@ export function App(): JSX.Element {
             vertex={state.vertex}
             canDeleteVertex={state && state.vertex ? canDeleteVertex(state, state.vertex) : false}
             onDeleteVertex={() => setState((s) => (s && s.vertex ? deleteVertex(s, s.vertex) : s))}
-            onDesignator={(id, value) => setState(setDesignator(state, id, value))}
+            onDesignator={renameDesignator}
             onPinName={(id, index, value) => setState(setPinName(state, id, index, value))}
             onPinVisible={(id, index, visible) => setState(setPinVisible(state, id, index, visible))}
             onPinLabelsVisible={(id, visible) => setState(setPinLabelsVisible(state, id, visible))}
@@ -1868,6 +2171,7 @@ export function App(): JSX.Element {
       <SaveAsDialog
         open={saveAsOpen}
         initialName={fileName}
+        target={saveAsTarget}
         onCancel={() => setSaveAsOpen(false)}
         onConfirm={saveAsConfirmed}
       />

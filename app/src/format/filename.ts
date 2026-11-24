@@ -10,10 +10,12 @@
  */
 
 export const SAVE_EXTENSION = '.cad';
+/** Proyecto nativo: `.cad` + keys custom en un solo archivo. */
+export const NATIVE_EXTENSION = '.mixo';
 
 export const DEFAULT_FILE_NAME = `sin título${SAVE_EXTENSION}`;
 
-const KNOWN_EXTENSION = /\.(cade|cad)$/i;
+const KNOWN_EXTENSION = /\.(cade|cad|mixo)$/i;
 
 /**
  * Nombre normalizado para guardar: reemplaza una extensión final `.cade`/`.cad`
@@ -25,4 +27,20 @@ export function cadFileName(name: string): string {
   const trimmed = name.trim();
   if (trimmed === '') return DEFAULT_FILE_NAME;
   return trimmed.replace(KNOWN_EXTENSION, '') + SAVE_EXTENSION;
+}
+
+/** Nombre de proyecto nativo: misma base, extensión `.mixo`. */
+export function mixoFileName(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed === '') return `sin título${NATIVE_EXTENSION}`;
+  return trimmed.replace(KNOWN_EXTENSION, '') + NATIVE_EXTENSION;
+}
+
+export function isMixoFileName(name: string): boolean {
+  return /\.mixo$/i.test(name.trim());
+}
+
+/** Nombre sugerido para el destino elegido; no cambia el archivo actual. */
+export function suggestedSaveName(current: string, native = false): string {
+  return native ? mixoFileName(current) : cadFileName(current);
 }

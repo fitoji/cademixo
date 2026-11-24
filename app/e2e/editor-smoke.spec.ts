@@ -273,9 +273,10 @@ test('a failed save before a picker open preserves the dirty document and its fi
 test('saves through Guardar como… and downloads a .cad file', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('menuitem', { name: 'Archivo', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Guardar como…' }).click();
+  await page.getByRole('menuitem', { name: 'Guardar como' }).click();
+  await page.getByRole('menuitem', { name: 'Esquema CADe (.cad)' }).click();
 
-  const dialog = page.getByRole('dialog', { name: 'Guardar como' });
+  const dialog = page.getByRole('dialog', { name: 'Guardar como esquema CADe' });
   await dialog.getByLabel('Nombre del archivo').fill('browser-smoke');
 
   const downloadPromise = page.waitForEvent('download');

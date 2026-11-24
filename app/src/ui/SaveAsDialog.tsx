@@ -12,7 +12,7 @@ import {
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { cadFileName } from '../format/filename.ts';
-import { normalizeSaveName } from './files.ts';
+import { normalizeSaveName, suggestedSaveName } from './files.ts';
 
 /**
  * Diálogo de «Guardar como…» para los navegadores que no tienen la File System
@@ -27,15 +27,19 @@ import { normalizeSaveName } from './files.ts';
 export function SaveAsDialog({
   open,
   initialName,
+  target,
   onCancel,
   onConfirm,
 }: {
   open: boolean;
   initialName: string;
+  target: 'cade' | 'mixo';
   onCancel: () => void;
   onConfirm: (name: string) => void;
 }): JSX.Element {
-  const [value, setValue] = useState(() => cadFileName(initialName));
+  const suggested = (name: string): string =>
+    target === 'mixo' ? suggestedSaveName(name, true) : (normalizeSaveName(name) ?? cadFileName(name));
+  const [value, setValue] = useState(() => suggested(initialName));
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Al abrir se vuelve a proponer el nombre del documento y se lo deja
@@ -44,13 +48,15 @@ export function SaveAsDialog({
   // mueve el cursor al final y la selección se pierde.
   useEffect(() => {
     if (!open) return;
-    setValue(cadFileName(initialName));
+    setValue(
+      target === 'mixo' ? suggestedSaveName(initialName, true) : (normalizeSaveName(initialName) ?? cadFileName(initialName)),
+    );
     const timer = window.setTimeout(() => {
       inputRef.current?.focus();
       inputRef.current?.select();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [open, initialName]);
+  }, [open, initialName, target]);
 
   const name = normalizeSaveName(value);
 
@@ -64,7 +70,9 @@ export function SaveAsDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Guardar como</DialogTitle>
+          <DialogTitle>
+            {target === 'mixo' ? 'Guardar como proyecto cadeMixo' : 'Guardar como esquema CADe'}
+          </DialogTitle>
           <DialogDescription>
             Este navegador descarga el archivo con el nombre que escribas acá. Elegí dónde guardarlo desde la
             descarga del navegador.
@@ -90,7 +98,8 @@ export function SaveAsDialog({
               onChange={(event) => setValue(event.target.value)}
             />
             <FieldDescription>
-              Si no escribís la extensión, se guarda como <code>.cad</code>.
+              Si no escribís la extensión, se guarda como <code>.cad</code>. Escribí <code>.mixo</code> para
+              guardar el proyecto con las keys custom adentro.
             </FieldDescription>
           </Field>
 
