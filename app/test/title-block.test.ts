@@ -1,0 +1,70 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { parse, serialize } from '../src/format/cade.ts';
+import {
+  parseTitleBlock,
+  titleValues,
+  withTitleField,
+  withTitleFlags,
+} from '../src/model/title-block.ts';
+
+const fixture = (name: string): string =>
+  readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'latin1');
+
+const BASE = fixture('pr1-rodolfo-giusti.cad');
+const PROBE = fixture('cajetin-probe.cad');
+
+test('el cajetín se encuentra y el round-trip del archivo no cambia', () => {
+  const block = parseTitleBlock(BASE);
+  assert.ok(block);
+  assert.equal(BASE.slice(block!.start, block!.end), block!.raw);
+  assert.equal(serialize(parse(BASE)), BASE);
+});
+
+test('layout de 10 campos: valores por defecto', () => {
+  const block = parseTitleBlock(BASE)!;
+  assert.equal(block.fields.length, 10);
+  assert.deepEqual(block.visibility, [true, true, true, true, true, true, true]);
+  assert.deepEqual(block.alignment, [1, 1, 1, 1, 1, 1, 1]);
+  const values = titleValues(block);
+  assert.equal(values[6], '02-nov.-2026');
+  assert.equal(values[7], '1');
+  assert.equal(values[8], '1');
+  assert.equal(values[9], 'CADe_S2');
+});
+
+test('layout de 12 campos: la variante con ** conserva el mapeo', () => {
+  const block = parseTitleBlock(PROBE)!;
+  assert.equal(block.fields.length, 10);
+  const values = titleValues(block);
+  assert.deepEqual(values.slice(0, 6), ['DIB1', 'DIB2', 'COM1', 'COM2', 'EMPRESA', 'TITULO']);
+  assert.equal(values[7], '1NUM1');
+  assert.equal(values[8], '1NUM2');
+  assert.deepEqual(block.visibility, [true, false, true, true, true, true, true]);
+  assert.deepEqual(block.alignment, [0, 0, 0, 2, 0, 0, 0]);
+});
+
+test('editar un campo respeta el ancho original y no toca otros bytes', () => {
+  const next = withTitleField(BASE, 5, 'MI TITULO');
+  const block = parseTitleBlock(next)!;
+  assert.equal(titleValues(block)[5], 'MI TITULO');
+  assert.equal(block.fields[5]!.width, 25);
+  assert.equal(next.replace(block.raw, ''), BASE.replace(parseTitleBlock(BASE)!.raw, ''));
+  assert.equal(serialize(parse(next)), next);
+});
+
+test('cambiar visibilidad y alineación modifica sólo los flags elegidos', () => {
+  const next = withTitleFlags(BASE, { visibility: { 1: false }, alignment: { 3: 2 } });
+  const block = parseTitleBlock(next)!;
+  assert.deepEqual(block.visibility, [true, false, true, true, true, true, true]);
+  assert.deepEqual(block.alignment, [1, 1, 1, 2, 1, 1, 1]);
+  assert.equal(serialize(parse(next)), next);
+});
+
+test('un documento sin cajetín no se modifica', () => {
+  const plain = 'CADe_SIMU*0*20000#XXX#########*0*0#';
+  assert.equal(parseTitleBlock(plain), null);
+  assert.equal(withTitleField(plain, 0, 'x'), plain);
+  assert.equal(withTitleFlags(plain, { visibility: { 0: false } }), plain);
+});
