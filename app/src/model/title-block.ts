@@ -158,16 +158,30 @@ export function titleValues(block: TitleBlock): string[] {
 }
 
 /**
- * Índices de los numéricos con semántica confirmada en la GUI de CADe.
- * El orden es el del `sprintf` del binario (`FUN_00432710`).
+ * Índices de los numéricos del trailer, en el orden del `sprintf` del binario
+ * (`FUN_00432710`). Todos menos el zoom están confirmados en la GUI de CADe
+ * abriendo archivos con valores inyectados y comparando el diálogo
+ * `Archivo → Configuración`.
  */
 export const TITLE_NUMERIC_INDEX = {
-  /** 0 = Ninguno, 1 = Cajetín 1, 2 = Cajetín 2 */
-  cajetin: 0,
-  /** check «Contorno» de `Archivo → Configuración` */
+  /** 0 A4 Vertical, 1 A4 Horizontal, 2 A3 Formato 1, 3 A3 Formato 2, 4 Personalizado */
+  formato: 0,
+  /** check «Contorno» */
   contorno: 1,
+  /** check «Visualizar referenciado» */
+  referenciado: 2,
+  /** 0 Ninguno, 1 Cajetín 1, 2 Cajetín 2 */
+  cajetin: 3,
   /** zoom de la vista al guardar (se guarda como double) */
   zoom: 4,
+  /** 0 Horizontal, 1 Vertical («Orientación referenciado») */
+  orientacion: 5,
+  /** 1 = rejilla visible (`Ver → Rejilla`) */
+  rejilla: 6,
+  /** check «Visualizar conexiones símbolo» */
+  simbolos: 7,
+  /** check «Visualizar número de cable» */
+  numeroCable: 8,
   /** alto de la página, en mm (279 en los fixtures) */
   alto: 9,
   /** ancho de la página, en mm (210 en los fixtures) */
@@ -175,11 +189,28 @@ export const TITLE_NUMERIC_INDEX = {
 } as const;
 
 export type CajetinKind = 0 | 1 | 2;
+export type PageFormat = 0 | 1 | 2 | 3 | 4;
 
 /** Valor numérico de un token, ignorando el sufijo `&&&` del último. */
 function numericAt(block: TitleBlock, index: number): number {
   const match = /^-?\d+/.exec(block.numeric[index] ?? '');
   return match ? Number(match[0]) : 0;
+}
+
+/** Formato de hoja elegido en `Archivo → Configuración`. */
+export function titlePageFormat(block: TitleBlock): PageFormat {
+  const value = numericAt(block, TITLE_NUMERIC_INDEX.formato);
+  return (value >= 0 && value <= 4 ? value : 0) as PageFormat;
+}
+
+/** Si el cajetín dibuja su contorno (check «Contorno»). */
+export function titleContorno(block: TitleBlock): boolean {
+  return numericAt(block, TITLE_NUMERIC_INDEX.contorno) === 1;
+}
+
+/** Si se dibuja el referenciado de los bornes. */
+export function titleReferenciado(block: TitleBlock): boolean {
+  return numericAt(block, TITLE_NUMERIC_INDEX.referenciado) === 1;
 }
 
 /** Qué cajetín dibuja CADe: ninguno, el 1 o el 2. */
@@ -188,14 +219,29 @@ export function titleCajetin(block: TitleBlock): CajetinKind {
   return value === 2 ? 2 : value === 1 ? 1 : 0;
 }
 
-/** Si el cajetín dibuja su contorno (check «Contorno»). */
-export function titleContorno(block: TitleBlock): boolean {
-  return numericAt(block, TITLE_NUMERIC_INDEX.contorno) === 1;
-}
-
 /** Zoom con el que se guardó la vista. */
 export function titleZoom(block: TitleBlock): number {
   return numericAt(block, TITLE_NUMERIC_INDEX.zoom);
+}
+
+/** Orientación del referenciado: 0 = Horizontal, 1 = Vertical. */
+export function titleOrientation(block: TitleBlock): 0 | 1 {
+  return numericAt(block, TITLE_NUMERIC_INDEX.orientacion) === 1 ? 1 : 0;
+}
+
+/** Si la rejilla está visible (`Ver → Rejilla`). */
+export function titleGrid(block: TitleBlock): boolean {
+  return numericAt(block, TITLE_NUMERIC_INDEX.rejilla) === 1;
+}
+
+/** Si se dibujan las conexiones de los símbolos. */
+export function titleSymbolConnections(block: TitleBlock): boolean {
+  return numericAt(block, TITLE_NUMERIC_INDEX.simbolos) === 1;
+}
+
+/** Si se numera cada cable. */
+export function titleCableNumbers(block: TitleBlock): boolean {
+  return numericAt(block, TITLE_NUMERIC_INDEX.numeroCable) === 1;
 }
 
 /** Tamaño de página en mm, en el orden en que lo muestra CADe. */

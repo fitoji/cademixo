@@ -4,9 +4,15 @@ import { readFileSync } from 'node:fs';
 import { parse, serialize } from '../src/format/cade.ts';
 import {
   parseTitleBlock,
+  titleCableNumbers,
   titleCajetin,
   titleContorno,
+  titleGrid,
+  titleOrientation,
+  titlePageFormat,
   titlePageSize,
+  titleReferenciado,
+  titleSymbolConnections,
   titleValues,
   titleZoom,
   withTitleField,
@@ -77,16 +83,22 @@ test('un documento sin cajetín no se modifica', () => {
 
 test('los numéricos confirmados se leen del trailer', () => {
   const block = parseTitleBlock(BASE)!;
-  assert.equal(titleCajetin(block), 1);
+  assert.equal(titlePageFormat(block), 1);
   assert.equal(titleContorno(block), true);
+  assert.equal(titleReferenciado(block), true);
+  assert.equal(titleCajetin(block), 2);
   assert.equal(titleZoom(block), 5);
+  assert.equal(titleOrientation(block), 0);
+  assert.equal(titleGrid(block), true);
+  assert.equal(titleSymbolConnections(block), false);
+  assert.equal(titleCableNumbers(block), false);
   assert.deepEqual(titlePageSize(block), { alto: 279, ancho: 210 });
 });
 
 test('cambiar un numérico respeta el ancho y el terminador &&&', () => {
-  const next = withTitleNumeric(BASE, 0, 2);
+  const next = withTitleNumeric(BASE, 3, 0);
   const block = parseTitleBlock(next)!;
-  assert.equal(titleCajetin(block), 2);
+  assert.equal(titleCajetin(block), 0);
   assert.equal(block.raw.endsWith('&&&'), true);
   assert.equal(next.replace(block.raw, ''), BASE.replace(parseTitleBlock(BASE)!.raw, ''));
   assert.equal(serialize(parse(next)), next);

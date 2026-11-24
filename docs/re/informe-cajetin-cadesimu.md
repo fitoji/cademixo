@@ -66,25 +66,30 @@ Valores típicos: `1,1,1,2,5,0,1,0,0,279,210`. Mapeo a offsets del objeto docume
 
 | # | offset | por defecto | semántica |
 |---|--------|-------------|-----------|
-| 1 | `+0x88` | 1 | **cajetín** (0 Ninguno / 1 Cajetín 1 / 2 Cajetín 2) — confirmado |
-| 2 | `+0x8c` | 1 | **contorno** — confirmado |
-| 3 | `+0xa4` | 1 | desconocido (siempre 1) |
-| 4 | `+0x90` | 2 | desconocido (2 en archivos reales, 0 en hoja nueva) |
-| 5 | `+0x58` (double→`ftol`) | 2.0 | **zoom** de la vista al guardar (2..9) — confirmado |
-| 6 | `+0xa0` | 0 | desconocido; CADe normaliza valores fuera de rango |
-| 7 | `+0x80` | 1 | desconocido (siempre 1) |
-| 8 | `+0xa8` | 0 | desconocido; normalizado |
-| 9 | `+0xac` | 0 | desconocido; normalizado |
+| 1 | `+0x88` | 1 | **formato de hoja**: 0 A4 Vertical, 1 A4 Horizontal, 2 A3 Formato 1, 3 A3 Formato 2, 4 Personalizado |
+| 2 | `+0x8c` | 1 | **contorno** |
+| 3 | `+0xa4` | 1 | **visualizar referenciado** |
+| 4 | `+0x90` | 2 | **cajetín**: 0 Ninguno, 1 Cajetín 1, 2 Cajetín 2 |
+| 5 | `+0x58` (double→`ftol`) | 2.0 | **zoom** de la vista al guardar (2..9) |
+| 6 | `+0xa0` | 0 | **orientación del referenciado**: 0 Horizontal, 1 Vertical |
+| 7 | `+0x80` | 1 | **rejilla** visible (`Ver → Rejilla`) |
+| 8 | `+0xa8` | 0 | **visualizar conexiones símbolo** |
+| 9 | `+0xac` | 0 | **visualizar número de cable** |
 | 10 | `+0xc4` | 279 | **alto** de página (mm) |
 | 11 | `+0xc0` | 210 | **ancho** de página (mm) |
 
-Corrección respecto del análisis inicial: el campo 1 **no** es el número de hoja. El número de hoja
-está en los textos 8 y 9 («Número» y «De»), que el dibujante imprime como `"%s de %s"`. El campo 1
-cambia de 2 a 0 al elegir «Cajetín: Ninguno» en `Archivo → Configuración`, y el campo 2 cambia al
-destildar «Contorno». El campo 5 se confirmó en los dos sentidos: un archivo con `5 = 3` se abre
-con zoom 3, y hacer `Ver → Zoom +` antes de guardar sube el campo 5.
+Los 11 se verificaron en los dos sentidos. En el sentido GUI→archivo: A4 Horizontal→A4 Vertical
+cambia el campo 1 de 1 a 0; destildar Contorno cambia el 2; Cajetín 2→Ninguno cambia el 4;
+`Ver → Zoom +` sube el 5; `Ver → Rejilla` cambia el 7. En el sentido archivo→GUI se inyectaron
+valores y se abrió el diálogo: `1=3` mostró «A3 Formato 2», `4=1` mostró «Cajetín 1», `5=3` abrió
+con zoom 3, `6=1` mostró orientación «Vertical», `8=1` y `9=1` encendieron «conexiones símbolo» y
+«número de cable», y `3=0` apagó «visualizar referenciado».
 
-Las demás opciones del diálogo **no** viajan en el `.cad`: se guardan en `config.cfg` con otro
+Corrección respecto del análisis inicial: el campo 1 **no** es el número de hoja. El número de hoja
+está en los textos 8 y 9 («Número» y «De»), que el dibujante imprime como `"%s de %s"`.
+
+El diálogo lee del documento el formato, el cajetín, el contorno, los checks de visualización y el
+tamaño. Las opciones de impresión y la velocidad, en cambio, se guardan en `config.cfg` con otro
 formato (`CADe_SIMU*%1d...*%0.4f...*%4d$$$`, cadena `0xb6f550`, escritor `0x878696`).
 
 ## 5. Campos de texto (10 o 12 tokens)
@@ -200,5 +205,5 @@ Decisiones deliberadas:
 | ¿Mapping campo↔etiqueta? | Confirmado en GUI |
 | ¿Cómo se edita en CADe? | `Editar → Cajetín`, 7 filas con check, alineación y texto |
 | ¿Orden de los 14 flags? | 7 visibilidad + 7 alineación, en orden de fila |
-| ¿Semántica de los 9 numéricos no obvios? | Parcial: 1 cajetín, 2 contorno, 5 zoom, 10/11 alto/ancho (confirmados en GUI); 3, 4, 6, 7, 8, 9 sin semántica |
+| ¿Semántica de los 11 numéricos? | Respondido y verificado en ambos sentidos: formato, contorno, referenciado, cajetín, zoom, orientación, rejilla, conexiones símbolo, número de cable, alto y ancho |
 | ¿Importar cajetín desde otro archivo? | No implementado (fuera de alcance) |

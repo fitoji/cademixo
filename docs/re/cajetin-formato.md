@@ -40,15 +40,15 @@ Mapeo a offsets del objeto documento, leído de los `PUSH` anteriores al `sprint
 
 | # | offset | por defecto | interpretación |
 |---|--------|-------------|----------------|
-| 1 | `+0x88` | 1 | **cajetín**: 0 = Ninguno, 1 = Cajetín 1, 2 = Cajetín 2 |
-| 2 | `+0x8c` | 1 | **contorno** (check «Contorno» de `Archivo → Configuración`) |
-| 3 | `+0xa4` | 1 | sin confirmar (constante 1 en todos los fixtures) |
-| 4 | `+0x90` | 2 | sin confirmar (2 en todos los archivos reales, 0 en hoja nueva) |
+| 1 | `+0x88` | 1 | **formato de hoja**: 0 A4 Vertical, 1 A4 Horizontal, 2 A3 Formato 1, 3 A3 Formato 2, 4 Personalizado |
+| 2 | `+0x8c` | 1 | **contorno** (check «Contorno») |
+| 3 | `+0xa4` | 1 | **visualizar referenciado** |
+| 4 | `+0x90` | 2 | **cajetín**: 0 Ninguno, 1 Cajetín 1, 2 Cajetín 2 |
 | 5 | `+0x58` (double → ftol) | 2.0 | **zoom** de la vista al guardar (2..9) |
-| 6 | `+0xa0` | 0 | sin confirmar; CADe lo normaliza (`200 → 2`) |
-| 7 | `+0x80` | 1 | sin confirmar (constante 1) |
-| 8 | `+0xa8` | 0 | sin confirmar; CADe lo normaliza (`150 → 0`) |
-| 9 | `+0xac` | 0 | sin confirmar; CADe lo normaliza (`9 → 1`) |
+| 6 | `+0xa0` | 0 | **orientación del referenciado**: 0 Horizontal, 1 Vertical |
+| 7 | `+0x80` | 1 | **rejilla** visible (`Ver → Rejilla`) |
+| 8 | `+0xa8` | 0 | **visualizar conexiones símbolo** |
+| 9 | `+0xac` | 0 | **visualizar número de cable** |
 | 10 | `+0xc4` | 279 | **alto** de página (columna «Alto» del diálogo) |
 | 11 | `+0xc0` | 210 | **ancho** de página (columna «Ancho») |
 
@@ -66,31 +66,40 @@ Eso da exactamente `1,1,1,2,2,0,1,0,0,279,210`, el trailer de una hoja nueva.
 
 #### Cómo se confirmó cada uno (experimento en GUI)
 
-Se trabajó sobre copias: `Archivo → Configuración` y `Editar → Cajetín`, guardando con
-`Guardar como` a `%TEMP%` y comparando el trailer de cada corrida.
+Se trabajó sobre copias, guardando con `Guardar como` a `%TEMP%` y comparando el trailer de cada
+corrida. Los 11 campos se probaron en los dos sentidos: cambiando la opción en CADe y viendo qué
+campo cambia al guardar, y abriendo un archivo con un valor inyectado y viendo qué muestra el
+diálogo.
 
-| Cambio hecho en CADe | Antes | Después | Conclusión |
-|----------------------|-------|---------|------------|
-| Cajetín 2 → Ninguno | `2,1,...` | `0,1,...` | campo 1 = cajetín |
-| Contorno destildado | `0,1,...` | `0,0,...` | campo 2 = contorno |
-| `Ver → Zoom +` (dos veces) y guardar | campo 5 = 6 | campo 5 = 7 | campo 5 = zoom |
-| Abrir un archivo con campo 5 = 3 | vista del zoom 6 | vista del zoom 3 | el zoom se **lee** del trailer |
+| Campo | Prueba de escritura (GUI → archivo) | Prueba de lectura (archivo → GUI) |
+|-------|-------------------------------------|-----------------------------------|
+| 1 formato | A4 Horizontal → A4 Vertical: `1 → 0` | `formato=3` mostró «A3 Formato 2» |
+| 2 contorno | destildar «Contorno»: `1 → 0` | `2=0` mostró el check apagado |
+| 3 referenciado | no se pudo: el grupo está deshabilitado en el diálogo | `3=0` mostró «Visualizar referenciado» apagado |
+| 4 cajetín | Cajetín 2 → Ninguno: `2 → 0` | `4=1` mostró «Cajetín 1» |
+| 5 zoom | `Ver → Zoom +` y guardar: `6 → 7` | `5=3` abrió la hoja con zoom 3 |
+| 6 orientación | no se pudo (grupo deshabilitado) | `6=1` mostró «Vertical» |
+| 7 rejilla | `Ver → Rejilla`: `1 → 0` | — |
+| 8 conexiones símbolo | no se pudo (grupo deshabilitado) | `8=1` mostró el check puesto |
+| 9 número de cable | no se pudo (grupo deshabilitado) | `9=1` mostró el check puesto |
+| 10/11 alto/ancho | — | `297/420` mostró «Alto 297, Ancho 420» |
 
-Contraprueba de lectura: se inyectó `1*1*3*4*6*7*0*8*9*279*210` en un archivo. Al abrirlo,
-CADe mostró zoom 6 (el campo 5), y al volver a guardarlo reescribió los valores que considera
-válidos: `1*1*3*4*7*2*0*0*1*  0*279`. O sea que 6, 8 y 9 son campos **validados/normalizados**
-(probablemente enums chicos) y no valores libres como el zoom.
+Contraprueba de normalización: se inyectó `1*1*3*4*6*7*0*8*9*279*210` en un archivo. Al abrirlo,
+CADe mostró zoom 6 (el campo 5) y al volver a guardarlo reescribió `1*1*3*4*7*2*0*0*1*  0*279`: los
+campos 6, 8 y 9 son enums chicos y CADe descarta valores fuera de rango.
 
-Aclaración importante: el diálogo `Archivo → Configuración` **no lee** estos números del `.cad`
-(abriendo un archivo con valores distintos el diálogo siguió mostrando otra cosa). Sus opciones se
-guardan aparte, en `config.cfg`, con otro formato:
+Ojo con el orden de los argumentos: los `PUSH` van de derecha a izquierda, así que el primer
+argumento del `sprintf` es el **último** push. La tabla de arriba ya está en orden de argumento.
+
+El diálogo `Archivo → Configuración` **sí** lee del documento el formato, el cajetín, el contorno,
+los checks de visualización y el tamaño; las opciones de impresión y la velocidad, en cambio, se
+guardan aparte en `config.cfg`, con otro formato:
 
 ```
 CADe_SIMU*%1d*%1d*%1d*%1d*%1d*%1d*%1d*%1d*%3d*%3d*%0.4f*%1d*%1d*%3d*%3d*%1d*%1d*%4d$$$
 ```
 
-(escritor en `0x878696`, cadena en `0xb6f550`). El `.cad` sólo conserva cajetín, contorno y zoom
-de esa familia de opciones.
+(escritor en `0x878696`, cadena en `0xb6f550`).
 
 ### Campos de texto (10, ancho fijo)
 
@@ -203,5 +212,5 @@ editó/guardó con ciertos checks. El parser debe aceptar **10 o 12 tokens** y p
 | ¿Mapping campo↔etiqueta? | **Respondido en GUI**: Dibujado×2, Comprobado×2, Empresa, Título, Fecha, Número, De, Archivo |
 | ¿Cómo se edita en CADe? | Respondido: `Editar → Cajetín`, 7 filas con check, alineación Izq/Cen/Der y campos de texto |
 | ¿Orden exacto de los 14 flags? | Respondido: 7 visibilidad + 7 alineación (0/1/2), en orden de fila del diálogo |
-| ¿Semántica de los 11 numéricos? | Parcial: 1 = cajetín, 2 = contorno, 5 = zoom, 10 = alto, 11 = ancho (confirmados en GUI); 3, 4, 6, 7, 8, 9 siguen sin semántica |
+| ¿Semántica de los 11 numéricos? | Respondido: formato, contorno, referenciado, cajetín, zoom, orientación, rejilla, conexiones símbolo, número de cable, alto y ancho |
 | ¿Implementación en la app? | Hecha: `src/model/title-block.ts` + `ui/TitleBlockDialog.tsx` en `Editar → Cajetín`; tests 6/6 y e2e 1/1 |
