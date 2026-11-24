@@ -148,21 +148,26 @@ Escritura confirmada con corridas de una sola variable sobre `pr1`:
 Es decir que el diálogo, al aceptar, **reescribe los 14** con su estado: visibilidad de cada fila y
 alineación de cada fila.
 
-**Ojo con la lectura: los flags no se usan al abrir.** Se probaron cuatro archivos y el diálogo
-mostró siempre el mismo estado (solo Comprobado tildado, todo en «Izq.»):
+**Ojo con la lectura: CADe ignora los flags.** Se probaron cuatro archivos y el diálogo mostró
+siempre el mismo estado; además se abrió `cajetin-probe.cad` (que tiene `Comprobado` oculto y
+`Título` a la derecha) y en `Archivo → Presentación preliminar` el cajetín se dibuja **igual**:
+COM1/COM2 aparecen aunque el flag diga oculto, y TITULO sale a la izquierda aunque el flag diga
+derecha.
 
-| Flags en el archivo | Estado del diálogo |
-|---------------------|--------------------|
-| `1 1 1 1 1 1 1  0 0 0 0 0 0 0` | solo Comprobado |
-| `0 0 0 1 0 0 0  0 0 0 0 0 0 0` | solo Comprobado |
-| `0 0 0 0 0 0 0  0 0 0 0 0 0 1` | solo Comprobado |
-| `0 0 0 0 0 0 0  0 0 0 0 0 0 0` | solo Comprobado |
+| Flags en el archivo | Diálogo | Dibujo / vista previa |
+|---------------------|---------|------------------------|
+| `1 1 1 1 1 1 1  0 0 0 0 0 0 0` | solo Comprobado | — |
+| `0 0 0 1 0 0 0  0 0 0 0 0 0 0` | solo Comprobado | — |
+| `0 0 0 0 0 0 0  0 0 0 0 0 0 1` | solo Comprobado | — |
+| `0 0 0 0 0 0 0  0 0 0 0 0 0 0` | solo Comprobado | — |
+| `1 0 1 1 1 1 1  0 0 0 2 0 0 0` (probe) | solo Comprobado | COM1/COM2 visibles, TITULO a la izquierda |
 
-O sea: `Editar → Cajetín` **no restaura** los checks desde el trailer; arranca con un estado interno
-y al aceptar reescribe los 14 flags. Además el loader `FUN_0042c290` (`0x42c290`) lee el trailer
-carácter por carácter y guarda **13** flags, no 14: escribe `+0x104`, después `+0x10c`, `+0x110`,
-`+0x114`, `+0x118`, `+0x11c`, `+0x120`, `+0x124`, `+0x128`, `+0x12c`, `+0x130`, `+0x134` y `+0x138`,
-y **nunca toca `+0x108`**:
+O sea: en CADe los 14 flags son **de sólo escritura**. Se escriben al aceptar el diálogo, pero no se
+usan ni para restaurar el diálogo ni para dibujar el cajetín.
+
+Además el loader `FUN_0042c290` (`0x42c290`) lee el trailer carácter por carácter y guarda **13**
+flags, no 14: escribe `+0x104`, después `+0x10c`, `+0x110`, `+0x114`, `+0x118`, `+0x11c`, `+0x120`,
+`+0x124`, `+0x128`, `+0x12c`, `+0x130`, `+0x134` y `+0x138`, y **nunca toca `+0x108`**:
 
 ```
 0x42fcee: MOV dword ptr [ECX + 0x104], EAX
@@ -174,13 +179,9 @@ y **nunca toca `+0x108`**:
 
 El writer sí lee los 14 (incluido `+0x108`).
 
-Por el lado del dibujado, `FUN_00873130` (`0x873130`) confirma la semántica: usa los 7 primeros
-valores como visibilidad y los 7 siguientes como enums `0/1/2` para posicionar el texto
-(Izq/Cen/Der).
-
-Conclusión práctica: en CADe los flags son **de sólo escritura**. Nuestra app hoy los lee como
-están en el archivo, que es la única forma de no perder información; imitar a CADe significaría
-ignorarlos. La desviación queda documentada y la decisión es de producto.
+Conclusión práctica: los flags del trailer sólo los aprovecha nuestra app (y cualquier otra
+herramienta que los lea). Nuestra UI los lee como están en el archivo, que es la única forma de no
+perder información.
 
 El `2` de alineación derecha se observó en el experimento original (Título en «Der.»).
 

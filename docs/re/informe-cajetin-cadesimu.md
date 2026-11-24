@@ -213,6 +213,6 @@ Decisiones deliberadas:
 | ¿Qué campos hay? | 10 (o 12) textos + 14 flags + 11 numéricos |
 | ¿Mapping campo↔etiqueta? | Confirmado en GUI |
 | ¿Cómo se edita en CADe? | `Editar → Cajetín`, 7 filas con check, alineación y texto |
-| ¿Orden de los 14 flags? | Respondido: 7 visibilidad + 7 alineación (0/1/2), confirmado en el dibujante. En CADe son **de sólo escritura**: el diálogo no los restaura al abrir (probado con 4 archivos distintos) y el loader además lee 13, salteando `+0x108` |
+| ¿Orden de los 14 flags? | Respondido: 7 visibilidad + 7 alineación (0/1/2). En CADe son **de sólo escritura**: no restauran el diálogo y tampoco afectan el dibujo ni la vista previa (probado con 5 archivos). El loader además lee 13, salteando `+0x108` |
 | ¿Semántica de los 11 numéricos? | Respondido y verificado en ambos sentidos: formato, contorno, referenciado, cajetín, zoom, orientación, rejilla, conexiones símbolo, número de cable, alto y ancho |
 | ¿Importar cajetín desde otro archivo? | No implementado (fuera de alcance) |
