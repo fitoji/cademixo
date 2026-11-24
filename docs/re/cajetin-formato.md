@@ -148,12 +148,29 @@ Escritura confirmada con corridas de una sola variable sobre `pr1`:
 Es decir que el diálogo, al aceptar, **reescribe los 14** con su estado: visibilidad de cada fila y
 alineación de cada fila.
 
-**Ojo con la lectura**: no está resuelta. Un archivo con los 14 flags en `1` (como
-`pr1-rodolfo-giusti.cad`) abre con **solo Comprobado tildado**, no con las 7 filas visibles. Y un
-archivo con `1 1 1 1 1 1 1  0 0 0 0 0 0 0` abre igual, con solo Comprobado. O sea que el loader no
-interpreta el bloque como el array lineal que sí escribe. Nuestra UI hoy muestra 7 visibles para
-`pr1`, que **no** coincide con CADe: es una desviación conocida y pendiente de resolver con el
-loader del binario.
+**Ojo con la lectura**: no está resuelta, y ahora sabemos por qué. El loader `FUN_0042c290`
+(`0x42c290`) lee el trailer carácter por carácter y guarda **13** flags, no 14: escribe
+`+0x104`, después `+0x10c`, `+0x110`, `+0x114`, `+0x118`, `+0x11c`, `+0x120`, `+0x124`, `+0x128`,
+`+0x12c`, `+0x130`, `+0x134` y `+0x138`, y **nunca toca `+0x108`**:
+
+```
+0x42fcee: MOV dword ptr [ECX + 0x104], EAX
+0x42fd72: MOV dword ptr [ECX + 0x10c], EAX   <- salta +0x108
+0x42fdf6: MOV dword ptr [ECX + 0x110], EAX
+...
+0x43031e: MOV dword ptr [ECX + 0x138], EAX
+```
+
+El writer sí lee los 14 (incluido `+0x108`). Resultado: al cargar, el flag 1 va al slot 1, el flag
+2 al slot 3, y así; el slot 2 queda con el valor del constructor (`1`) y el flag 14 se descarta.
+Es un defecto de CADe, no del formato.
+
+Por el lado del dibujado, `FUN_00873130` (`0x873130`) confirma la semántica: copia los 7 primeros
+globales a los campos de visibilidad y usa los 7 siguientes como enums `0/1/2` para posicionar el
+texto (Izq/Cen/Der).
+
+Nuestra UI hoy muestra 7 filas visibles para `pr1`, que **no** coincide con CADe: es una desviación
+conocida. Reproducir el bug del loader no parece deseable; queda documentado para decidirlo.
 
 El `2` de alineación derecha se observó en el experimento original (Título en «Der.»).
 
