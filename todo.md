@@ -11,3 +11,8 @@
 [] utilizar https://ui.shadcn.com/docs/components/base/hover-card o https://ui.shadcn.com/docs/components/base/tooltip para los componentes, ver nombre completoy codigo
 [] revisar cruces de cables, se forma puntos, se mueven cables quedan puntos
 [] https://ui.shadcn.com/docs/components/base/kbd para los atajos o https://ui-sdk.dev/docs/react/components
+[]dibujar cables: click inicio click fin, o sistema cadesimu click drag and drop
+[] revisar cajetin de cadesimu e implementar en cademixo
+[] agregar rotar al menucito de abajo
+[]tener dos formatos? uno .cad simple y un .mix para hotkeys? o genere ambos a la vez?
+[]revisar el grid
