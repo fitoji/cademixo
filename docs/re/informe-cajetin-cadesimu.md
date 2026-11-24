@@ -60,16 +60,32 @@ bloque). El dibujante es `FUN_00854d30` (`0x854d30`) y su gemelo `FUN_00857400` 
 
 ## 4. Campos numéricos (11)
 
-Valores típicos: `1,1,1,2,5,0,1,0,0,279,210`.
+Valores típicos: `1,1,1,2,5,0,1,0,0,279,210`. Mapeo a offsets del objeto documento, leído de los
+`PUSH` previos al `sprintf` (`0x4331cd..0x433258`) y validado contra el constructor del documento
+`FUN_00408840` (`0x408840`):
 
-- **Campo 1 = número de hoja**: confirmado, pasa a `2` en la segunda hoja de `inversion-giro-cej.cade`.
-- **Campos 10 y 11 = ancho y alto de página**: `279×210` (A4 apaisado).
-- El campo 5 viene de un `double` (`[obj+0x58]` → `ftol`); varía entre 2 y 6 según el archivo.
-- El resto están sin semántica confirmada.
+| # | offset | por defecto | semántica |
+|---|--------|-------------|-----------|
+| 1 | `+0x88` | 1 | **cajetín** (0 Ninguno / 1 Cajetín 1 / 2 Cajetín 2) — confirmado |
+| 2 | `+0x8c` | 1 | **contorno** — confirmado |
+| 3 | `+0xa4` | 1 | desconocido (siempre 1) |
+| 4 | `+0x90` | 2 | desconocido (2 en archivos reales, 0 en hoja nueva) |
+| 5 | `+0x58` (double→`ftol`) | 2.0 | **zoom** de la vista al guardar (2..9) — confirmado |
+| 6 | `+0xa0` | 0 | desconocido; CADe normaliza valores fuera de rango |
+| 7 | `+0x80` | 1 | desconocido (siempre 1) |
+| 8 | `+0xa8` | 0 | desconocido; normalizado |
+| 9 | `+0xac` | 0 | desconocido; normalizado |
+| 10 | `+0xc4` | 279 | **alto** de página (mm) |
+| 11 | `+0xc0` | 210 | **ancho** de página (mm) |
 
-Mapeo a offsets del objeto documento (leído de los `PUSH` previos al `sprintf`, en
-`0x4331cd..0x433258`): `+0x88, +0x8c, +0xa4, +0x90, +0x58(double), +0xa0, +0x80, +0xa8, +0xac,
-+0xc4, +0xc0`.
+Corrección respecto del análisis inicial: el campo 1 **no** es el número de hoja. El número de hoja
+está en los textos 8 y 9 («Número» y «De»), que el dibujante imprime como `"%s de %s"`. El campo 1
+cambia de 2 a 0 al elegir «Cajetín: Ninguno» en `Archivo → Configuración`, y el campo 2 cambia al
+destildar «Contorno». El campo 5 se confirmó en los dos sentidos: un archivo con `5 = 3` se abre
+con zoom 3, y hacer `Ver → Zoom +` antes de guardar sube el campo 5.
+
+Las demás opciones del diálogo **no** viajan en el `.cad`: se guardan en `config.cfg` con otro
+formato (`CADe_SIMU*%1d...*%0.4f...*%4d$$$`, cadena `0xb6f550`, escritor `0x878696`).
 
 ## 5. Campos de texto (10 o 12 tokens)
 
@@ -149,11 +165,11 @@ serialización.
 
 | Archivo | Qué hace |
 |---------|----------|
-| `app/src/model/title-block.ts` | `parseTitleBlock`, `titleValues`, `withTitleField`, `withTitleFlags`; preserva byte a byte el resto del documento y respeta el ancho original |
+| `app/src/model/title-block.ts` | `parseTitleBlock`, `titleValues`, `withTitleField`, `withTitleFlags`, `withTitleNumeric` y lectores `titleCajetin` / `titleContorno` / `titleZoom` / `titlePageSize`; preserva byte a byte el resto del documento y respeta el ancho original |
 | `app/src/editor/state.ts` | `setTitleBlock(state, text)` pasa por `commit`, así que el cambio entra al undo/redo |
 | `app/src/ui/TitleBlockDialog.tsx` | Diálogo con 7 filas, check, radios y campos; envía con Enter mediante `<form>` |
 | `app/src/ui/App.tsx` | Opción **Editar → Cajetín** y cableado del diálogo |
-| `app/test/title-block.test.ts` | 6 tests: round-trip, layouts 10/12, mapeo, edición de campo, flags, sin cajetín |
+| `app/test/title-block.test.ts` | 8 tests: round-trip, layouts 10/12, mapeo, edición de campo, flags, numéricos y sin cajetín |
 | `app/test/fixtures/cajetin-probe.cad` | Evidencia del experimento en GUI |
 | `app/e2e/title-block.spec.ts` | Editar título → guardar en el documento → reabrir y verificar |
 
@@ -169,7 +185,7 @@ Decisiones deliberadas:
 ## 10. Verificación
 
 - `tsc --noEmit`: limpio.
-- `node --test test/title-block.test.ts`: **6/6**.
+- `node --test test/title-block.test.ts`: **8/8**.
 - Suite completa: **854/855**; el único fallo es `wiring-performance.test.ts`, sensible a carga.
 - `npx playwright test e2e/title-block.spec.ts`: **1/1**.
 - Commits: `a137cbb` (modelo + parser + fixture + doc) y `6120456` (UI + menú + e2e), pusheados a `main`.
@@ -184,5 +200,5 @@ Decisiones deliberadas:
 | ¿Mapping campo↔etiqueta? | Confirmado en GUI |
 | ¿Cómo se edita en CADe? | `Editar → Cajetín`, 7 filas con check, alineación y texto |
 | ¿Orden de los 14 flags? | 7 visibilidad + 7 alineación, en orden de fila |
-| ¿Semántica de los 9 numéricos no obvios? | **Pendiente**: harían falta archivos con otra configuración de página/zoom |
+| ¿Semántica de los 9 numéricos no obvios? | Parcial: 1 cajetín, 2 contorno, 5 zoom, 10/11 alto/ancho (confirmados en GUI); 3, 4, 6, 7, 8, 9 sin semántica |
 | ¿Importar cajetín desde otro archivo? | No implementado (fuera de alcance) |

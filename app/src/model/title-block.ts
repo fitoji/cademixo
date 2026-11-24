@@ -156,3 +156,67 @@ export function withTitleFlags(
 export function titleValues(block: TitleBlock): string[] {
   return block.fields.map((f) => f.value.trimEnd());
 }
+
+/**
+ * Índices de los numéricos con semántica confirmada en la GUI de CADe.
+ * El orden es el del `sprintf` del binario (`FUN_00432710`).
+ */
+export const TITLE_NUMERIC_INDEX = {
+  /** 0 = Ninguno, 1 = Cajetín 1, 2 = Cajetín 2 */
+  cajetin: 0,
+  /** check «Contorno» de `Archivo → Configuración` */
+  contorno: 1,
+  /** zoom de la vista al guardar (se guarda como double) */
+  zoom: 4,
+  /** alto de la página, en mm (279 en los fixtures) */
+  alto: 9,
+  /** ancho de la página, en mm (210 en los fixtures) */
+  ancho: 10,
+} as const;
+
+export type CajetinKind = 0 | 1 | 2;
+
+/** Valor numérico de un token, ignorando el sufijo `&&&` del último. */
+function numericAt(block: TitleBlock, index: number): number {
+  const match = /^-?\d+/.exec(block.numeric[index] ?? '');
+  return match ? Number(match[0]) : 0;
+}
+
+/** Qué cajetín dibuja CADe: ninguno, el 1 o el 2. */
+export function titleCajetin(block: TitleBlock): CajetinKind {
+  const value = numericAt(block, TITLE_NUMERIC_INDEX.cajetin);
+  return value === 2 ? 2 : value === 1 ? 1 : 0;
+}
+
+/** Si el cajetín dibuja su contorno (check «Contorno»). */
+export function titleContorno(block: TitleBlock): boolean {
+  return numericAt(block, TITLE_NUMERIC_INDEX.contorno) === 1;
+}
+
+/** Zoom con el que se guardó la vista. */
+export function titleZoom(block: TitleBlock): number {
+  return numericAt(block, TITLE_NUMERIC_INDEX.zoom);
+}
+
+/** Tamaño de página en mm, en el orden en que lo muestra CADe. */
+export function titlePageSize(block: TitleBlock): { alto: number; ancho: number } {
+  return {
+    alto: numericAt(block, TITLE_NUMERIC_INDEX.alto),
+    ancho: numericAt(block, TITLE_NUMERIC_INDEX.ancho),
+  };
+}
+
+/** Escribe un numérico conservando el ancho del token y el sufijo `&&&`. */
+export function withTitleNumeric(text: string, index: number, value: number): string {
+  const block = parseTitleBlock(text);
+  if (!block) return text;
+  if (!Number.isInteger(value) || index < 0 || index >= block.numeric.length) return text;
+  const tokens = tokenList(block);
+  const tokenIndex = index + 1;
+  const current = tokens[tokenIndex] ?? '';
+  const suffix = current.endsWith('&&&') ? '&&&' : '';
+  const width = Math.max(1, current.length - suffix.length);
+  const digits = String(value).slice(0, width);
+  tokens[tokenIndex] = digits.padStart(width, ' ') + suffix;
+  return replaceTokens(text, block, tokens);
+}

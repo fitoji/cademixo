@@ -4,9 +4,14 @@ import { readFileSync } from 'node:fs';
 import { parse, serialize } from '../src/format/cade.ts';
 import {
   parseTitleBlock,
+  titleCajetin,
+  titleContorno,
+  titlePageSize,
   titleValues,
+  titleZoom,
   withTitleField,
   withTitleFlags,
+  withTitleNumeric,
 } from '../src/model/title-block.ts';
 
 const fixture = (name: string): string =>
@@ -67,4 +72,26 @@ test('un documento sin cajetín no se modifica', () => {
   assert.equal(parseTitleBlock(plain), null);
   assert.equal(withTitleField(plain, 0, 'x'), plain);
   assert.equal(withTitleFlags(plain, { visibility: { 0: false } }), plain);
+  assert.equal(withTitleNumeric(plain, 0, 2), plain);
+});
+
+test('los numéricos confirmados se leen del trailer', () => {
+  const block = parseTitleBlock(BASE)!;
+  assert.equal(titleCajetin(block), 1);
+  assert.equal(titleContorno(block), true);
+  assert.equal(titleZoom(block), 5);
+  assert.deepEqual(titlePageSize(block), { alto: 279, ancho: 210 });
+});
+
+test('cambiar un numérico respeta el ancho y el terminador &&&', () => {
+  const next = withTitleNumeric(BASE, 0, 2);
+  const block = parseTitleBlock(next)!;
+  assert.equal(titleCajetin(block), 2);
+  assert.equal(block.raw.endsWith('&&&'), true);
+  assert.equal(next.replace(block.raw, ''), BASE.replace(parseTitleBlock(BASE)!.raw, ''));
+  assert.equal(serialize(parse(next)), next);
+
+  const resized = withTitleNumeric(BASE, 9, 210);
+  assert.deepEqual(titlePageSize(parseTitleBlock(resized)!), { alto: 210, ancho: 210 });
+  assert.equal(resized.includes('*210*210&&&'), true);
 });
