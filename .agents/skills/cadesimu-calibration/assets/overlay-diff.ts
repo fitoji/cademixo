@@ -7,7 +7,9 @@
  *
  * `ox,oy` es la posición del registro en unidades del `.cad` (primer borne).
  * `S OX OY` es el mapeo px↔cad de la captura (x = cad*S + OX); por defecto el
- * de `docs/cadesimu-svg/reference/PR1_Rodolfo_Giusti_03.png`: 4 -108 -138.5.
+ * de `docs/cadesimu-svg/reference/PR1_Rodolfo_Giusti_03.png`: 4 -108 -162.
+ * (El valor histórico -138.5 estaba 6 unidades corrido: con él 3000/3001/8000,
+ * ya calibrados, dan stray≠0; con -162 dan stray=0.)
  *
  * Salida: ref (tinta negra de la captura), sym (tinta dibujada), overlap,
  * refOnly (px de la captura que el def no cubre), symOnly y stray (px
@@ -107,7 +109,7 @@ if (!pngArg || !codeArg || !oxArg || !oyArg) {
   console.error('uso: node overlay-diff.ts <png> <code> <ox> <oy> [S OX OY]');
   process.exit(2);
 }
-const S = Number(sArg ?? 4), OX = Number(oxPArg ?? -108), OY = Number(oyPArg ?? -138.5);
+const S = Number(sArg ?? 4), OX = Number(oxPArg ?? -108), OY = Number(oyPArg ?? -162);
 const px = (u: number) => Math.round(u * S + OX);
 const py = (u: number) => Math.round(u * S + OY);
 

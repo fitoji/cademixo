@@ -73,6 +73,10 @@ export const CADESIMU_BLADE_DEG = round((Math.atan2(3, 6) * 180) / Math.PI);
  * independientes: la captura de la hoja (127 px de tinta, con 6 px por unidad)
  * y el monofásico de `components_png` (1.090 px, con 17,2 px por unidad). Las
  * dos dan 1,35 unidades.
+ *
+ * El centro va en (x−3, +5), no en (x−3, +5,9): con +5,9 el cuadro quedaba
+ * 0,9 unidades abajo y el verificador raster daba stray=47 en `test01.png`
+ * (6001) y stray=14 en PR1 (6002). Con +5 los dos dan stray=0.
  */
 export function cadesimuPole(x: number, h: number, withTrip: boolean, dashLeft = false): Shape[] {
   const bottom = gridBottom(h);
@@ -89,7 +93,7 @@ export function cadesimuPole(x: number, h: number, withTrip: boolean, dashLeft =
   // lugar mientras la cuchilla se mueve.
   if (withTrip) {
     out.push({
-      d: tiltedSquare(x - 2.95, 5.9, 1.35, 18),
+      d: tiltedSquare(x - 2.95, 5.0, 1.35, 18),
       fill: true,
       blade: { px: x, py: 9, deg: CADESIMU_BLADE_DEG },
     });
