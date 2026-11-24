@@ -112,7 +112,7 @@ Mapeo a offsets del documento desde los `PUSH` en `0x43328c..0x43330e`: `+0xdc`,
 | 2 | 11 | vacío | **Dibujado** (segunda subcascilla / Nombre) |
 | 3 | 11 | vacío | **Comprobado** (primera) |
 | 4 | 11 | vacío | **Comprobado** (segunda) |
-| 5 | 25 | vacío | **Empresa** |
+| 5 | 25 | vacío | **Entidad** |
 | 6 | 25 | vacío | **Título** |
 | 7 | 11 | `02-nov.-2026` | **Fecha** |
 | 8 | 11 | `1` | **Número** |
@@ -120,7 +120,7 @@ Mapeo a offsets del documento desde los `PUSH` en `0x43328c..0x43330e`: `+0xdc`,
 | 10 | 21 | `CADe_S1`, `ej0def.cad` | **Archivo** (nombre del archivo) |
 
 El mapeo quedó **confirmado en GUI**: `Editar → Cajetín` tiene 7 filas (Dibujado, Comprobado,
-Empresa, Título, Fecha, Número con dos subcascillas «Número/De», Archivo). Al cargar
+Entidad, Título, Fecha, Número con dos subcascillas «Número/De», Archivo). Al cargar
 `DIB1,DIB2,COM1,COM2,EMPRESA,TITULO,NUM1,NUM2` y guardar, esos valores aparecen exactamente en los
 campos 1–6 y 8–9 del trailer. La fecha y el archivo son campos especiales: la fecha usa un control de
 calendario y el archivo se edita como texto (validación: máximo 20 caracteres).
@@ -227,16 +227,6 @@ intercalados entre fecha, número y archivo:
 Así que el formato `**` no parece de otra herramienta: es lo que CADe escribe cuando el cajetín se
 editó/guardó con ciertos checks. El parser debe aceptar **10 o 12 tokens** y preservarlos byte a byte.
 
-## Próximo paso para implementarlo
-
-1. Experimento en GUI: editar cada celda del cajetín con un valor distintivo, guardar y hacer diff
-   para confirmar campo↔etiqueta y el significado de los 14 flags.
-2. Modelo tipado en `app/src/model/`: `TitleBlock { fields: string[10], flags: number[14], page: {w,h}, sheet: number }`.
-3. Parser/serializer que lea y reescriba el trailer sin tocar los bytes de los otros registros
-   (misma disciplina que `cade-shortcuts.ts` con el plan B de atajos).
-4. UI: formulario en Propiedades o diálogo «Cajetín», con vista previa encapsulada en un módulo
-   puro para poder testear sin DOM.
-
 ## Estado de las preguntas
 
 | Pregunta | Estado |
@@ -244,8 +234,15 @@ editó/guardó con ciertos checks. El parser debe aceptar **10 o 12 tokens** y p
 | ¿Dónde se guarda? | Respondido: registro 20000 + trailer |
 | ¿Formato exacto? | Respondido: 4 format strings del binario |
 | ¿Qué campos hay? | Respondido: 10 (o 12) textos + 14 flags + 11 numéricos |
-| ¿Mapping campo↔etiqueta? | **Respondido en GUI**: Dibujado×2, Comprobado×2, Empresa, Título, Fecha, Número, De, Archivo |
+| ¿Mapping campo↔etiqueta? | **Respondido en GUI**: Dibujado×2, Comprobado×2, Entidad, Título, Fecha, Número, De, Archivo |
 | ¿Cómo se edita en CADe? | Respondido: `Editar → Cajetín`, 7 filas con check, alineación Izq/Cen/Der y campos de texto |
-| ¿Orden exacto de los 14 flags? | Respondido: 7 visibilidad + 7 alineación (0/1/2), en orden de fila del diálogo |
-| ¿Semántica de los 11 numéricos? | Respondido: formato, contorno, referenciado, cajetín, zoom, orientación, rejilla, conexiones símbolo, número de cable, alto y ancho |
-| ¿Implementación en la app? | Hecha: `src/model/title-block.ts` + `ui/TitleBlockDialog.tsx` en `Editar → Cajetín`; tests 6/6 y e2e 1/1 |
+| ¿Orden exacto de los 14 flags? | Respondido: 7 visibilidad + 7 alineación (0/1/2), en orden de fila. En CADe son de sólo escritura (ver arriba) |
+| ¿Semántica de los 11 numéricos? | Respondido y verificado en ambos sentidos |
+| ¿Implementación en la app? | Hecha: `src/model/title-block.ts` + `ui/TitleBlockDialog.tsx` en `Editar → Cajetín`; 8 tests unitarios y 1 e2e |
+
+Pendientes:
+
+1. **Variante de 12 tokens**: se emite al aceptar el diálogo, pero no está aislada la regla exacta.
+2. **Registro `20000`**: sus 24 numéricos no se analizaron.
+3. **Multi-hoja**: `CADe_S1` tiene dos trailers con valores distintos; falta ver cuál manda.
+4. **Fecha**: formato, meses localizados y validación al escribir.

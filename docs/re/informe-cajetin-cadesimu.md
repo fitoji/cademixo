@@ -13,9 +13,14 @@ CADe_SIMU guarda el cajetín (bloque de título) en **dos lugares** del `.cad`:
    visibilidad/alineación y los datos de página.
 
 No hay magia: es texto plano Latin-1. El escritor del binario se localizó y sus format strings dan
-el layout exacto. El mapeo completo de campos quedó confirmado con un experimento en la GUI real.
-La app ya puede leer, editar y reescribir ese trailer sin tocar ningún otro byte del documento, y
-tiene un diálogo `Editar → Cajetín` equivalente al de CADe.
+el layout exacto. El mapeo completo de campos y de los 11 numéricos quedó confirmado con
+experimentos en la GUI real, en los dos sentidos (cambiar la opción y ver el campo, e inyectar el
+campo y ver la opción). La app ya puede leer, editar y reescribir ese trailer sin tocar ningún otro
+byte del documento, y tiene un diálogo `Editar → Cajetín` equivalente al de CADe.
+
+Hallazgo importante: en CADe los 14 flags de visibilidad/alineación del trailer son **de sólo
+escritura**. El diálogo no los restaura al abrir y el dibujo/impresión tampoco los usa; se verificó
+con cinco archivos distintos y con la vista previa de impresión.
 
 ## 2. Metodología (qué evidencia sostiene cada conclusión)
 
@@ -23,8 +28,8 @@ tiene un diálogo `Editar → Cajetín` equivalente al de CADe.
 |--------|------------|
 | Descompilación con Ghidra 12.1.4 vía REA MCP | Escritor `FUN_00432710`, armar de bloque `FUN_004315f0`, dibujante `FUN_00854d30`, format strings y offsets del objeto documento |
 | `strings` sobre el PE | Tabla multilingüe de etiquetas del cajetín (`0x76e37c..0x76e50c`) |
-| Comparación de ~35 fixtures `.cad`/`.cade` | Valores típicos, número de hoja, tamaño de página, variante de 12 tokens |
-| Experimento en GUI real (`Editar → Cajetín`) | Mapeo campo↔etiqueta, significado de los 14 flags, validación de 20 caracteres |
+| Comparación de ~35 fixtures `.cad`/`.cade` | Valores típicos, tamaño de página, variante de 12 tokens |
+| Experimento en GUI real (`Editar → Cajetín`) | Mapeo campo↔etiqueta, validación de 20 caracteres y el hallazgo de que los flags no se leen |
 | Diff del archivo guardado | Correspondencia exacta entre valores del diálogo y tokens del trailer |
 
 Nota de entorno: el exe se copió a `%TEMP%` porque **Ghidra no analiza desde `E:` (FAT32)**.
@@ -102,7 +107,7 @@ Mapeo confirmado con el experimento en GUI:
 | 2 | 11 | Dibujado (Nombre) | segunda subcascilla |
 | 3 | 11 | Comprobado (Fecha) | |
 | 4 | 11 | Comprobado (Nombre) | |
-| 5 | 25 | Empresa | |
+| 5 | 25 | Entidad | |
 | 6 | 25 | Título | |
 | 7 | 11 | Fecha | control de calendario |
 | 8 | 11 | Número | |
@@ -146,11 +151,17 @@ El diálogo tiene **7 filas**, cada una con un check «Mostrar» y tres radios d
 | tildar Título | `0 1 0 1 0 0 0  0 0 0 0 0 0 0` |
 | Dibujado en «Cen.» | `0 1 0 1 0 0 0  1 0 0 0 0 0 0` |
 
-La **lectura** no está resuelta: un archivo con los 14 flags en `1` (el caso de
-`pr1-rodolfo-giusti.cad`) abre con solo Comprobado tildado, y otro con `1×7 + 0×7` abre igual. El
-loader no interpreta el bloque como el array lineal que sí escribe. Consecuencia: nuestra UI muestra
-7 filas visibles para `pr1`, mientras CADe muestra una. Es una desviación conocida; hay que leer el
-loader del binario para cerrarla.
+**La lectura: CADe ignora los flags.** Se probaron cinco archivos con flags distintos
+(`1×7+0×7`, solo el 4.º, solo el 14.º, todos `0`, y el probe con `Comprobado` oculto y `Título` a la
+derecha): el diálogo mostró siempre el mismo estado, y la vista previa de impresión del probe dibujó
+COM1/COM2 igual y TITULO a la izquierda. O sea que en CADe los flags son **de sólo escritura**: se
+escriben al aceptar el diálogo pero no se usan ni para restaurarlo ni para dibujar.
+
+Además el loader `FUN_0042c290` (`0x42c290`) lee 13 de los 14 flags: guarda `+0x104`, `+0x10c`,
+`+0x110` … `+0x138` y nunca toca `+0x108` (`0x42fcee` … `0x43031e`).
+
+Nuestra app los lee tal como están en el archivo: es la única forma de no perder esa información, y
+como CADe no los usa, tampoco genera diferencias visibles al abrirlo.
 
 ## 7. Variante de 12 tokens
 
@@ -179,7 +190,7 @@ serialización.
 
 | Archivo | Qué hace |
 |---------|----------|
-| `app/src/model/title-block.ts` | `parseTitleBlock`, `titleValues`, `withTitleField`, `withTitleFlags`, `withTitleNumeric` y lectores `titleCajetin` / `titleContorno` / `titleZoom` / `titlePageSize`; preserva byte a byte el resto del documento y respeta el ancho original |
+| `app/src/model/title-block.ts` | `parseTitleBlock`, `titleValues`, `withTitleField`, `withTitleFlags`, `withTitleNumeric` y los lectores `titlePageFormat`, `titleContorno`, `titleReferenciado`, `titleCajetin`, `titleZoom`, `titleOrientation`, `titleGrid`, `titleSymbolConnections`, `titleCableNumbers` y `titlePageSize`; preserva byte a byte el resto del documento y respeta el ancho original |
 | `app/src/editor/state.ts` | `setTitleBlock(state, text)` pasa por `commit`, así que el cambio entra al undo/redo |
 | `app/src/ui/TitleBlockDialog.tsx` | Diálogo con 7 filas, check, radios y campos; envía con Enter mediante `<form>` |
 | `app/src/ui/App.tsx` | Opción **Editar → Cajetín** y cableado del diálogo |
@@ -200,19 +211,29 @@ Decisiones deliberadas:
 
 - `tsc --noEmit`: limpio.
 - `node --test test/title-block.test.ts`: **8/8**.
-- Suite completa: **854/855**; el único fallo es `wiring-performance.test.ts`, sensible a carga.
+- Suite completa: **856/857**; el único fallo es `perf` (`wiring-performance`), sensible a carga.
 - `npx playwright test e2e/title-block.spec.ts`: **1/1**.
-- Commits: `a137cbb` (modelo + parser + fixture + doc) y `6120456` (UI + menú + e2e), pusheados a `main`.
+- `git log` del cajetín: `a137cbb` (modelo + parser + fixture), `6120456` (UI + menú + e2e),
+  `2e4c241` (informe), `3e3b521` y `96917a4` (numéricos), `8ec20f0`, `ef77d05`, `6fc77f9` y
+  `62748d3` (hallazgos de flags). Todo en `main`.
 
 ## 11. Preguntas respondidas y pendientes
 
 | Pregunta | Estado |
 |----------|--------|
-| ¿Dónde se guarda? | Registro 20000 + trailer |
+| ¿Dónde se guarda? | Registro 20000 + trailer `$$$…***$$$&&&` |
 | ¿Formato exacto? | 4 format strings del binario |
 | ¿Qué campos hay? | 10 (o 12) textos + 14 flags + 11 numéricos |
-| ¿Mapping campo↔etiqueta? | Confirmado en GUI |
+| ¿Mapping campo↔etiqueta? | Confirmado en GUI: Dibujado×2, Comprobado×2, Entidad, Título, Fecha, Número, De, Archivo |
 | ¿Cómo se edita en CADe? | `Editar → Cajetín`, 7 filas con check, alineación y texto |
-| ¿Orden de los 14 flags? | Respondido: 7 visibilidad + 7 alineación (0/1/2). En CADe son **de sólo escritura**: no restauran el diálogo y tampoco afectan el dibujo ni la vista previa (probado con 5 archivos). El loader además lee 13, salteando `+0x108` |
-| ¿Semántica de los 11 numéricos? | Respondido y verificado en ambos sentidos: formato, contorno, referenciado, cajetín, zoom, orientación, rejilla, conexiones símbolo, número de cable, alto y ancho |
-| ¿Importar cajetín desde otro archivo? | No implementado (fuera de alcance) |
+| ¿Orden de los 14 flags? | 7 visibilidad + 7 alineación (0/1/2). En CADe son **de sólo escritura**: no restauran el diálogo ni afectan el dibujo (probado con 5 archivos) |
+| ¿Semántica de los 11 numéricos? | Completa y verificada en ambos sentidos |
+| ¿Importar cajetín desde otro archivo? | No implementado |
+
+Pendientes conocidos, en orden de valor:
+
+1. **Variante de 12 tokens**: se sabe que CADe la emite al aceptar el diálogo, pero no la regla exacta.
+2. **Registro `20000`**: sus 24 numéricos nunca se analizaron.
+3. **Multi-hoja**: `CADe_S1` tiene dos trailers (el de la hoja y uno final) con valores distintos;
+   falta determinar cuál manda y cómo se relacionan con las hojas.
+4. **Fecha**: formato `02-nov.-2026`, meses localizados y validación al escribir.
