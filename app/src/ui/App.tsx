@@ -6,6 +6,7 @@ import {
   CopyIcon,
   FolderOpenIcon,
   FilePlusIcon,
+  FileTextIcon,
   Grid3x3Icon,
   LayersIcon,
   MagnetIcon,
@@ -59,6 +60,7 @@ import {
   undo,
   redo,
   markSaved,
+  setTitleBlock,
   type DragOp,
   type EditorState,
 } from '../editor/state.ts';
@@ -153,6 +155,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Resizable, ResizableHandle, ResizablePanel, layoutStorage } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/sonner';
 import { SettingsDialog } from './SettingsDialog.tsx';
+import { TitleBlockDialog } from './TitleBlockDialog.tsx';
 import { ShortcutsDialog } from './ShortcutsDialog.tsx';
 import { SaveAsDialog } from './SaveAsDialog.tsx';
 import { getScope, setScope, subscribeScope } from '../symbols/scope.ts';
@@ -214,6 +217,7 @@ export function App(): JSX.Element {
   const settings = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [titleBlockOpen, setTitleBlockOpen] = useState(false);
   /** Propiedades/Avisos: el mismo Drawer lateral con dos entradas. */
   const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [sheetView, setSheetView] = useState<'propiedades' | 'avisos'>('propiedades');
@@ -1438,6 +1442,13 @@ export function App(): JSX.Element {
                     <MenubarShortcut>{hintDelete}</MenubarShortcut>
                   </MenubarItem>
                 </MenubarGroup>
+                <MenubarSeparator />
+                <MenubarGroup>
+                  <MenubarItem disabled={running} onSelect={() => setTitleBlockOpen(true)}>
+                    <FileTextIcon />
+                    Cajetín
+                  </MenubarItem>
+                </MenubarGroup>
               </MenubarContent>
             </MenubarMenu>
 
@@ -1842,6 +1853,14 @@ export function App(): JSX.Element {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <TitleBlockDialog
+        open={titleBlockOpen}
+        onOpenChange={setTitleBlockOpen}
+        text={state?.text ?? ''}
+        disabled={running}
+        onApply={(next) => setState((s) => (s ? setTitleBlock(s, next) : s))}
+      />
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />

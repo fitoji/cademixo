@@ -165,4 +165,4 @@ editó/guardó con ciertos checks. El parser debe aceptar **10 o 12 tokens** y p
 | ¿Mapping campo↔etiqueta? | **Respondido en GUI**: Dibujado×2, Comprobado×2, Empresa, Título, Fecha, Número, De, Archivo |
 | ¿Cómo se edita en CADe? | Respondido: `Editar → Cajetín`, 7 filas con check, alineación Izq/Cen/Der y campos de texto |
 | ¿Orden exacto de los 14 flags? | Respondido: 7 visibilidad + 7 alineación (0/1/2), en orden de fila del diálogo |
-| ¿Implementación en la app? | En curso: `src/model/title-block.ts` + tests (6/6) |
+| ¿Implementación en la app? | Hecha: `src/model/title-block.ts` + `ui/TitleBlockDialog.tsx` en `Editar → Cajetín`; tests 6/6 y e2e 1/1 |

@@ -88,6 +88,11 @@ export function markSaved(state: EditorState): EditorState {
   return state.dirty ? { ...state, dirty: false } : state;
 }
 
+/** Reemplaza el documento por una versión con el cajetín editado (con undo). */
+export function setTitleBlock(state: EditorState, text: string): EditorState {
+  return commit(state, text);
+}
+
 const HISTORY_LIMIT = 100;
 
 export function createEditor(text: string): EditorState {
