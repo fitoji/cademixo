@@ -134,14 +134,23 @@ Cada valor aparece en el campo esperado.
 ## 6. Flags (14): visibilidad + alineación
 
 El diálogo tiene **7 filas**, cada una con un check «Mostrar» y tres radios de alineación
-`Izq. / Cen. / Der.`. Comparando los flags del probe con el estado final del diálogo:
+`Izq. / Cen. / Der.`. La **escritura** está confirmada con corridas de una sola variable:
 
-- `flags[0..6]` → **visibilidad** de Dibujado, Comprobado, Empresa, Título, Fecha, Número, Archivo
+- `flags[0..6]` → **visibilidad** de Dibujado, Comprobado, Entidad, Título, Fecha, Número, Archivo
   (`1` = visible, `0` = oculto).
 - `flags[7..13]` → **alineación** de esas mismas filas (`0` Izq, `1` Cen, `2` Der).
 
-El probe dio visibilidad `[1,0,1,1,1,1,1]` y alineación `[0,0,0,2,0,0,0]`: Título en «Der.»,
-Comprobado sin check, el resto visible e «Izq.», tal como se veía en pantalla.
+| Cambio | Flags escritos |
+|--------|----------------|
+| estado del diálogo al aceptar | `0 1 0 0 0 0 0  0 0 0 0 0 0 0` |
+| tildar Título | `0 1 0 1 0 0 0  0 0 0 0 0 0 0` |
+| Dibujado en «Cen.» | `0 1 0 1 0 0 0  1 0 0 0 0 0 0` |
+
+La **lectura** no está resuelta: un archivo con los 14 flags en `1` (el caso de
+`pr1-rodolfo-giusti.cad`) abre con solo Comprobado tildado, y otro con `1×7 + 0×7` abre igual. El
+loader no interpreta el bloque como el array lineal que sí escribe. Consecuencia: nuestra UI muestra
+7 filas visibles para `pr1`, mientras CADe muestra una. Es una desviación conocida; hay que leer el
+loader del binario para cerrarla.
 
 ## 7. Variante de 12 tokens
 
@@ -204,6 +213,6 @@ Decisiones deliberadas:
 | ¿Qué campos hay? | 10 (o 12) textos + 14 flags + 11 numéricos |
 | ¿Mapping campo↔etiqueta? | Confirmado en GUI |
 | ¿Cómo se edita en CADe? | `Editar → Cajetín`, 7 filas con check, alineación y texto |
-| ¿Orden de los 14 flags? | 7 visibilidad + 7 alineación, en orden de fila |
+| ¿Orden de los 14 flags? | Parcial: la **escritura** es 7 visibilidad + 7 alineación (verificado de a una variable); la **lectura** no cierra: un archivo con los 14 en `1` abre con solo Comprobado tildado |
 | ¿Semántica de los 11 numéricos? | Respondido y verificado en ambos sentidos: formato, contorno, referenciado, cajetín, zoom, orientación, rejilla, conexiones símbolo, número de cable, alto y ancho |
 | ¿Importar cajetín desde otro archivo? | No implementado (fuera de alcance) |

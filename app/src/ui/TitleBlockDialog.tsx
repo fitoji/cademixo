@@ -35,7 +35,7 @@ interface Row {
 const ROWS: readonly Row[] = [
   { label: 'Dibujado', fields: [{ index: 0, label: 'Fecha' }, { index: 1, label: 'Nombre' }] },
   { label: 'Comprobado', fields: [{ index: 2, label: 'Fecha' }, { index: 3, label: 'Nombre' }] },
-  { label: 'Empresa', fields: [{ index: 4, label: 'Empresa' }] },
+  { label: 'Entidad', fields: [{ index: 4, label: 'Entidad' }] },
   { label: 'Título', fields: [{ index: 5, label: 'Título' }] },
   { label: 'Fecha', fields: [{ index: 6, label: 'Fecha' }] },
   { label: 'Número', fields: [{ index: 7, label: 'Número' }, { index: 8, label: 'De' }] },

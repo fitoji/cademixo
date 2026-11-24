@@ -19,7 +19,7 @@ export const TITLE_BLOCK_LABELS = [
   'Dibujado 2',
   'Comprobado 1',
   'Comprobado 2',
-  'Empresa',
+  'Entidad',
   'Título',
   'Fecha',
   'Número',

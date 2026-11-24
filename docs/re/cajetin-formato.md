@@ -132,24 +132,31 @@ sprintf(local_130, "%s de %s", [obj+0xf8], [obj+0xfc]);  // "1 de 1" → hoja x 
 sprintf(local_130, "%20s",     [obj+0x100]);              // nombre del archivo
 ```
 
-### Flags (14 dígitos `0/1`)
+### Flags (14 dígitos `0/1/2`)
 
-Por defecto los 14 en `1`. En el experimento de GUI (tildar checks y cambiar alineación «Der.»
-en una fila) el trailer guardado quedó:
+`flags[0..6]` = **visibilidad** de Dibujado, Comprobado, Entidad, Título, Fecha, Número y Archivo, en
+orden de fila; `flags[7..13]` = **alineación** de esas mismas filas (`0` Izq, `1` Cen, `2` Der).
 
-```
-1 0 1 1 1 1 1 0 0 0 2 0 0 0
-```
+Escritura confirmada con corridas de una sola variable sobre `pr1`:
 
-Aparece un `2`, que corresponde a una alineación derecha (Izq=0, Cen=1, Der=2). Comparando ese
-trailer con el estado final del diálogo (7 checks y 7 alineaciones) el mapeo quedó confirmado:
+| Cambio en `Editar → Cajetín` | Flags escritos |
+|------------------------------|----------------|
+| nada (estado del diálogo) | `0 1 0 0 0 0 0  0 0 0 0 0 0 0` |
+| tildar Título | `0 1 0 1 0 0 0  0 0 0 0 0 0 0` |
+| poner Dibujado en «Cen.» | `0 1 0 1 0 0 0  1 0 0 0 0 0 0` |
 
-- `flags[0..6]` → **visibilidad** de Dibujado, Comprobado, Empresa, Título, Fecha, Número, Archivo
-  (`1` = check puesto, `0` = sin check).
-- `flags[7..13]` → **alineación** de esas mismas 7 filas (`0` Izq, `1` Cen, `2` Der).
+Es decir que el diálogo, al aceptar, **reescribe los 14** con su estado: visibilidad de cada fila y
+alineación de cada fila.
 
-El probe dio visibilidad `[1,0,1,1,1,1,1]` y alineación `[0,0,0,2,0,0,0]`: Título en «Der.»,
-Comprobado sin check, el resto visible e «Izq.», tal como se veía en el diálogo.
+**Ojo con la lectura**: no está resuelta. Un archivo con los 14 flags en `1` (como
+`pr1-rodolfo-giusti.cad`) abre con **solo Comprobado tildado**, no con las 7 filas visibles. Y un
+archivo con `1 1 1 1 1 1 1  0 0 0 0 0 0 0` abre igual, con solo Comprobado. O sea que el loader no
+interpreta el bloque como el array lineal que sí escribe. Nuestra UI hoy muestra 7 visibles para
+`pr1`, que **no** coincide con CADe: es una desviación conocida y pendiente de resolver con el
+loader del binario.
+
+El `2` de alineación derecha se observó en el experimento original (Título en «Der.»).
+
 
 ## Etiquetas del cajetín en el binario
 
