@@ -2,7 +2,8 @@
 
 > Fecha: 2026-11-24. Estado: análisis cerrado e implementado en la app.
 > Este informe es autocontenido; el detalle de offsets y format strings está en
-> `docs/re/cajetin-formato.md`.
+> `docs/re/cajetin-formato.md`. Para ocultamiento y guardado, ver
+> `docs/re/informe-cajetin-ocultamiento-y-guardado.md`. Índice general: `docs/re/INDICE.md`.
 
 ## 1. Resumen ejecutivo
 
