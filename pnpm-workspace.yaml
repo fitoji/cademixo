@@ -2,9 +2,12 @@
 packages:
   - app
 
-# E: es FAT32: pnpm no puede crear los symlinks del linker aislado ni el del
-# paquete workspace. El node_modules del repo es hoisted (directorios reales),
-# así que alineamos el linker y desactivamos el auto-install previo a `run`/`exec`.
+# Checkout de Windows: crear symlinks requiere admin o Developer Mode, y el
+# linker aislado los necesita tanto para los paquetes como para el paquete
+# workspace. `hoisted` materializa directorios reales y evita el problema.
+# (El checkout de macOS es APFS y sí soporta symlinks; la restricción es Windows.)
+# Al cambiar de linker, un node_modules existente queda con shims colgados que
+# apuntan al layout anterior: purgalo antes de instalar (ver vercel.json).
 nodeLinker: hoisted
 verifyDepsBeforeRun: false
 
