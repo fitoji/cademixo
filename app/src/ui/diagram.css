@@ -31,6 +31,35 @@
   stroke: var(--grid-major);
 }
 
+/* Cajetín dibujado sobre la hoja. Comparte la tinta del dibujo: en el estilo
+   clásico se lee como parte del plano, y en el moderno sigue el mismo token. */
+.title-block {
+  font-family: var(--mono, ui-monospace, 'SF Mono', Menlo, monospace);
+}
+
+.title-block .tb-line {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+  fill: none;
+}
+
+.title-block .tb-line-strong {
+  stroke: var(--ink);
+}
+
+.title-block .tb-row-label,
+.title-block .tb-caption {
+  fill: var(--ink-soft);
+}
+
+.title-block .tb-value {
+  fill: var(--ink);
+}
+
+.title-block .tb-value-strong {
+  font-weight: 600;
+}
+
 /* El grosor de la tinta entra por variable: el hover y la selección lo suben
    desde el grupo en vez de repintar cada trazo por separado. */
 .sym path {

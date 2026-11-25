@@ -67,6 +67,8 @@ import {
   type EditorState,
 } from '../editor/state.ts';
 import { buildNetwork, validate } from '../editor/network.ts';
+import { parseTitleBlock } from '../model/title-block.ts';
+import { titleBlockLayout } from '../model/title-block-layout.ts';
 import { apparatusKey, boundsOf, roundTrips } from '../model/project.ts';
 import {
   SIMULATION_TICK_MS,
@@ -233,6 +235,7 @@ export function App(): JSX.Element {
   const [showGrid, setShowGrid] = useState(true);
   const [snap, setSnap] = useState(true);
   const [fitToken, setFitToken] = useState(0);
+  const [sheetFitToken, setSheetFitToken] = useState(0);
   const [zoom, setZoom] = useState(4);
   const [mode, setMode] = useState<Mode>(readMode);
   const [styleMode, setStyleMode] = useState<StyleMode>(readStyle);
@@ -860,6 +863,15 @@ export function App(): JSX.Element {
   }, [display, sheet]);
 
   const selection = useMemo(() => new Set(state?.selection ?? []), [state]);
+
+  /**
+   * Geometría del cajetín de la hoja activa. Se recalcula cuando cambia el
+   * documento (incluido el trailer editado desde `Editar → Cajetín`).
+   */
+  const titleLayout = useMemo(
+    () => titleBlockLayout(state ? parseTitleBlock(state.text) : null),
+    [state],
+  );
 
   const network = useMemo(() => buildNetwork(project?.records ?? []), [project]);
   const findings = useMemo(() => validate(project?.records ?? []), [project]);
@@ -1767,6 +1779,10 @@ export function App(): JSX.Element {
                     Encuadrar
                     <MenubarShortcut>{hintFit}</MenubarShortcut>
                   </MenubarItem>
+                  <MenubarItem onSelect={() => setSheetFitToken((t) => t + 1)}>
+                    <FileTextIcon />
+                    Encuadrar hoja
+                  </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />
                 <MenubarGroup>
@@ -2022,6 +2038,8 @@ export function App(): JSX.Element {
                 snap={snap}
                 placing={placing}
                 fitToken={fitToken}
+                sheetFitToken={sheetFitToken}
+                titleLayout={titleLayout}
                 onSelect={onSelect}
                 onDragPreview={onDragPreview}
                 onDragCommit={onDragCommit}

@@ -25,6 +25,8 @@ import { WIRE_CORNER_TOL, wireCornerPaths, type WireSegment } from './wire-corne
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useShortcutHint } from './shortcuts.ts';
 import { getBindings, subscribeBindings } from './shortcut-bindings.ts';
+import { TitleBlockLayer } from './TitleBlockLayer.tsx';
+import type { SheetLayout } from '../model/title-block-layout.ts';
 
 export interface View {
   x: number;
@@ -40,6 +42,14 @@ interface Props {
   snap: boolean;
   placing: number | null;
   fitToken: number;
+  /**
+   * Cambia cuando `Ver → Encuadrar hoja` pide encuadrar la página entera en vez
+   * del dibujo. Es un token aparte de `fitToken` para no alterar el encuadre
+   * actual del proyecto.
+   */
+  sheetFitToken: number;
+  /** Geometría del cajetín de la hoja activa, o `null` si no se dibuja. */
+  titleLayout: SheetLayout | null;
   onSelect: (ids: number[], additive: boolean) => void;
   onDragPreview: (op: DragOp | null) => void;
   onDragCommit: (op: DragOp) => void;
@@ -133,6 +143,8 @@ export function Canvas(props: Props): JSX.Element {
     snap,
     placing,
     fitToken,
+    sheetFitToken,
+    titleLayout,
     onSelect,
     onDragPreview,
     onDragCommit,
@@ -227,6 +239,36 @@ export function Canvas(props: Props): JSX.Element {
     fit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitToken]);
+
+  /**
+   * `Ver → Encuadrar hoja`: encuadra la página completa, no el dibujo. Sin
+   * cajetín no hay página conocida, así que cae en el encuadre normal.
+   */
+  const fitSheet = useCallback(() => {
+    const el = svgRef.current;
+    if (!el || !titleLayout) {
+      fit();
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const { width, height } = titleLayout.page;
+    const pad = 24;
+    const k = Math.max(
+      MIN_K,
+      Math.min(MAX_K, Math.min((rect.width - pad * 2) / width, (rect.height - pad * 2) / height)),
+    );
+    setView({
+      k,
+      x: rect.width / 2 - (width / 2) * k,
+      y: rect.height / 2 - (height / 2) * k,
+    });
+    onZoom(k);
+  }, [titleLayout, fit, onZoom]);
+
+  useLayoutEffect(() => {
+    fitSheet();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetFitToken]);
 
   useEffect(() => {
     onZoom(view.k);
@@ -760,6 +802,8 @@ export function Canvas(props: Props): JSX.Element {
               <rect x={-10000} y={-10000} width={20000} height={20000} fill="url(#grid-major)" />
             </>
           )}
+
+          <TitleBlockLayer layout={titleLayout} />
 
           {records.map((rec) => {
             if (rec.kind === 'connection')
