@@ -211,6 +211,33 @@ Ninguno de estos números sale de `OnDraw`: son la propuesta del documento, medi
 contra la captura. Si algún día se extrae la geometría real, se reemplazan acá y la capa
 SVG no cambia.
 
+## Medición en CADe_SIMU V4 (2026-11-25) — reemplaza la propuesta anterior
+
+Capturas: `Archivo → Presentación preliminar` del fixture `arranque-paro-motor-3f.cad` en A4
+horizontal, y vista de hoja a zoom conocido. En pantalla las divisiones verticales del bloque caen
+cada **150 px = 30 unidades** (zoom 5 px/unidad), y las filas cada **30 px = 6 unidades**. En la
+vista previa (mismo marco para los dos cajetines):
+
+| Cajetín | Posición | Ancho | Alto |
+|---------|----------|-------|------|
+| 2 | abajo a la izquierda, pegado al marco | ocupa casi todo el marco | 3 filas visibles en estos fixtures |
+| 1 | abajo a la derecha | ~61 % del marco | ~2 × el alto del 2 |
+
+El ancho del cajetín 2 medido en el dibujante es **207 unidades**, con divisiones en
+`0 / 30 / 60 / 90 / 120 / 156 / 207`; la altura de una fila es **6 unidades** y el máximo con las
+7 filas visibles es **42**. Por eso se quitó el `SCALE = 2` de la implementación: el bloque pasó de
+**259 × 84** a **207 × 42** y se ancló abajo a la izquierda con 3 unidades de margen.
+
+**Detalle importante**: en estos fixtures los 14 flags están en `1`, pero CADe no los lee al abrir
+(son de sólo escritura) y muestra su estado interno: sólo Dibujado y Comprobado visibles, o sea 3
+filas. Nuestro editor sí respeta los flags del archivo y dibuja las 7 filas, así que el bloque es más
+alto que en CADe aunque tenga la misma anchura. Esa desviación está documentada en
+`docs/reportes/informe-cajetin-ocultamiento-y-guardado.md`.
+
+El cajetín 1 todavía **no está implementado** en `title-block-layout.ts` (devuelve `null` para
+cualquier selector distinto de 2). Su geometría fina (columnas y filas internas) requiere una
+captura con los campos llenos; la medición de arriba sólo da el tamaño y la posición relativos.
+
 ## Pendientes fuera de este plan
 
 1. **Multi-hoja**: `parseTitleBlock` toma el último trailer. Para dibujar por hoja hace

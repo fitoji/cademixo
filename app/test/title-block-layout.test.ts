@@ -49,31 +49,30 @@ test('la página útil toma el lado mayor como ancho', () => {
   assert.deepEqual(layout.page, { width: 279, height: 210 });
 });
 
-test('el bloque de título queda pegado a la esquina inferior derecha', () => {
+test('el bloque queda abajo a la izquierda como en CADe', () => {
   const layout = layoutOf(FULL)!;
   const first = layout.cells[0]!;
   const last = layout.cells.at(-1)!;
   assert.equal(first.rect.y, TITLE_LAYOUT.blockTop(279, 210));
-  assert.equal(first.rect.y, 116);
-  assert.equal(last.rect.y + last.rect.h, 200);
-  assert.equal(last.rect.x + last.rect.w, 269);
+  assert.equal(first.rect.y, 165);
+  assert.equal(last.rect.y + last.rect.h, 207);
+  assert.equal(last.rect.x + last.rect.w, 210);
 });
 
-test('el bloque toma todo el ancho útil: el doble no entra en la hoja', () => {
+test('el bloque mide 207 unidades, sin escalar ni recortar', () => {
   const layout = layoutOf(FULL)!;
   const first = layout.cells[0]!;
-  assert.equal(207 * TITLE_LAYOUT.scale, 414);
-  assert.equal(TITLE_LAYOUT.widthFor(279), 259);
-  // 259 de bloque: la columna de rótulos arranca en el borde del marco.
-  assert.equal(first.rect.x, TITLE_LAYOUT.margin + TITLE_LAYOUT.labelWidth);
-  assert.equal(first.rect.x, 64);
+  assert.equal(TITLE_LAYOUT.blockWidth, 207);
+  assert.equal(TITLE_LAYOUT.widthFor(279), 207);
+  assert.equal(first.rect.x, TITLE_LAYOUT.blockLeft(279) + TITLE_LAYOUT.labelWidth);
+  assert.equal(first.rect.x, 33);
 });
 
-test('siete filas de doce unidades, una por fila del diálogo', () => {
+test('siete filas de seis unidades, una por fila del diálogo', () => {
   const layout = layoutOf(FULL)!;
   const rows = [...new Set(layout.cells.map((c) => c.rect.y))];
-  assert.deepEqual(rows, [116, 128, 140, 152, 164, 176, 188]);
-  for (const cell of layout.cells) assert.equal(cell.rect.h, 12);
+  assert.deepEqual(rows, [165, 171, 177, 183, 189, 195, 201]);
+  for (const cell of layout.cells) assert.equal(cell.rect.h, 6);
 });
 
 test('cada campo lleva el valor del trailer y la alineación de su fila', () => {
@@ -120,7 +119,7 @@ test('una fila oculta no se dibuja y el bloque se acorta desde arriba', () => {
   assert.equal(off.labels.some((l) => l.text === 'Fecha' && l.anchor === 'start'), false);
   const last = off.cells.at(-1)!;
   // El borde inferior no se mueve: la caja se ancla al marco.
-  assert.equal(last.rect.y + last.rect.h, 200);
+  assert.equal(last.rect.y + last.rect.h, 207);
 });
 
 test('sin «Contorno» no hay marco pero el bloque sigue', () => {
@@ -162,7 +161,7 @@ test('el fixture trae «Comprobado» oculto y se respeta', () => {
     false,
   );
   const last = layout.cells.at(-1)!;
-  assert.equal(last.rect.y + last.rect.h, 200);
+  assert.equal(last.rect.y + last.rect.h, 207);
 });
 
 test('las filas se rotulan con el nombre del diálogo', () => {

@@ -67,42 +67,39 @@ export interface SheetLayout {
 
 const MARGIN = 10;
 /**
- * Factor de escala del bloque. CADe lo dibuja mucho más chico (filas de 6
- * unidades y texto de ~2), pero a esa escala el contenido es ilegible en
- * pantalla, así que acá se duplica: filas de 12, texto de 5.6.
+ * Geometría medida en CADe_SIMU V4, no propuesta de diseño.
+ *
+ * En pantalla a 5 px/unidad las divisiones verticales del bloque caen cada
+ * 150 px (= 30 unidades) y el marco empieza 3 unidades dentro de la hoja:
+ * bloque de 207 × 42 unidades (7 filas de 6), con columnas en
+ * 0 / 30 / 60 / 90 / 120 / 156 / 207. Es lo que también sale del dibujante
+ * `FUN_00854d30` (ver `docs/re/cajetin-render.md`).
  */
-const SCALE = 2;
-const BLOCK_WIDTH_NOMINAL = 207 * SCALE;
-const ROW_HEIGHT = 6 * SCALE;
+const BLOCK_WIDTH = 207;
+const ROW_HEIGHT = 6;
 const ROW_COUNT = 7;
-const LABEL_WIDTH = 27 * SCALE;
+const LABEL_WIDTH = 30;
+/** Inset del bloque respecto del borde inferior e izquierdo de la hoja. */
+const BLOCK_INSET = 3;
 const BAND_STEP = 50;
-
-/**
- * El doble del ancho (414) no entra en una hoja de 279. El máximo es el marco
- * interior, así que el bloque se queda con todo el ancho útil y crece en alto.
- */
-const blockWidthFor = (pageWidth: number): number =>
-  Math.min(BLOCK_WIDTH_NOMINAL, Math.max(1, pageWidth - MARGIN * 2));
 
 export const TITLE_LAYOUT = {
   margin: MARGIN,
-  scale: SCALE,
-  blockWidth: BLOCK_WIDTH_NOMINAL,
+  blockWidth: BLOCK_WIDTH,
   rowHeight: ROW_HEIGHT,
   rowCount: ROW_COUNT,
   labelWidth: LABEL_WIDTH,
   band: MARGIN,
-  fontSize: 2.8 * SCALE,
-  captionSize: 2 * SCALE,
-  rowLabelSize: 2.6 * SCALE,
+  fontSize: 2.8,
+  captionSize: 2,
+  rowLabelSize: 2.6,
   /** Borde superior del bloque completo, medido desde el borde superior de la hoja. */
-  blockTop: (_pageWidth: number, pageHeight: number): number =>
-    pageHeight - MARGIN - ROW_COUNT * ROW_HEIGHT,
+  blockTop: (_pageWidth: number, pageHeight: number, rows = ROW_COUNT): number =>
+    pageHeight - BLOCK_INSET - rows * ROW_HEIGHT,
   /** Borde izquierdo del bloque, medido desde el borde izquierdo de la hoja. */
-  blockLeft: (pageWidth: number): number => pageWidth - MARGIN - blockWidthFor(pageWidth),
-  /** Ancho efectivo del bloque en una hoja de ese ancho. */
-  widthFor: blockWidthFor,
+  blockLeft: (_pageWidth: number): number => BLOCK_INSET,
+  /** Ancho del bloque en una hoja de ese ancho. */
+  widthFor: (_pageWidth: number): number => BLOCK_WIDTH,
 };
 
 /** Rótulo de cada fila, en el orden del diálogo `Editar → Cajetín`. */
@@ -186,8 +183,8 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
 
   const blockWidth = TITLE_LAYOUT.widthFor(width);
   const blockHeight = rows.length * ROW_HEIGHT;
-  const left = width - MARGIN - blockWidth;
-  const top = height - MARGIN - blockHeight;
+  const left = TITLE_LAYOUT.blockLeft(width);
+  const top = TITLE_LAYOUT.blockTop(width, height, rows.length);
   const blockBottom = top + blockHeight;
   const blockRight = left + blockWidth;
   const valueLeft = left + LABEL_WIDTH;
@@ -228,7 +225,7 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
     labels.push({
       text: ROW_LABELS[row]!,
       x: left + 2,
-      y: rowY + ROW_HEIGHT - 1.6 * SCALE,
+      y: rowY + ROW_HEIGHT - 1.6,
       anchor: 'start',
     });
 
