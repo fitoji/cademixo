@@ -2,6 +2,7 @@
 
 > Guardado antes de filtrar la paleta a solo CADe_SIMU.
 > Generado con `node scripts/make-inventory.ts`.
+> Calibración y fidelidad de las geometrías: `docs/re/informe-calibracion-simbolos.md`.
 
 ## En el catálogo CADe_SIMU (212)
 
