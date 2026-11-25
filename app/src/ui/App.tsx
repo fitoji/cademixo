@@ -5,6 +5,7 @@ import {
   ClipboardPasteIcon,
   CopyIcon,
   DownloadIcon,
+  EyeOffIcon,
   FolderOpenIcon,
   FilePlusIcon,
   FileTextIcon,
@@ -236,6 +237,8 @@ export function App(): JSX.Element {
   const [snap, setSnap] = useState(true);
   const [fitToken, setFitToken] = useState(0);
   const [sheetFitToken, setSheetFitToken] = useState(0);
+  /** Oculta la capa dibujada sin tocar el documento: es una preferencia de vista. */
+  const [titleBlockHidden, setTitleBlockHidden] = useState(false);
   const [zoom, setZoom] = useState(4);
   const [mode, setMode] = useState<Mode>(readMode);
   const [styleMode, setStyleMode] = useState<StyleMode>(readStyle);
@@ -1758,6 +1761,13 @@ export function App(): JSX.Element {
                     <FileTextIcon />
                     Cajetín
                   </MenubarItem>
+                  <MenubarCheckboxItem
+                    checked={titleBlockHidden}
+                    onCheckedChange={(checked) => setTitleBlockHidden(checked === true)}
+                  >
+                    <EyeOffIcon />
+                    Ocultar cajetín
+                  </MenubarCheckboxItem>
                 </MenubarGroup>
               </MenubarContent>
             </MenubarMenu>
@@ -2040,6 +2050,7 @@ export function App(): JSX.Element {
                 fitToken={fitToken}
                 sheetFitToken={sheetFitToken}
                 titleLayout={titleLayout}
+                showTitleBlock={!titleBlockHidden}
                 onSelect={onSelect}
                 onDragPreview={onDragPreview}
                 onDragCommit={onDragCommit}

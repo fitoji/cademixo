@@ -50,6 +50,8 @@ interface Props {
   sheetFitToken: number;
   /** Geometría del cajetín de la hoja activa, o `null` si no se dibuja. */
   titleLayout: SheetLayout | null;
+  /** `Ver`/`Editar → Ocultar cajetín`: apaga la capa sin tocar el documento. */
+  showTitleBlock: boolean;
   onSelect: (ids: number[], additive: boolean) => void;
   onDragPreview: (op: DragOp | null) => void;
   onDragCommit: (op: DragOp) => void;
@@ -145,6 +147,7 @@ export function Canvas(props: Props): JSX.Element {
     fitToken,
     sheetFitToken,
     titleLayout,
+    showTitleBlock,
     onSelect,
     onDragPreview,
     onDragCommit,
@@ -803,7 +806,7 @@ export function Canvas(props: Props): JSX.Element {
             </>
           )}
 
-          <TitleBlockLayer layout={titleLayout} />
+          {showTitleBlock && <TitleBlockLayer layout={titleLayout} />}
 
           {records.map((rec) => {
             if (rec.kind === 'connection')

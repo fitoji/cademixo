@@ -150,12 +150,21 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null;
   El bloque se dibuja siempre.
 - Lee textos con `titleValues()` y alineación con `block.alignment`. Nada de constantes
   del trailer duplicadas.
-- Filas (7 × 6 unidades) y campos: `[0,1]`, `[2,3]`, `[4]`, `[5]`, `[6]`, `[7,8]`, `[9]`.
+- Filas (7 × 12 unidades) y campos: `[0,1]`, `[2,3]`, `[4]`, `[5]`, `[6]`, `[7,8]`, `[9]`.
+- **Escala ×2** sobre la geometría medida de CADe (que usa filas de 6 y texto de ~2): a esa
+  densidad el contenido es ilegible en pantalla. El ancho nominal duplicado (414) no entra
+  en la hoja de 279, así que el bloque toma todo el ancho del marco interior (259) y crece
+  en alto: `259 × 84`.
+- **Visibilidad**: `block.visibility[row]` decide si la fila se dibuja. Una fila oculta no
+  emite celdas ni rótulo, y el bloque se acorta desde arriba contra el borde inferior del
+  marco. Es lo que hace que el check «Mostrar» del diálogo actúe sobre el dibujo.
+- El fixture `cajetin-probe.cad` trae `visibility[1] = 0` (Comprobado oculto): los tests de
+  geometría corren con las siete filas visibles.
 - Rótulos de fila: Dibujado, Comprobado, Entidad, Título, Fecha, Número, Archivo.
 - Encabezados de columna en las filas de dos campos: `Fecha`/`Nombre` en las firmas y
   `Hoja`/`Total` en la numeración (es el `"%s de %s"` del binario).
 - Énfasis en Entidad y Título.
-- Tests en `app/test/title-block-layout.test.ts` (15 casos, `cajetin-probe.cad`).
+- Tests en `app/test/title-block-layout.test.ts` (17 casos, `cajetin-probe.cad`).
 
 ### Fase 2 — Capa SVG (`app/src/ui/TitleBlockLayer.tsx`)
 
@@ -163,8 +172,8 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null;
 - `vector-effect="non-scaling-stroke"` para que el grosor no dependa del zoom.
 - Colores por token en `diagram.css`: `--ink` para lo fuerte, `--ink-soft` para
   divisiones, rótulos y encabezados. Sin fondo blanco: es line art sobre el lienzo.
-- Tipografías en unidades del documento: valores `2.8`, rótulos de fila `2.6`,
-  encabezados `2`. La fila mide `6`.
+- Tipografías en unidades del documento: valores `5.6`, rótulos de fila `5.2`,
+  encabezados `4`. La fila mide `12`.
 
 ### Fase 3 — Integración en `Canvas`
 
@@ -172,6 +181,9 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null;
 - La capa se dibuja **antes** de cables y componentes (queda debajo).
 - `fit` no cambia: se agrega **Ver → Encuadrar hoja** (`sheetFitToken`) que encuadra la
   página completa. Sin layout, cae en el encuadre normal.
+- **Editar → Ocultar cajetín** (checkbox) apaga la capa sin tocar el documento: es
+  preferencia de vista, no ensucia el archivo. `Encuadrar hoja` sigue funcionando con la
+  capa apagada porque la geometría se conserva.
 
 ### Fase 4 — Verificación
 
@@ -188,8 +200,8 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null;
 | Dato | Valor |
 | --- | --- |
 | Página útil | `279 × 210` (lado mayor = ancho) |
-| Bloque | `207 × 42`, esquina inferior derecha con margen `10` → origen `(62, 158)` |
-| Filas | 7 de `6`; rótulos a la izquierda en una columna de `27` |
+| Bloque | `259 × 84` (ancho limitado al marco interior), margen `10` → origen `(10, 116)` |
+| Filas | 7 de `12`; rótulos a la izquierda en una columna de `54` |
 | Franja de referenciado | `10`; columnas `round(279/50) = 6` (A–F), filas `round(210/50) = 4` (1–4) |
 | Marcas | `weight 2` marcos y bloque; `weight 1` divisiones internas |
 

@@ -66,27 +66,43 @@ export interface SheetLayout {
 }
 
 const MARGIN = 10;
-const BLOCK_WIDTH = 207;
-const ROW_HEIGHT = 6;
+/**
+ * Factor de escala del bloque. CADe lo dibuja mucho más chico (filas de 6
+ * unidades y texto de ~2), pero a esa escala el contenido es ilegible en
+ * pantalla, así que acá se duplica: filas de 12, texto de 5.6.
+ */
+const SCALE = 2;
+const BLOCK_WIDTH_NOMINAL = 207 * SCALE;
+const ROW_HEIGHT = 6 * SCALE;
 const ROW_COUNT = 7;
-const LABEL_WIDTH = 27;
+const LABEL_WIDTH = 27 * SCALE;
 const BAND_STEP = 50;
+
+/**
+ * El doble del ancho (414) no entra en una hoja de 279. El máximo es el marco
+ * interior, así que el bloque se queda con todo el ancho útil y crece en alto.
+ */
+const blockWidthFor = (pageWidth: number): number =>
+  Math.min(BLOCK_WIDTH_NOMINAL, Math.max(1, pageWidth - MARGIN * 2));
 
 export const TITLE_LAYOUT = {
   margin: MARGIN,
-  blockWidth: BLOCK_WIDTH,
+  scale: SCALE,
+  blockWidth: BLOCK_WIDTH_NOMINAL,
   rowHeight: ROW_HEIGHT,
   rowCount: ROW_COUNT,
   labelWidth: LABEL_WIDTH,
   band: MARGIN,
-  fontSize: 2.8,
-  captionSize: 2,
-  rowLabelSize: 2.6,
-  /** Borde superior del bloque, medido desde el borde superior de la hoja. */
+  fontSize: 2.8 * SCALE,
+  captionSize: 2 * SCALE,
+  rowLabelSize: 2.6 * SCALE,
+  /** Borde superior del bloque completo, medido desde el borde superior de la hoja. */
   blockTop: (_pageWidth: number, pageHeight: number): number =>
     pageHeight - MARGIN - ROW_COUNT * ROW_HEIGHT,
   /** Borde izquierdo del bloque, medido desde el borde izquierdo de la hoja. */
-  blockLeft: (pageWidth: number): number => pageWidth - MARGIN - BLOCK_WIDTH,
+  blockLeft: (pageWidth: number): number => pageWidth - MARGIN - blockWidthFor(pageWidth),
+  /** Ancho efectivo del bloque en una hoja de ese ancho. */
+  widthFor: blockWidthFor,
 };
 
 /** Rótulo de cada fila, en el orden del diálogo `Editar → Cajetín`. */
@@ -162,12 +178,20 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
   const referenciado = titleReferenciado(block);
   const values = titleValues(block);
 
-  const left = TITLE_LAYOUT.blockLeft(width);
-  const top = TITLE_LAYOUT.blockTop(width, height);
-  const blockBottom = top + ROW_COUNT * ROW_HEIGHT;
-  const blockRight = left + BLOCK_WIDTH;
+  // Las filas ocultas desde `Editar → Cajetín` no se dibujan y el bloque se
+  // acorta: la caja queda anclada al borde inferior del marco.
+  const rows = ROW_FIELDS.map((fields, row) => ({ fields, row })).filter(
+    ({ row }) => block.visibility[row] !== false,
+  );
+
+  const blockWidth = TITLE_LAYOUT.widthFor(width);
+  const blockHeight = rows.length * ROW_HEIGHT;
+  const left = width - MARGIN - blockWidth;
+  const top = height - MARGIN - blockHeight;
+  const blockBottom = top + blockHeight;
+  const blockRight = left + blockWidth;
   const valueLeft = left + LABEL_WIDTH;
-  const valueWidth = BLOCK_WIDTH - LABEL_WIDTH;
+  const valueWidth = blockWidth - LABEL_WIDTH;
 
   const lines: Line[] = [];
   const cells: Cell[] = [];
@@ -181,16 +205,17 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
   }
 
   // Marco del bloque y divisiones internas: van siempre, con o sin contorno.
-  lines.push(...rectLines(left, top, BLOCK_WIDTH, ROW_COUNT * ROW_HEIGHT, 2));
-  lines.push({ x1: valueLeft, y1: top, x2: valueLeft, y2: blockBottom, weight: 1 });
-  for (let row = 1; row < ROW_COUNT; row += 1) {
-    const y = top + row * ROW_HEIGHT;
-    lines.push({ x1: left, y1: y, x2: blockRight, y2: y, weight: 1 });
+  if (rows.length > 0) {
+    lines.push(...rectLines(left, top, blockWidth, blockHeight, 2));
+    lines.push({ x1: valueLeft, y1: top, x2: valueLeft, y2: blockBottom, weight: 1 });
+    for (let row = 1; row < rows.length; row += 1) {
+      const y = top + row * ROW_HEIGHT;
+      lines.push({ x1: left, y1: y, x2: blockRight, y2: y, weight: 1 });
+    }
   }
 
-  for (let row = 0; row < ROW_COUNT; row += 1) {
-    const rowY = top + row * ROW_HEIGHT;
-    const fields = ROW_FIELDS[row]!;
+  rows.forEach(({ fields, row }, index) => {
+    const rowY = top + index * ROW_HEIGHT;
     const cellWidth = valueWidth / fields.length;
 
     if (fields.length > 1) {
@@ -203,7 +228,7 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
     labels.push({
       text: ROW_LABELS[row]!,
       x: left + 2,
-      y: rowY + ROW_HEIGHT - 1.6,
+      y: rowY + ROW_HEIGHT - 1.6 * SCALE,
       anchor: 'start',
     });
 
@@ -216,7 +241,7 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
         emphasis: EMPHASIS.has(field),
       });
     });
-  }
+  });
 
   if (contorno && referenciado) {
     const columns = Math.max(1, Math.round(width / BAND_STEP));
