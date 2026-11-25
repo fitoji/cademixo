@@ -2178,6 +2178,10 @@ export function App(): JSX.Element {
         </SheetContent>
       </Sheet>
 
+      {faultDialog !== null && (
+        <div className="fault-flash pointer-events-none fixed inset-0 z-40" aria-hidden="true" />
+      )}
+
       <Dialog open={faultDialog !== null} onOpenChange={(open) => !open && setFaultDialog(null)}>
         <DialogContent aria-describedby="fault-description">
           <DialogHeader>

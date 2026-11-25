@@ -22,8 +22,15 @@ test('cortocircuito: muestra el error de CADe y detiene la simulación', async (
   await expect(dialog.getByText('Se ha producido un cortocircuito')).toBeVisible();
   await expect(page.locator('footer').getByText(/simulación estable/)).toHaveCount(0);
 
+  // El aviso viene con un destello de pantalla que no intercepta el clic.
+  const flash = page.locator('.fault-flash');
+  await expect(flash).toHaveCount(1);
+  await expect(flash).toHaveCSS('pointer-events', 'none');
+  await expect(flash).toHaveCSS('animation-name', 'fault-flash');
+
   await dialog.getByRole('button', { name: 'Aceptar' }).click();
   await expect(dialog).toBeHidden();
+  await expect(flash).toHaveCount(0);
 
   // El mismo corte queda en el sistema de avisos y el lienzo marca el punto.
   await expect(page.getByText('Cortocircuito detectado al simular')).toBeVisible();
@@ -52,4 +59,17 @@ test('cortocircuito por conductor nuevo: marca el cruce con el neutro', async ({
   await expect(mark).toHaveCount(1);
   await expect(mark).toHaveAttribute('cx', '39');
   await expect(mark).toHaveAttribute('cy', '144');
+});
+
+test('con movimiento reducido el destello no se dibuja', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await page.locator('input[type="file"]').setInputFiles(fixture);
+  await expect(page.locator('footer').getByText('short-nc-test.cad')).toBeVisible();
+
+  await page.keyboard.press('Space');
+
+  const dialog = page.getByRole('dialog').filter({ hasText: 'Se ha producido un cortocircuito' });
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('.fault-flash')).toHaveCSS('display', 'none');
 });

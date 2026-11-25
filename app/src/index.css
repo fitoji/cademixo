@@ -564,3 +564,29 @@
 [data-pack='cadesimu'] .wire {
   stroke-width: var(--wire-w);
 }
+
+/* Destello de pantalla cuando salta un fallo en la simulación. Un solo pulso y
+   por debajo del diálogo: WCAG 2.3.1 no admite más de tres por segundo, y el
+   texto del aviso tiene que seguir legible. */
+@keyframes fault-flash {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.fault-flash {
+  background: var(--destructive);
+  animation: fault-flash 520ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fault-flash {
+    display: none;
+  }
+}
