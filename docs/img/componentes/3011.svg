@@ -1,6 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="-1.5 -1.5 15 15" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" width="66" height="30" viewBox="-2.55 -5.55 22.05 10.05" role="img">
 <title>Alimentación L N PE</title>
-<rect x="-1.5" y="-1.5" width="15" height="15" rx="1.2" fill="#f6f8fb" stroke="#d7dee8" stroke-width="0.3"/>
-<path d="M4.2 0L4.2 12" stroke="#6b7789" stroke-width="0.26" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="7.4399999999999995" y="6" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="3.5999999999999996" fill="#37455a" text-anchor="middle" dominant-baseline="middle">LNP</text>
+<rect x="-2.55" y="-5.55" width="22.05" height="10.05" rx="1.2" fill="#f6f8fb" stroke="#d7dee8" stroke-width="0.3"/>
+<path d="M0.8 -2.74L0.26 -2.2L-0.51 -2.2L-1.05 -2.74L-1.05 -3.51L-0.51 -4.05L0.26 -4.05L0.8 -3.51Z" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M0 -2L0 -0.25" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M6.8 -2.74L6.26 -2.2L5.49 -2.2L4.95 -2.74L4.95 -3.51L5.49 -4.05L6.26 -4.05L6.8 -3.51Z" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M6 -2L6 -0.25" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12.8 -2.74L12.26 -2.2L11.49 -2.2L10.95 -2.74L10.95 -3.51L11.49 -4.05L12.26 -4.05L12.8 -3.51Z" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12 -2L12 -0.25" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

@@ -5,7 +5,7 @@
 <path d="M-3 3L0 9" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M-1.5 6L0.3 6" stroke="#6b7789" stroke-width="0.26" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M0 9L0 12" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M-1.67 6.32L-3.37 7.18L-4.23 5.48L-2.53 4.62Z" stroke="#3d4a5c" stroke-width="0.38" fill="#3d4a5c" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M-1.67 5.42L-3.37 6.28L-4.23 4.58L-2.53 3.72Z" stroke="#3d4a5c" stroke-width="0.38" fill="#3d4a5c" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="0" cy="0" r="1.4" fill="#ffffff" stroke="#7d8b9c" stroke-width="0.42"/>
 <circle cx="0" cy="12" r="1.4" fill="#ffffff" stroke="#7d8b9c" stroke-width="0.42"/>
 </svg>

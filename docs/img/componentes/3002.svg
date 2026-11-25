@@ -1,7 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="-1.5 -1.5 15 15" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="-2.55 -5.55 10.05 10.05" role="img">
 <title>Alimentación PE</title>
-<rect x="-1.5" y="-1.5" width="15" height="15" rx="1.2" fill="#f6f8fb" stroke="#d7dee8" stroke-width="0.3"/>
-<path d="M4.2 0L4.2 12" stroke="#6b7789" stroke-width="0.26" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M4.2 6L12 6" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="12" cy="6" r="1.4" fill="#ffffff" stroke="#7d8b9c" stroke-width="0.42"/>
+<rect x="-2.55" y="-5.55" width="10.05" height="10.05" rx="1.2" fill="#f6f8fb" stroke="#d7dee8" stroke-width="0.3"/>
+<path d="M0.8 -2.74L0.26 -2.2L-0.51 -2.2L-1.05 -2.74L-1.05 -3.51L-0.51 -4.05L0.26 -4.05L0.8 -3.51Z" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M0 -2L0 -0.25" stroke="#3d4a5c" stroke-width="0.38" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

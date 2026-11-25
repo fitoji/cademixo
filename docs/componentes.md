@@ -9,7 +9,7 @@ Catálogo de componentes eléctricos que ofrece la paleta del editor: cómo se d
 - **Los grupos y los nombres de familia** son los de la paleta (`app/src/ui/Palette.tsx`).
 - **Los bornes** son una convención IEC elegida al dibujar cada símbolo, no un dato que venga en el archivo: el formato los guarda por registro y acá se listan los que la app asigna por defecto. En la miniatura se ven como círculos.
 
-Totales: **270 códigos** en el catálogo generado, **238 componentes dibujados**, **46 códigos del catálogo caen al fallback** (un rectángulo con el código adentro).
+Totales: **270 códigos** en el catálogo generado, **227 componentes dibujados**, **46 códigos del catálogo caen al fallback** (un rectángulo con el código adentro).
 
 Hay **3 componentes dibujados que no figuran en el catálogo**: `8016` (Lámpara de señalización), `8017` (Contacto del térmico), `8018` (Conmutador de dos posiciones). No salen del menú del CAD pero aparecen en archivos reales, así que su plantilla se generó desde los fixtures y el dibujo se escribió a mano. Por eso no tienen designador de catálogo.
 
@@ -30,9 +30,9 @@ De los 270 códigos, **125 no traen designador** en el catálogo: el menú del C
 | --- | --- | --- | --- | --- |
 | ![Alimentación L](img/componentes/3000.svg) | `3000` | Alimentación L | — | — |
 | ![Alimentación N](img/componentes/3001.svg) | `3001` | Alimentación N | — | — |
-| ![Alimentación PE](img/componentes/3002.svg) | `3002` | Alimentación PE | — | PE |
+| ![Alimentación PE](img/componentes/3002.svg) | `3002` | Alimentación PE | — | — |
 | ![Alimentación L N](img/componentes/3003.svg) | `3003` | Alimentación L N | — | — |
-| ![Alimentación L1 L2 L3](img/componentes/3004.svg) | `3004` | Alimentación L1 L2 L3 | — | L1 · L2 · L3 |
+| ![Alimentación L1 L2 L3](img/componentes/3004.svg) | `3004` | Alimentación L1 L2 L3 | — | — |
 | ![Alimentación L1 L2 L3 PE](img/componentes/3005.svg) | `3005` | Alimentación L1 L2 L3 PE | — | — |
 | ![Alimentación L1 L2 L3 N](img/componentes/3006.svg) | `3006` | Alimentación L1 L2 L3 N | — | L1 · L2 · L3 · N |
 | ![Alimentación L1 L2 L3 N PE](img/componentes/3007.svg) | `3007` | Alimentación L1 L2 L3 N PE | — | L1 · L2 · L3 · N · PE |
@@ -43,6 +43,52 @@ De los 270 códigos, **125 no traen designador** en el catálogo: el menú del C
 | ![Transformador](img/componentes/3012.svg) | `3012` | Transformador | `-T` | U1 · V1 · W1 · U2 · V2 · W2 |
 | ![Rectificador](img/componentes/3013.svg) | `3013` | Rectificador | `-V` | ~ · ~ · + · - |
 | ![Fuente de alimentacióm](img/componentes/3014.svg) | `3014` | Fuente de alimentacióm | `-V` | L · N · + · - |
+
+## Fusibles (8)
+
+| Dibujo | Código | Nombre | Designador | Bornes |
+| --- | --- | --- | --- | --- |
+| ![Fusible monofásico](img/componentes/5000.svg) | `5000` | Fusible monofásico | `-F` | 1 · 2 |
+| ![Fusible II](img/componentes/5001.svg) | `5001` | Fusible II | `-F` | 1 · 3 · 2 · 4 |
+| ![Fusible II](img/componentes/5002.svg) | `5002` | Fusible II | `-F` | 1 · 3 · 2 · 4 |
+| ![Fusible III](img/componentes/5003.svg) | `5003` | Fusible III | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
+| ![Seccionador I](img/componentes/5005.svg) | `5005` | Seccionador I | `-F` | 1 · 2 |
+| ![Seccionador IN](img/componentes/5006.svg) | `5006` | Seccionador IN | `-F` | 1 · 2 · 3 · 4 |
+| ![Seccionador II](img/componentes/5007.svg) | `5007` | Seccionador II | `-F` | 1 · 2 · 3 · 4 |
+| ![Seccionador III](img/componentes/5008.svg) | `5008` | Seccionador III | `-F` | 1 · 2 · 3 · 4 · 5 · 6 |
+
+## Automáticos (17)
+
+| Dibujo | Código | Nombre | Designador | Bornes |
+| --- | --- | --- | --- | --- |
+| ![Automático I](img/componentes/6000.svg) | `6000` | Automático I | `-F` | 1 · 2 |
+| ![Automático IN](img/componentes/6001.svg) | `6001` | Automático IN | `-F` | 1 · 3 · 2 · 4 |
+| ![Automático II](img/componentes/6002.svg) | `6002` | Automático II | `-F` | 1 · 3 · 2 · 4 |
+| ![Automático III](img/componentes/6003.svg) | `6003` | Automático III | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
+| ![Automático IIIN](img/componentes/6004.svg) | `6004` | Automático IIIN | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
+| ![Diferencial IN](img/componentes/6005.svg) | `6005` | Diferencial IN | `-F` | 1 · 3 · 2 · 4 |
+| ![Diferencial IIIN](img/componentes/6006.svg) | `6006` | Diferencial IIIN | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
+| ![Relé térmico](img/componentes/6007.svg) | `6007` | Relé térmico | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
+| ![Disyuntor II](img/componentes/6008.svg) | `6008` | Disyuntor II | `-Q` | 1 · 3 · 2 · 4 |
+| ![Disyuntor III](img/componentes/6009.svg) | `6009` | Disyuntor III | `-Q` | 1 · 3 · 5 · 2 · 4 · 6 |
+| ![Disyuntor I](img/componentes/6010.svg) | `6010` | Disyuntor I | `-Q` | 1 · 2 |
+| ![Contactor](img/componentes/6015.svg) | `6015` | Contactor | `-Q` | 1 · 2 · 3 · 4 · 5 · 6 |
+| ![Relé térmico](img/componentes/6016.svg) | `6016` | Relé térmico | `-F` | 1 · 2 · 3 · 4 · 5 · 6 |
+| ![Interruptor automático](img/componentes/6017.svg) | `6017` | Interruptor automático | `-F` | 1 · 2 |
+| ![Interruptor diferencial](img/componentes/6018.svg) | `6018` | Interruptor diferencial | `-F` | 1 · 2 · 3 · 4 |
+| ![Interruptor](img/componentes/6019.svg) | `6019` | Interruptor | `-S` | 1 · 2 |
+| ![Interruptor](img/componentes/6020.svg) | `6020` | Interruptor | `-S` | 1 · 2 |
+
+## Contactores (6)
+
+| Dibujo | Código | Nombre | Designador | Bornes |
+| --- | --- | --- | --- | --- |
+| ![Contactor II](img/componentes/2000.svg) | `2000` | Contactor II | `-KM` | 1 · 3 · 2 · 4 |
+| ![Contactor III](img/componentes/2001.svg) | `2001` | Contactor III | `-KM` | 1 · 3 · 5 · 2 · 4 · 6 |
+| ![Interruptor II](img/componentes/2003.svg) | `2003` | Interruptor II | `-S` | 1 · 2 · 3 · 4 |
+| ![Interruptor III](img/componentes/2004.svg) | `2004` | Interruptor III | `-S` | 1 · 2 · 3 · 4 · 5 · 6 |
+| ![Contactor I](img/componentes/2006.svg) | `2006` | Contactor I | `-KM` | 1 · 2 |
+| ![Interruptor I](img/componentes/2007.svg) | `2007` | Interruptor I | `-S` | 1 · 2 |
 
 ## Motores (9)
 
@@ -58,12 +104,12 @@ De los 270 códigos, **125 no traen designador** en el catálogo: el menú del C
 | ![Motor cc. ex. indepen.](img/componentes/1007.svg) | `1007` | Motor cc. ex. indepen. | `-M` | A1 · A2 · E1 · E2 |
 | ![Motor trifásico como monofásico](img/componentes/1010.svg) | `1010` | Motor trifásico como monofásico | `-M` | L · N |
 
-## Potencia (16)
+## Potencia (9)
 
 | Dibujo | Código | Nombre | Designador | Bornes |
 | --- | --- | --- | --- | --- |
 | ![Resistencia I](img/componentes/1050.svg) | `1050` | Resistencia I | `-R` | 1 · 2 |
-| ![Resistencia III](img/componentes/1051.svg) | `1051` | Resistencia III | `-R` | 1 · 2 · 3 · 4 · 5 · 6 |
+| ![Resistencia III](img/componentes/1051.svg) | `1051` | Resistencia III | `-R` | 1 · 3 · 5 · 2 · 4 · 6 |
 | ![Autotransformador III](img/componentes/1052.svg) | `1052` | Autotransformador III | `-T` | U1 · V1 · W1 · U2 · V2 · W2 |
 | ![Arrancador electrónico](img/componentes/1053.svg) | `1053` | Arrancador electrónico | `-G` | 1 · 2 · 3 · 4 · 5 · 6 |
 | ![Variador velocidad ca II.](img/componentes/1054.svg) | `1054` | Variador velocidad ca II. | `-G` | 1 · 2 · 3 · 4 |
@@ -71,52 +117,8 @@ De los 270 códigos, **125 no traen designador** en el catálogo: el menú del C
 | ![Variador velocidad cc.](img/componentes/1057.svg) | `1057` | Variador velocidad cc. | `-G` | L+ · L- · M+ · M- |
 | ![Variador velocidad cc.](img/componentes/1058.svg) | `1058` | Variador velocidad cc. | `-G` | L+ · L- · M+ · M- |
 | ![Relé 1 canal](img/componentes/1076.svg) | `1076` | Relé 1 canal | `-K` | A1 · A2 · 11 · 14 |
-| ![Contactor II](img/componentes/2000.svg) | `2000` | Contactor II | `-KM` | 1 · 2 · 3 · 4 |
-| ![Contactor III](img/componentes/2001.svg) | `2001` | Contactor III | `-KM` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Contactor III](img/componentes/2001.svg) | `2001` | Contactor III | `-KM` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Interruptor II](img/componentes/2003.svg) | `2003` | Interruptor II | `-S` | 1 · 2 · 3 · 4 |
-| ![Interruptor III](img/componentes/2004.svg) | `2004` | Interruptor III | `-S` | 1 · 2 · 3 · 4 · 5 · 6 |
-| ![Contactor I](img/componentes/2006.svg) | `2006` | Contactor I | `-KM` | 1 · 2 |
-| ![Interruptor I](img/componentes/2007.svg) | `2007` | Interruptor I | `-S` | 1 · 2 |
 
-## Protección (32)
-
-| Dibujo | Código | Nombre | Designador | Bornes |
-| --- | --- | --- | --- | --- |
-| ![Fusible I](img/componentes/5000.svg) | `5000` | Fusible I | `-F` | 1 · 2 |
-| ![Fusible IN](img/componentes/5001.svg) | `5001` | Fusible IN | `-F` | 1 · 2 · 3 · 4 |
-| ![Fusible II](img/componentes/5002.svg) | `5002` | Fusible II | `-F` | 1 · 2 · 3 · 4 |
-| ![Fusible III](img/componentes/5003.svg) | `5003` | Fusible III | `-F` | 1 · 2 · 3 · 4 · 5 · 6 |
-| ![Seccionador I](img/componentes/5005.svg) | `5005` | Seccionador I | `-F` | 1 · 2 |
-| ![Seccionador IN](img/componentes/5006.svg) | `5006` | Seccionador IN | `-F` | 1 · 2 · 3 · 4 |
-| ![Seccionador II](img/componentes/5007.svg) | `5007` | Seccionador II | `-F` | 1 · 2 · 3 · 4 |
-| ![Seccionador III](img/componentes/5008.svg) | `5008` | Seccionador III | `-F` | 1 · 2 · 3 · 4 · 5 · 6 |
-| ![Automático I](img/componentes/6000.svg) | `6000` | Automático I | `-F` | 1 · 2 |
-| ![Automático I](img/componentes/6000.svg) | `6000` | Automático I | `-F` | 1 · 2 |
-| ![Automático IN](img/componentes/6001.svg) | `6001` | Automático IN | `-F` | 1 · 3 · 2 · 4 |
-| ![Automático II](img/componentes/6002.svg) | `6002` | Automático II | `-F` | 1 · 3 · 2 · 4 |
-| ![Automático II](img/componentes/6002.svg) | `6002` | Automático II | `-F` | 1 · 3 · 2 · 4 |
-| ![Automático III](img/componentes/6003.svg) | `6003` | Automático III | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Automático III](img/componentes/6003.svg) | `6003` | Automático III | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Automático IIIN](img/componentes/6004.svg) | `6004` | Automático IIIN | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Diferencial IN](img/componentes/6005.svg) | `6005` | Diferencial IN | `-F` | 1 · 3 · 2 · 4 |
-| ![Diferencial IIIN](img/componentes/6006.svg) | `6006` | Diferencial IIIN | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Relé térmico](img/componentes/6007.svg) | `6007` | Relé térmico | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Relé térmico](img/componentes/6007.svg) | `6007` | Relé térmico | `-F` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Disyuntor II](img/componentes/6008.svg) | `6008` | Disyuntor II | `-Q` | 1 · 3 · 2 · 4 |
-| ![Disyuntor II](img/componentes/6008.svg) | `6008` | Disyuntor II | `-Q` | 1 · 3 · 2 · 4 |
-| ![Disyuntor III](img/componentes/6009.svg) | `6009` | Disyuntor III | `-Q` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Disyuntor III](img/componentes/6009.svg) | `6009` | Disyuntor III | `-Q` | 1 · 3 · 5 · 2 · 4 · 6 |
-| ![Disyuntor I](img/componentes/6010.svg) | `6010` | Disyuntor I | `-Q` | 1 · 2 |
-| ![Disyuntor I](img/componentes/6010.svg) | `6010` | Disyuntor I | `-Q` | 1 · 2 |
-| ![Contactor](img/componentes/6015.svg) | `6015` | Contactor | `-Q` | 1 · 2 · 3 · 4 · 5 · 6 |
-| ![Relé térmico](img/componentes/6016.svg) | `6016` | Relé térmico | `-F` | 1 · 2 · 3 · 4 · 5 · 6 |
-| ![Interruptor automático](img/componentes/6017.svg) | `6017` | Interruptor automático | `-F` | 1 · 2 |
-| ![Interruptor diferencial](img/componentes/6018.svg) | `6018` | Interruptor diferencial | `-F` | 1 · 2 · 3 · 4 |
-| ![Interruptor](img/componentes/6019.svg) | `6019` | Interruptor | `-S` | 1 · 2 |
-| ![Interruptor](img/componentes/6020.svg) | `6020` | Interruptor | `-S` | 1 · 2 |
-
-## Mando (51)
+## Mando (50)
 
 | Dibujo | Código | Nombre | Designador | Bornes |
 | --- | --- | --- | --- | --- |
@@ -142,41 +144,8 @@ De los 270 códigos, **125 no traen designador** en el catálogo: el menú del C
 | ![Contactos ON Delay](img/componentes/7020.svg) | `7020` | Contactos ON Delay | `-KM` | 13 · 14 |
 | ![Contactos OFF Delay](img/componentes/7021.svg) | `7021` | Contactos OFF Delay | `-KM` | 13 · 14 |
 | ![Contacto pulsador NA](img/componentes/8000.svg) | `8000` | Contacto pulsador NA | `-S` | 13 · 14 |
-| ![Contacto pulsador NA](img/componentes/8000.svg) | `8000` | Contacto pulsador NA | `-S` | 13 · 14 |
 | ![Contacto pulsador NC](img/componentes/8001.svg) | `8001` | Contacto pulsador NC | `-S` | 11 · 12 |
-| ![Contacto pulsador NC](img/componentes/8001.svg) | `8001` | Contacto pulsador NC | `-S` | 11 · 12 |
-| ![Contacto final de carrera NA](img/componentes/8012.svg) | `8012` | Contacto final de carrera NA | `-S` | 13 · 14 |
-| ![Contacto final de carrera NC](img/componentes/8013.svg) | `8013` | Contacto final de carrera NC | `-S` | 11 · 12 |
-| ![Lámpara de señalización](img/componentes/8016.svg) | `8016` | Lámpara de señalización | — | 97 · 98 |
-| ![Contacto del térmico](img/componentes/8017.svg) | `8017` | Contacto del térmico | — | 95 · 96 |
-| ![Conmutador de dos posiciones](img/componentes/8018.svg) | `8018` | Conmutador de dos posiciones | — | 95 · 97 · 96 · 98 |
-| ![Bobina monoestable](img/componentes/9000.svg) | `9000` | Bobina monoestable | `-EV` | A1 · A2 |
-| ![Bobina monoestable](img/componentes/9000.svg) | `9000` | Bobina monoestable | `-EV` | A1 · A2 |
-| ![Bobina biestable](img/componentes/9001.svg) | `9001` | Bobina biestable | `-EV` | A1 · A2 |
-| ![Telerruptor](img/componentes/9002.svg) | `9002` | Telerruptor | `-EV` | A1 · A2 · 1 · 2 |
-| ![Electroválvula](img/componentes/9003.svg) | `9003` | Electroválvula | `-EV` | A1 · A2 |
-| ![Temporizador a la conexión](img/componentes/9004.svg) | `9004` | Temporizador a la conexión | `-K` | A1 · A2 |
-| ![Temporizador a la desconexión](img/componentes/9005.svg) | `9005` | Temporizador a la desconexión | — | A1 · A2 |
-| ![Temporizador a la conexión desconexión](img/componentes/9006.svg) | `9006` | Temporizador a la conexión desconexión | — | A1 · A2 |
-| ![Temporizador intermitente](img/componentes/9007.svg) | `9007` | Temporizador intermitente | `-K` | A1 · A2 |
-| ![Contacto NA](img/componentes/10050.svg) | `10050` | Contacto NA | `-U` | 13 · 14 |
-| ![Contacto NC](img/componentes/10051.svg) | `10051` | Contacto NC | — | 11 · 12 |
-| ![Actuador de simple efecto](img/componentes/10500.svg) | `10500` | Actuador de simple efecto | `-A` | A |
-| ![Actuador sin vástago](img/componentes/10502.svg) | `10502` | Actuador sin vástago | `-A` | A |
-| ![Actuador sin vástago magnético](img/componentes/10503.svg) | `10503` | Actuador sin vástago magnético | `-A` | A |
-| ![Actuador de doble efecto](img/componentes/10504.svg) | `10504` | Actuador de doble efecto | `-A` | A · B |
-| ![Pinza neumática simple efecto](img/componentes/10505.svg) | `10505` | Pinza neumática simple efecto | `-A` | A |
-| ![Pinza neumática](img/componentes/10506.svg) | `10506` | Pinza neumática | `-A` | A · B |
-| ![Ventosa](img/componentes/10507.svg) | `10507` | Ventosa | `-V` | A |
-| ![Motor neumático](img/componentes/10508.svg) | `10508` | Motor neumático | `-M` | A |
-| ![Motor neumático reversible](img/componentes/10509.svg) | `10509` | Motor neumático reversible | `-M` | A · B |
-| ![Actuador lineal eléctrico](img/componentes/10550.svg) | `10550` | Actuador lineal eléctrico | `-M` | A |
-
-## Señalización y pulsadores (22)
-
-| Dibujo | Código | Nombre | Designador | Bornes |
-| --- | --- | --- | --- | --- |
-| ![Contacto pulsador NA-NC](img/componentes/8002.svg) | `8002` | Contacto pulsador NA-NC | `-S` | 13 · 11 · 14 · 12 |
+| ![Contacto pulsador NA-NC](img/componentes/8002.svg) | `8002` | Contacto pulsador NA-NC | `-S` | 11 · 13 · 12 · 14 |
 | ![Contacto pulsador conmutado](img/componentes/8003.svg) | `8003` | Contacto pulsador conmutado | `-S` | 11 · 12 · 14 |
 | ![Contacto pulsador seta NA](img/componentes/8004.svg) | `8004` | Contacto pulsador seta NA | `-S` | 13 · 14 |
 | ![Contacto pulsador seta NC](img/componentes/8005.svg) | `8005` | Contacto pulsador seta NC | `-S` | 11 · 12 |
@@ -186,18 +155,23 @@ De los 270 códigos, **125 no traen designador** en el catálogo: el menú del C
 | ![Contacto interruptor NC](img/componentes/8009.svg) | `8009` | Contacto interruptor NC | `-S` | 11 · 12 |
 | ![Contacto interruptor NA-NC](img/componentes/8010.svg) | `8010` | Contacto interruptor NA-NC | `-S` | 13 · 11 · 14 · 12 |
 | ![Contacto interruptor conmutado](img/componentes/8011.svg) | `8011` | Contacto interruptor conmutado | `-S` | 11 · 12 · 14 |
+| ![Contacto final de carrera NA](img/componentes/8012.svg) | `8012` | Contacto final de carrera NA | `-S` | 13 · 14 |
+| ![Contacto final de carrera NC](img/componentes/8013.svg) | `8013` | Contacto final de carrera NC | `-S` | 11 · 12 |
 | ![Contacto final de carrera NA-NC](img/componentes/8014.svg) | `8014` | Contacto final de carrera NA-NC | `-S` | 13 · 11 · 14 · 12 |
 | ![Contacto final de carrera conmutado](img/componentes/8015.svg) | `8015` | Contacto final de carrera conmutado | `-S` | 11 · 12 · 14 |
-| ![Pulsador](img/componentes/8100.svg) | `8100` | Pulsador | `-S` | 13 · 14 |
-| ![Piloto](img/componentes/8101.svg) | `8101` | Piloto | `-H` | X1 · X2 |
-| ![Botonera](img/componentes/8102.svg) | `8102` | Botonera | `-H` | X1 · X2 |
-| ![LED](img/componentes/8103.svg) | `8103` | LED | `-H` | X1 · X2 |
-| ![Señalización óptica](img/componentes/9008.svg) | `9008` | Señalización óptica | `-H` | 97 · 98 |
-| ![Señalización óptica intermitente](img/componentes/9009.svg) | `9009` | Señalización óptica intermitente | — | X1 · X2 |
-| ![Timbre](img/componentes/9010.svg) | `9010` | Timbre | — | X1 · X2 |
-| ![Zumbador](img/componentes/9011.svg) | `9011` | Zumbador | — | X1 · X2 |
-| ![Sirena](img/componentes/9012.svg) | `9012` | Sirena | — | X1 · X2 |
-| ![Bocina](img/componentes/9013.svg) | `9013` | Bocina | `-H` | X1 · X2 |
+| ![Lámpara de señalización](img/componentes/8016.svg) | `8016` | Lámpara de señalización | — | 97 · 98 |
+| ![Contacto del térmico](img/componentes/8017.svg) | `8017` | Contacto del térmico | — | 95 · 96 |
+| ![Conmutador de dos posiciones](img/componentes/8018.svg) | `8018` | Conmutador de dos posiciones | — | 95 · 97 · 96 · 98 |
+| ![Bobina monoestable](img/componentes/9000.svg) | `9000` | Bobina monoestable | `-EV` | A1 · A2 |
+| ![Bobina biestable](img/componentes/9001.svg) | `9001` | Bobina biestable | `-EV` | A1 · B1 · A2 |
+| ![Telerruptor](img/componentes/9002.svg) | `9002` | Telerruptor | `-EV` | A1 · A2 |
+| ![Electroválvula](img/componentes/9003.svg) | `9003` | Electroválvula | `-EV` | A1 · A2 |
+| ![Temporizador a la conexión](img/componentes/9004.svg) | `9004` | Temporizador a la conexión | `-K` | A1 · A2 |
+| ![Temporizador a la desconexión](img/componentes/9005.svg) | `9005` | Temporizador a la desconexión | — | A1 · A2 |
+| ![Temporizador a la conexión desconexión](img/componentes/9006.svg) | `9006` | Temporizador a la conexión desconexión | — | A1 · A2 |
+| ![Temporizador intermitente](img/componentes/9007.svg) | `9007` | Temporizador intermitente | `-K` | A1 · A2 |
+| ![Contacto NA](img/componentes/10050.svg) | `10050` | Contacto NA | `-U` | 13 · 14 |
+| ![Contacto NC](img/componentes/10051.svg) | `10051` | Contacto NC | — | 11 · 12 |
 
 ## Sensores (83)
 
@@ -286,6 +260,36 @@ De los 270 códigos, **125 no traen designador** en el catálogo: el menú del C
 | ![Termostato NC 3 hilos PNP](img/componentes/7604.svg) | `7604` | Termostato NC 3 hilos PNP | — | + · O · - |
 | ![Termostato NC 3 hilos NPN](img/componentes/7605.svg) | `7605` | Termostato NC 3 hilos NPN | — | + · O · - |
 | ![Presostato NC 3 hilos PNP](img/componentes/7883.svg) | `7883` | Presostato NC 3 hilos PNP | — | + · O · - |
+
+## Señalización y pulsadores (10)
+
+| Dibujo | Código | Nombre | Designador | Bornes |
+| --- | --- | --- | --- | --- |
+| ![Pulsador](img/componentes/8100.svg) | `8100` | Pulsador | `-S` | 13 · 14 |
+| ![Piloto](img/componentes/8101.svg) | `8101` | Piloto | `-H` | X1 · X2 |
+| ![Botonera](img/componentes/8102.svg) | `8102` | Botonera | `-H` | X1 · X2 |
+| ![LED](img/componentes/8103.svg) | `8103` | LED | `-H` | X1 · X2 |
+| ![Señalización óptica](img/componentes/9008.svg) | `9008` | Señalización óptica | `-H` | 97 · 98 |
+| ![Señalización óptica intermitente](img/componentes/9009.svg) | `9009` | Señalización óptica intermitente | — | X1 · X2 |
+| ![Timbre](img/componentes/9010.svg) | `9010` | Timbre | — | X1 · X2 |
+| ![Zumbador](img/componentes/9011.svg) | `9011` | Zumbador | — | X1 · X2 |
+| ![Sirena](img/componentes/9012.svg) | `9012` | Sirena | — | X1 · X2 |
+| ![Bocina](img/componentes/9013.svg) | `9013` | Bocina | `-H` | X1 · X2 |
+
+## Actuadores neumáticos (10)
+
+| Dibujo | Código | Nombre | Designador | Bornes |
+| --- | --- | --- | --- | --- |
+| ![Actuador de simple efecto](img/componentes/10500.svg) | `10500` | Actuador de simple efecto | `-A` | A |
+| ![Actuador sin vástago](img/componentes/10502.svg) | `10502` | Actuador sin vástago | `-A` | A |
+| ![Actuador sin vástago magnético](img/componentes/10503.svg) | `10503` | Actuador sin vástago magnético | `-A` | A |
+| ![Actuador de doble efecto](img/componentes/10504.svg) | `10504` | Actuador de doble efecto | `-A` | A · B |
+| ![Pinza neumática simple efecto](img/componentes/10505.svg) | `10505` | Pinza neumática simple efecto | `-A` | A |
+| ![Pinza neumática](img/componentes/10506.svg) | `10506` | Pinza neumática | `-A` | A · B |
+| ![Ventosa](img/componentes/10507.svg) | `10507` | Ventosa | `-V` | A |
+| ![Motor neumático](img/componentes/10508.svg) | `10508` | Motor neumático | `-M` | A |
+| ![Motor neumático reversible](img/componentes/10509.svg) | `10509` | Motor neumático reversible | `-M` | A · B |
+| ![Actuador lineal eléctrico](img/componentes/10550.svg) | `10550` | Actuador lineal eléctrico | `-M` | A |
 
 ## Líneas y cables (4)
 
