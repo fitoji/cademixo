@@ -1,32 +1,57 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-25 (revisión 3)
-**Rama:** `astra-perfo` (base `232a577`)
-**Tipo:** auditoría de solo lectura. No se modificó código del editor ni del plan.
+**Fecha:** 2026-11-25 (revisión 4)
+**Rama:** `astra-perfo`
+**Tipo:** auditoría de solo lectura sobre el editor. El benchmark agregado no modifica código de producción.
 
-> **Revisión 3.** Incorpora la medición completa de la cadena de derivación del lienzo, `circuitFrom` en la confirmación, y corrige las dos conclusiones erróneas de la revisión 1 (ver «Historial de correcciones» al final).
+> **Revisión 4.** Incorpora el benchmark integrado de la etapa 0 (`app/bench/`), que mide mover y soltar por separado sobre hojas cableadas, y corrige tres conclusiones de la revisión 3: no hay base para hablar de FPS, el total de "soltar" no estaba medido de forma consistente, y el índice de hit-test se posterga en lugar de descartarse. Ver «Historial de correcciones».
 
 ## Resumen ejecutivo
 
 1. **El diagnóstico del plan es correcto.** Se verificaron sus siete afirmaciones sobre `App.tsx` y `Canvas.tsx`: el preview de arrastre reconstruye el documento y la identidad de `records` invalida bornes, red del lienzo, snap, hit-test y rutas.
-2. **Durante el movimiento, el costo dominante es la cadena de derivación del lienzo**, no `validate()`. Con un circuito cableado, a ~10.000 registros: `buildNetwork` 378 ms, `attachPoints` 114 ms, `snapContext` 116 ms y `wireCornerPaths` 10 ms — **~618 ms por evento** antes de renderizar. `Canvas.tsx:320-342` los recalcula porque `records` cambia de identidad en cada preview.
-3. **A eso se suma la reconstrucción del documento**: `applyDrag` serializa todo el texto (2,4 / 10,6 / 20,5 ms para 1k / 5k / 10k, cota inferior) y `projectOf` parsea y reconstruye el proyecto (parse 0,4 / 1,9 / 2,8 ms; `buildProject` sin medir).
-4. **En la confirmación, el costo dominante es `circuitFrom`**, no `validate()`: a ~10.000 registros cableados, `circuitFrom` 729 ms, `buildNetwork(project)` 378 ms y `validate` 192 ms — **~1,3 s por soltar**. Son eventos puntuales, no por cuadro, pero es la experiencia de confirmar una edición grande.
-5. **`hitContext` es barato (0,1 ms a 10k)**: el índice de hit-test que propone el paso 4 del plan **hoy no se justifica**. La búsqueda de candidatos de `snapContext` (por evento de puntero) no se midió separada de su construcción.
-6. **La línea base que propone el plan ya existe como gate, pero es inválida en paralelo.** `wiring-performance.test.ts` y `parse-perf.test.ts` fallan en `pnpm test` y pasan aislados y en serie (`--test-concurrency=1`: 911/911 en 7,2 s).
-7. **La premisa de escala sigue sin evidencia de uso real.** No hay conteo de registros por hoja en proyectos reales. La medición demuestra que a 10.000 registros cableados el editor es inviable (~1,5 FPS), no que esos tamaños existan.
+2. **La etapa 0 ya tiene herramienta.** `pnpm bench` mide, sobre hojas cableadas de 1.000/5.000/10.000 registros, el costo de JavaScript de **mover** y de **soltar** por separado. No mide render de React ni presentación en el navegador: sus totales **no son FPS**.
+3. **En ambas fases domina la operación de estado, `applyDrag`.** A 9.787 registros: mover 2.707 ms (applyDrag 1.875) y soltar 3.850 ms (applyDrag 1.924). La causa es estructural: cada edición ejecuta `pruneDeadStubs` y `pruneOrphanJunctions`, y cada uno hace `parse + buildProject + 2 × buildNetwork` (`state.ts:141-178, 356-358, 680-682`): **~4 reconstrucciones completas de red por edición**.
+4. **`buildNetwork` es el primitivo que se repite en todo el camino.** Además de las 4 de `applyDrag`, lo llaman la cadena del lienzo (`Canvas.tsx:321`), `validate` (`network.ts:224`) y `buildNetlist` (`netlist.ts:179`), que a su vez es el motor de `circuitFrom`. Son ~5 reconstrucciones por movimiento y ~7 por confirmación.
+5. **Segundo costo del movimiento: la cadena del lienzo** (~740 ms a 10k: `buildNetwork` 408, `attachPoints` 148, `snapContext` 150, `wireCornerPaths` 30). En la confirmación, detrás de `applyDrag`: `circuitFrom` 884 ms, `validate` 628 ms, `buildNetwork` 428 ms. Todos comparten el mismo primitivo.
+6. **`hitContext` cuesta 0,4 ms a 10k, pero eso mide construcción de contexto, no consulta.** La consulta de hit-test recorre candidatos por evento. **Se posterga** el índice hasta medirla; no se descarta.
+7. **La premisa de escala sigue sin evidencia de uso real.** No hay conteo de registros por hoja en proyectos reales. El benchmark demuestra cuánto cuesta cada tamaño, no que esos tamaños existan.
 
-## Alcance y método
+## 1. Alcance y método
 
-- Lectura del código en los puntos citados por el plan, más `state.ts`, `network.ts`, `pins.ts`, `wiring/`, `sim/circuit.ts` y los tests de performance existentes.
-- **Medición A (estado):** documentos sintéticos de 2.000 a 16.000 registros con el generador de `test/parse-perf.test.ts`. Válida para `parse`, `applyDrag` y `validate`; **no** para red, porque no tiene cables.
-- **Medición B (red y simulación, con cableado):** se replicó el bloque real `arranque-paro-motor-3f.cad` (43 registros, 27 cables) con ids nuevos y desplazamiento de 400 unidades por bloque, sobre una sola hoja, y se midió `buildNetwork`, `attachPoints`, `snapContext`, `hitContext`, `wireCornerPaths` y `circuitFrom` sobre 1.000, 5.000 y 10.000 registros. La densidad resultante (63 % de registros son cables) es alta: el costo depende de nodos×segmentos y una hoja más rala costaría menos.
-- Protocolo: calentamiento previo; mínimo de 9 corridas con GC forzado (`--expose-gc`) para `validate`; mínimo de 3 corridas para las derivaciones; **1 corrida** para `circuitFrom` (es costoso y se buscó orden de magnitud, no precisión).
-- **No se midió:** render de React, entrega de cuadros al navegador, pintura SVG, `buildProject` ni la consulta por evento de `snapOf`/hit-test. Eso requiere la pasada diagnóstica en navegador.
-- Equipo: macOS, Node 24.16.0. Los milisegundos absolutos dependen del equipo; las razones de escala son la evidencia transferible.
+- Lectura del código en los puntos citados por el plan, más `state.ts`, `network.ts`, `pins.ts`, `wiring/`, `sim/netlist.ts`, `sim/circuit.ts` y los tests de performance existentes.
+- **Benchmark integrado (etapa 0):** `app/bench/wired-sheet.ts` genera la hoja cableada replicando un bloque real (`test/fixtures/arranque-paro-motor-3f.cad`: 12 componentes, 27 cables, con uniones) con ids nuevos y desplazamiento de 400 unidades por bloque, en una sola hoja. `app/bench/editor-preview.ts` mide, por tamaño: movimiento (applyDrag + `projectOf` + cadena del lienzo completa) y confirmación (applyDrag + `projectOf` + `buildNetwork` + `validate` + `circuitFrom`).
+- Protocolo: calentamiento implícito por la primera corrida, mediana de 7 corridas para movimiento y 3 para confirmación, GC forzado antes de cada muestra (`--expose-gc`). La hoja generada se valida antes de medir: re-parsea completo, tiene cables y uniones, y la operación de arrastre **cambia el texto** (si no, el benchmark aborta).
+- **Límites explícitos:** no se mide render de React, entrega de cuadros ni pintura SVG. La densidad del fixture generado es alta (63 % de los registros son cables); una hoja más rala costaría menos. Los milisegundos absolutos dependen del equipo; las razones de escala son la evidencia transferible.
+- Equipo: macOS, Node 24.16.0.
 
-## 1. Verificación de las afirmaciones del plan
+## 2. Benchmark de referencia
+
+```bash
+pnpm bench                                  # 1.000 / 5.000 / 10.000 registros
+pnpm bench --sizes=1000 --runs=3            # subconjunto rápido
+pnpm bench -- --json                        # salida apta para comparar antes/después
+```
+
+Mediana en milisegundos, una hoja cableada:
+
+| ~Registros | Fase | Total | applyDrag | projectOf | attachPoints | buildNetwork | snapContext | hitContext | wireCornerPaths | validate | circuitFrom |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1.009 (288 comp · 648 cables) | mover | 67,2 | 48,4 | 2,5 | 4,1 | 8,0 | 3,9 | 0,1 | 1,2 | — | — |
+| 1.009 | soltar | 87,5 | 45,8 | 2,4 | — | 8,2 | — | — | — | 10,8 | 19,5 |
+| 4.915 (1.404 comp · 3.159 cables) | mover | 785,0 | 573,0 | 9,9 | 37,6 | 105,5 | 39,5 | 0,2 | 15,1 | — | — |
+| 4.915 | soltar | 1.066,4 | 532,9 | 9,8 | — | 129,2 | — | — | — | 164,8 | 227,0 |
+| 9.787 (2.796 comp · 6.291 cables) | mover | **2.706,7** | **1.874,5** | 22,6 | 148,3 | 407,9 | 150,2 | 0,4 | 29,5 | — | — |
+| 9.787 | soltar | **3.850,1** | **1.924,0** | 22,3 | — | 428,3 | — | — | — | 628,2 | 883,8 |
+
+**Lectura:**
+
+- `applyDrag` es el 69 % del movimiento y el 50 % de la confirmación. No es el arrastre del usuario: es la operación de estado que hoy se ejecuta una vez por evento de preview.
+- `applyDrag` crece muy por encima de lo lineal (48 → 573 → 1.875 ms para ×5 y ×2 registros) porque su costo está dominado por las reconstrucciones completas de red de `pruneDeadStubs` y `pruneOrphanJunctions`, no por el tamaño de lo movido.
+- La cadena del lienzo es el segundo costo del movimiento y escala de forma parecida: su `buildNetwork` es el mismo primitivo.
+- En la confirmación, `circuitFrom` (884 ms) y `validate` (628 ms) quedan detrás de `applyDrag`; ambos vuelven a reconstruir la red por dentro (`netlist.ts:179`, `network.ts:224`).
+
+## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
 |---|---|---|
@@ -43,87 +68,76 @@
 
 - **No hay un solo `React.memo` en `app/src/ui`**: cada render recompone todos los `<Wire>` y `<Component>`.
 - `App.tsx:891-892` y `909-918` calculan `buildNetwork`, `validate` y `circuitFrom` sobre `project`, cuya dependencia es `[state]` (`App.tsx:863`). **No se recalculan durante el arrastre**; sí al abrir, confirmar, deshacer o cambiar de hoja.
-- `projectOf` cachea el proyecto **en un solo slot por identidad de texto** (`state.ts:116-121`). Durante un arrastre real el texto cambia en cada evento, así que el cache no ayuda; el enfoque por delta lo protege de forma natural.
-- `state.ts:4-12` declara que **la fuente de verdad es el texto** y que cada operación produce un texto nuevo. `commit()` (`state.ts:123`) valida la edición con un `parse()` completo. El plan propone saltear ese camino durante el preview: es correcto, pero debe quedar documentado como excepción explícita del invariante.
+- `projectOf` cachea el proyecto **en un solo slot por identidad de texto** (`state.ts:116-121`). Durante un arrastre real el texto cambia en cada evento, así que el cache no ayuda; un preview por delta lo protege de forma natural.
+- `state.ts:4-12` declara que **la fuente de verdad es el texto** y que cada operación produce un texto nuevo. El plan propone saltear ese camino durante el preview: es correcto, pero debe quedar documentado como excepción explícita del invariante.
 
-## 2. Mediciones
+## 4. Dónde se repite `buildNetwork`
 
-### 2.a Movimiento (preview): qué se recalcula en cada evento
+Una sola confirmación de edición a ~10k registros reconstruye la red aproximadamente siete veces:
 
-Medido sobre el fixture real replicado y cableado (una hoja), salvo las dos primeras filas, que son de estado y no dependen del cableado.
+| Origen | Veces | Evidencia |
+|---|---|---|
+| `pruneDeadStubs` (antes y después) | 2 | `state.ts:141-145` |
+| `pruneOrphanJunctions` (antes y después) | 2 | `state.ts:178-182` |
+| `Canvas` sobre registros provisionales | 1 | `Canvas.tsx:321` |
+| `validate` | 1 | `network.ts:224` |
+| `buildNetlist` → `circuitFrom` | 1 | `netlist.ts:179` |
 
-| Costo por evento | ~1.000 regs | ~5.000 regs | ~10.000 regs | Dónde |
-|---|---|---|---|---|
-| `applyDrag` → serializar el texto completo (cota inferior) | 2,4 ms | 10,6 ms | 20,5 ms | `state.ts:1328`, `commit` |
-| `parse` dentro de `projectOf` | 0,4 ms | 1,9 ms | 2,8 ms | `state.ts:116-121` |
-| **`buildNetwork`** (lienzo) | 4,9 ms | 105,9 ms | **378,0 ms** | `Canvas.tsx:321`, `network.ts:109` |
-| **`attachPoints`** (lienzo) | 1,0 ms | 28,0 ms | **114,4 ms** | `Canvas.tsx:320`, `pins.ts:78` |
-| **`snapContext`** (lienzo) | 1,1 ms | 28,4 ms | **116,2 ms** | `Canvas.tsx:341`, `wiring/snap.ts:39` |
-| `hitContext` (lienzo) | 0,0 ms | 0,1 ms | **0,1 ms** | `Canvas.tsx:342`, `wiring/hitTest.ts:33` |
-| `wireCornerPaths` (lienzo) | 0,9 ms | 4,5 ms | 10,3 ms | `Canvas.tsx:368-378`, `ui/wire-corner.ts:99` |
-| render de React | no medido | no medido | no medido | `Canvas.tsx:811-849` |
+`buildNetlist` suma además un lazo anidado `segmentos × nodos` (`netlist.ts:187-194`).
 
-**Lectura:** en una hoja cableada grande, lo que hoy hace lento el arrastre es reconstruir documento y red del lienzo en cada evento. A ~10.000 registros, solo las derivaciones suman **~618 ms por evento**; con la reconstrucción del documento, ~640 ms antes del render. La proyección de `network.ts:182-187` compara cada nodo contra cada segmento: el costo crece muy por encima de lo lineal (×21 al ×5 de registros; ×77 al ×10).
+## 5. Hallazgos que el plan no contempla
 
-### 2.b Confirmación y apertura (cambio de `state`)
+1. **La redundancia de `buildNetwork` es el costo raíz**, y está en el camino de edición, no solo en el render. Cualquier estrategia que no la reduzca deja intacto el 50-70 % del costo de ambas fases.
+2. **La red del lienzo se reconstruye por preview** (`Canvas.tsx:320-321`): 408 ms de `buildNetwork` + 148 de `attachPoints` + 150 de `snapContext` a 10k.
+3. **`validate` y `circuitFrom` reconstruyen red por dentro**, así que "validate cuadrático" era una lectura parcial: el cuadrático de superposiciones (`network.ts:292-308`) explica el caso sin cables, pero con cableado el costo lo domina `buildNetwork`.
+4. **`hitContext` barato no decide nada**: mide construcción de contexto. La consulta por evento no se midió; el índice se posterga.
+5. **El orden del plan sigue siendo poco rentable**: la etapa de capas estables solo mejora el paneo; el arrastre depende del camino de estado.
+6. **Fixtures sin conectividad miden otra cosa** (esto explica dos conclusiones erróneas de las revisiones 1 y 2).
+7. **Premisa de escala sin evidencia**: falta contar registros por hoja en proyectos reales.
+8. **Invariante del texto.** La excepción del preview debe quedar escrita en `state.ts` o la próxima persona lo va a "corregir" volviendo a serializar.
 
-Se recalcula `validate`, `buildNetwork(project.records)` y `circuitFrom`.
-
-| Costo por confirmación | ~1.000 regs | ~5.000 regs | ~10.000 regs | Dónde |
-|---|---|---|---|---|
-| `circuitFrom` | 9,0 ms | 184,9 ms | **729,1 ms** | `App.tsx:909-918`, `sim/circuit.ts:141` |
-| `buildNetwork(project.records)` | 4,9 ms | 105,9 ms | **378,0 ms** | `App.tsx:891` |
-| `validate` | ~2 ms | ~48 ms | **192,5 ms** | `App.tsx:892`, `network.ts:223` |
-
-`validate` con más resolución (mínimo de 9 corridas con GC forzado): 8,1 ms @2k, 29,5 @4k, 111,8 @8k, 192,5 @10k, 473,9 @16k. Curva: ×3,65 y ×3,79 al duplicar de 2k a 8k; ×2,46 al pasar de 10k a 16k con ×1,6 de tamaño. El exponente ≈2 coincide con el doble lazo de superposiciones de `network.ts:292-308`. Una medición inicial de 422 ms @10k quedó descartada por contaminación de GC.
-
-**Lectura:** confirmar una edición grande cuesta ~1,3 s a 10.000 registros, y el mayor aporte es `circuitFrom`, no `validate`. Son eventos puntuales: no bloquean el arrastre, pero sí la sensación de "soltar y que responda".
-
-### 2.c Referencia
-
-El fixture real sin replicar (`arranque-paro-motor-3f.cad`, 43 registros): 0,82 ms por evento en total (applyDrag 0,59 + projectOf 0,10 + buildNetwork 0,05 + validate 0,07) y `circuitFrom` 0,3 ms.
-
-## 3. Los gates de performance existentes
-
-- `test/wiring-performance.test.ts:11-24` mide `projectOf(applyDrag(...))` con umbral de 2,5 ms por evento, sobre un fixture de 43 registros.
-- `test/parse-perf.test.ts:36` mide el crecimiento del parse (umbral de razón 3,2 al duplicar).
-- Ambos **fallan en `pnpm test`** porque Node ejecuta archivos en paralelo y el wall-clock se degrada por contención; **pasan** ejecutados aislados (≈1,2 ms por evento) y en la suite completa en serie.
-
-Consecuencia: la etapa de benchmark debe fijar el modo de medición (aislado o serie, idealmente un script dedicado) antes de tomar cualquier número. De lo contrario, el antes/después compara ruido.
-
-## 4. Hallazgos que el plan no contempla
-
-1. **La red del lienzo se reconstruye por preview y no es barata con cableado** (`Canvas.tsx:320-321`; `network.ts:182-187`): 378 ms @10k. Es el mayor costo del movimiento y no aparece en ningún paso del plan.
-2. **`attachPoints` (114 ms) y `snapContext` (116 ms) comparten el mismo origen** y el mismo problema.
-3. **`circuitFrom` domina la confirmación (729 ms @10k)** y tampoco está en el plan. Es el trabajo independiente más rentable para "soltar".
-4. **`hitContext` es barato (0,1 ms @10k)**: el paso 4 del plan (índice de candidatos por región) hoy no se justifica. Lo que podría dominar es la **consulta** de snap por evento (`snapOf`), que no se midió separada.
-5. **`validate` es cuadrático, pero por confirmación/apertura, no por movimiento** (`network.ts:292-308`). Trabajo independiente; no debe ser prerrequisito del arrastre.
-6. **El orden del plan sigue siendo poco rentable**: la etapa de capas estables solo mejora el paneo; el arrastre depende de las etapas de delta.
-7. **Fixtures sin conectividad miden otra cosa.** El generador de `parse-perf` no sirve para red ni para `validate`; hace falta replicar o generar circuitos cableados.
-8. **Premisa de escala sin evidencia**: falta contar registros por hoja en proyectos reales.
-9. **Invariante del texto.** El plan lo respeta al soltar, pero la excepción del preview debe quedar escrita en `state.ts` o la próxima persona lo va a "corregir" volviendo a serializar.
-
-## 5. Riesgos por etapa
+## 6. Riesgos por etapa
 
 | Etapa | Riesgo | Motivo |
 |---|---|---|
-| Benchmark con circuitos conectados | Bajo | Solo medición; el riesgo es medir mal (paralelismo, fixture sin cables, GC). |
+| Reducir reconstrucciones de red en el camino de edición | Medio | Toca `prune*`, `validate` y `buildNetlist`; un cambio de conectividad es regresión aunque el benchmark mejore. La forma de menor riesgo es compartir una red ya construida por versión del documento, no reescribir las reglas. |
 | Preview por delta | Alto | Duplica geometría que hoy vive en una sola función compartida con el commit; divergencia preview/commit es el fallo esperado. |
 | Capas estables + memo | Bajo-medio | Puede romper foco de borne, orden de superposición y hover si el comparador ignora props reales. |
-| `circuitFrom` (independiente) | Medio-alto | Toca la simulación eléctrica; cualquier cambio de conectividad es regresión aunque el benchmark mejore. |
-| `validate` lineal (independiente) | Medio-alto | Toca reglas eléctricas; ídem. |
+| Índice de consulta de hit-test | Medio | Debe preservar prioridades, distancias y desempates exactos; solo con medición de la consulta. |
 
-## 6. Orden recomendado
+## 7. Orden recomendado
 
-1. **Etapa 0 — benchmark reproducible.** Circuitos conectados de 1.000, 5.000 y 10.000 registros por hoja, con semilla y distribución guardadas. Medir **por separado mover (preview) y soltar (confirmación)**, con traza de navegador, en modo serie/aislado. Contar además registros por hoja en proyectos reales.
-2. **Etapa 1 — decidir con la traza.** Si en el movimiento domina la reconstrucción del documento y de la red del lienzo → priorizar el preview por delta (paso 3 del plan). Si en la confirmación domina `circuitFrom` (o `validate`) → abrir esa optimización como trabajo independiente.
-3. **Etapa 2 — preview por delta.** Delta por ID sin tocar `state.text` ni pasar por `commit()`; al soltar, una sola aplicación canónica.
+1. **Etapa 0 — hecha, con una deuda.** El benchmark de estado y derivaciones existe. Falta la traza de navegador para render de React y presentación de cuadros; sin ella no se puede afirmar nada sobre fluidez percibida.
+2. **Etapa 1 — reducir reconstrucciones de red por edición.** Candidato medido y de mayor retorno: una red por versión del documento, compartida por `prune*`, `validate` y `buildNetlist`. Comparar con `pnpm bench`. Si el costo de `applyDrag` cae al orden de la serialización, el preview por delta puede dejar de ser necesario; eso lo decide la medición, no la intuición.
+3. **Etapa 2 — preview por delta**, si tras la etapa 1 el movimiento sigue fuera de presupuesto. Delta por ID sin tocar `state.text` ni pasar por `commit()`; al soltar, una sola aplicación canónica.
 4. **Etapa 3 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
-5. **Etapa 4 — índice de hit-test**: **no implementar hoy** (`hitContext` 0,1 ms). Reabrir solo si una traza muestra que la consulta de snap/hit-test domina.
+5. **Etapa 4 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
-## 7. Reproducibilidad
+## 8. Los gates de performance existentes
+
+- `test/wiring-performance.test.ts:11-24` mide `projectOf(applyDrag(...))` con umbral de 2,5 ms por evento, sobre un fixture de 43 registros.
+- `test/parse-perf.test.ts:36` mide el crecimiento del parse (umbral de razón 3,2 al duplicar).
+- Ambos **fallan en `pnpm test`** porque Node ejecuta archivos en paralelo y el wall-clock se degrada por contención; **pasan** ejecutados aislados (≈1,2 ms por evento) y en la suite completa en serie (`--test-concurrency=1`: 911/911 en 7,2 s).
+
+## 9. Trampas de medición encontradas
+
+Para que las próximas mediciones no repitan los errores de las revisiones anteriores:
+
+1. **Fixture sin cables**: `buildNetwork` parece barato porque la proyección nodo×segmento no tiene segmentos. Toda medición de red exige cableado real.
+2. **Operación que no cambia el texto**: `applyDrag` con una op rechazada mide solo serialización + comparación. El benchmark aborta si el texto no cambia.
+3. **Paralelismo de `node --test`**: los tests de wall-clock fallan por contención, no por regresión.
+4. **GC en mediciones repetidas**: una corrida de `validate` a 10k midió 422 ms y otra 192 ms. Forzar GC y usar mediana.
+5. **Cache de un slot en `projectOf`**: repetir el mismo texto entre iteraciones da 0,00 ms. Cada muestra debe usar un texto distinto.
+6. **Confundir construcción con consulta** (`snapContext`/`hitContext` vs. `snapOf`/búsqueda por evento) y **sumar mediciones aisladas como si fueran un cuadro**.
+
+## 10. Reproducibilidad
 
 ```bash
+# Benchmark del editor
+pnpm bench
+pnpm bench --sizes=1000 --runs=3
+pnpm bench -- --json
+
 # Suite completa confiable (serie)
 cd app && node --test --test-concurrency=1
 
@@ -131,62 +145,15 @@ cd app && node --test --test-concurrency=1
 cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 ```
 
-Los scripts de medición de esta auditoría son descartables y viven fuera del repositorio; el apéndice A reproduce el de `validate` y el de red cableada. El benchmark definitivo debe vivir **dentro** del repo, como parte de la etapa 0.
-
-## Apéndice A — mediciones usadas
-
-`validate` (estado, sintético sin cables):
-
-```js
-const { createEditor, projectOf } = await import(`${APP}/src/editor/state.ts`);
-const { validate } = await import(`${APP}/src/editor/network.ts`);
-function synthetic(n) { /* *i*8000#K<i>*1*1*x*y*0*#, igual que parse-perf */ }
-function best(fn, runs = 9) {
-  fn();
-  let m = Infinity;
-  for (let i = 0; i < runs; i++) {
-    globalThis.gc?.();
-    const t = performance.now(); fn(); m = Math.min(m, performance.now() - t);
-  }
-  return m;
-}
-const p = projectOf(createEditor(synthetic(n)));
-best(() => validate(p.records));
-```
-
-Red y simulación (fixture real replicado, una hoja, 400 unidades por bloque):
-
-```js
-const base = projectOf(createEditor(readFileSync(fixture, 'latin1'))).records; // 43 regs, 27 cables
-// por bloque: ids nuevos y geometry[GEOMETRY.x] (+x2 en conexiones) desplazados
-const net = buildNetwork(records);
-best(() => buildNetwork(records), 3);
-best(() => attachPoints(records), 3);
-best(() => snapContext(net, records, 0), 3);
-best(() => hitContext(net, records, 0), 3);
-best(() => wireCornerPaths(segments, 3, pinned), 3);
-best(() => circuitFrom(records), 1);
-```
-
-## 8. Trampas de medición encontradas
-
-Para que el benchmark de la etapa 0 no repita estos errores:
-
-1. **Fixture sin cables**: `buildNetwork` parece barato porque la proyección nodo×segmento no tiene segmentos. Toda medición de red exige cableado real.
-2. **Paralelismo de `node --test`**: los tests de wall-clock fallan por contención, no por regresión. Medir aislado o con `--test-concurrency=1`.
-3. **GC en mediciones repetidas**: una corrida de `validate` a 10k midió 422 ms y otra 192 ms. Usar mínimo de N corridas y forzar GC.
-4. **Cache de un slot en `projectOf`**: repetir el mismo texto entre iteraciones da 0,00 ms y esconde el costo real. Cada muestra debe usar un texto distinto.
-5. **Distinguir construcción de consulta**: `snapContext` mide construir el índice; la consulta por evento (`snapOf`) es otra cosa y no se midió.
-
 ## Historial de correcciones
 
-- **Revisión 3 (2026-11-25).** Completa la cadena de derivación del lienzo y la confirmación:
-  - Se agregan `snapContext` (116,2 ms @10k), `hitContext` (0,1 ms @10k), `wireCornerPaths` (10,3 ms @10k) y `circuitFrom` (729,1 ms @10k).
-  - Nuevo hallazgo: en la confirmación domina `circuitFrom`, no `validate`.
-  - El índice de hit-test del paso 4 del plan queda descartado por medición (0,1 ms).
-  - Se documentan las cinco trampas de medición de la sección 8.
+- **Revisión 4 (2026-11-25).** Benchmark integrado y tres correcciones pedidas en revisión:
+  - Se elimina la inferencia de FPS: los totales son costo de JavaScript en Node, sin medición de cuadros.
+  - Se elimina el total de "1,3 s al soltar" mezclado (validate sin cables + red cableada + `circuitFrom` de una corrida). El benchmark mide las tres piezas sobre la misma hoja y con 3 corridas; `circuitFrom` queda como costo medido, no como cuello confirmado de producto.
+  - El índice de hit-test **se posterga**, no se descarta: 0,4 ms miden construcción de `hitContext`, no la consulta.
+  - Nuevo hallazgo: `applyDrag` domina ambas fases por ~4 reconstrucciones de red en `prune*`; `buildNetwork` es el primitivo que se repite ~7 veces por confirmación.
+- **Revisión 3 (2026-11-25).** Agrega cadena del lienzo y `circuitFrom`; declara dominante a `circuitFrom` en la confirmación e índice de hit-test descartado (corregido en rev. 4).
 - **Revisión 2 (2026-11-25).** Corrige dos conclusiones de la revisión 1:
-  - `validate()` **no** se ejecuta por movimiento: depende de `project`, que depende de `[state]` (`App.tsx:863, 892`). El costo medido es por apertura/confirmación.
-  - `buildNetwork()` **no** es barato: la revisión 1 lo midió sobre un fixture sin cables. Con cableado real cuesta 380 ms a ~10.000 registros por la proyección nodo×segmento (`network.ts:182-187`).
-  - Se agrega `attachPoints` (114 ms a ~10k) como parte del mismo costo por preview.
-- **Revisión 1 (2026-11-25).** Primera versión: verificación de las afirmaciones del plan y medición del estado. Conclusión principal errónea: atribuía a `validate()` el costo por movimiento.
+  - `validate()` **no** se ejecuta por movimiento: depende de `project`, que depende de `[state]` (`App.tsx:863, 892`).
+  - `buildNetwork()` **no** es barato: la revisión 1 lo midió sobre un fixture sin cables.
+- **Revisión 1 (2026-11-25).** Primera versión. Conclusión principal errónea: atribuía a `validate()` el costo por movimiento.
