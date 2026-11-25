@@ -5,7 +5,6 @@ import {
   ClipboardPasteIcon,
   CopyIcon,
   DownloadIcon,
-  EyeOffIcon,
   FolderOpenIcon,
   FilePlusIcon,
   FileTextIcon,
@@ -1761,13 +1760,6 @@ export function App(): JSX.Element {
                     <FileTextIcon />
                     Cajetín
                   </MenubarItem>
-                  <MenubarCheckboxItem
-                    checked={titleBlockHidden}
-                    onCheckedChange={(checked) => setTitleBlockHidden(checked === true)}
-                  >
-                    <EyeOffIcon />
-                    Ocultar cajetín
-                  </MenubarCheckboxItem>
                 </MenubarGroup>
               </MenubarContent>
             </MenubarMenu>
@@ -2190,8 +2182,14 @@ export function App(): JSX.Element {
         open={titleBlockOpen}
         onOpenChange={setTitleBlockOpen}
         text={state?.text ?? ''}
+        hidden={titleBlockHidden}
         disabled={running}
-        onApply={(next) => setState((s) => (s ? setTitleBlock(s, next) : s))}
+        onApply={(next, hidden) => {
+          setTitleBlockHidden(hidden);
+          // `commit` devuelve el mismo estado si el texto no cambió, así que
+          // ocultar el cajetín no marca el documento como modificado.
+          setState((s) => (s ? setTitleBlock(s, next) : s));
+        }}
       />
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />

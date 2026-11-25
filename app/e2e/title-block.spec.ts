@@ -63,7 +63,7 @@ test('el cajetín se dibuja sobre la hoja y sigue al diálogo', async ({ page })
   await expect(block.getByText('COM1', { exact: true })).toHaveCount(1);
 });
 
-test('«Ocultar cajetín» apaga la capa sin ensuciar el documento', async ({ page }) => {
+test('«Mostrar cajetín» del diálogo apaga la capa sin ensuciar el documento', async ({ page }) => {
   await page.goto('/');
   await page.locator('input[type="file"]').setInputFiles(probe);
   await expect(page.locator('footer').getByText('cajetin-probe.cad')).toBeVisible();
@@ -72,12 +72,22 @@ test('«Ocultar cajetín» apaga la capa sin ensuciar el documento', async ({ pa
   await expect(block).toHaveCount(1);
 
   await page.getByRole('menuitem', { name: 'Editar' }).click();
-  await page.getByRole('menuitemcheckbox', { name: 'Ocultar cajetín' }).click();
+  await page.getByRole('menuitem', { name: 'Cajetín' }).click();
+  const dialog = page.getByRole('dialog');
+  const toggle = dialog.getByRole('checkbox', { name: 'Mostrar cajetín en el plano' });
+  await expect(toggle).toBeChecked();
+  await toggle.uncheck();
+  await dialog.getByRole('button', { name: 'Aceptar' }).click();
+
   await expect(block).toHaveCount(0);
   // Es una preferencia de vista: no marca el documento como modificado.
   await expect(page.locator('footer span.bg-warn')).toHaveCount(0);
 
   await page.getByRole('menuitem', { name: 'Editar' }).click();
-  await page.getByRole('menuitemcheckbox', { name: 'Ocultar cajetín' }).click();
+  await page.getByRole('menuitem', { name: 'Cajetín' }).click();
+  const again = page.getByRole('dialog');
+  await expect(again.getByRole('checkbox', { name: 'Mostrar cajetín en el plano' })).not.toBeChecked();
+  await again.getByRole('checkbox', { name: 'Mostrar cajetín en el plano' }).check();
+  await again.getByRole('button', { name: 'Aceptar' }).click();
   await expect(block).toHaveCount(1);
 });

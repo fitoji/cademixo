@@ -71,13 +71,16 @@ export function TitleBlockDialog({
   open,
   onOpenChange,
   text,
+  hidden = false,
   onApply,
   disabled = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   text: string;
-  onApply: (nextText: string) => void;
+  /** Si la capa del cajetín está apagada en el lienzo. */
+  hidden?: boolean;
+  onApply: (nextText: string, hidden: boolean) => void;
   disabled?: boolean;
 }): JSX.Element {
   const [values, setValues] = useState<string[]>([]);
@@ -86,11 +89,13 @@ export function TitleBlockDialog({
   const [alignment, setAlignment] = useState<Alignment[]>([]);
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [available, setAvailable] = useState(false);
+  const [shown, setShown] = useState(true);
 
   useEffect(() => {
     if (!open) return;
     const block = parseTitleBlock(text);
     setAvailable(block !== null);
+    setShown(!hidden);
     setValues(block ? block.fields.map((field) => field.value.trimEnd()) : []);
     setWidths(block ? block.fields.map((field) => field.width) : [...FIELD_WIDTHS]);
     setVisibility(block ? block.visibility : ROWS.map(() => true));
@@ -100,7 +105,7 @@ export function TitleBlockDialog({
         : ROWS.map(() => 0),
     );
     setErrors({});
-  }, [open, text]);
+  }, [open, text, hidden]);
 
   const updateValue = (index: TitleFieldIndex, value: string): void => {
     setValues((prev) => prev.map((current, i) => (i === index ? value : current)));
@@ -134,7 +139,9 @@ export function TitleBlockDialog({
       align[i] = value;
     });
     next = withTitleFlags(next, { visibility: vis, alignment: align });
-    if (next !== text) onApply(next);
+    // El documento sólo cambia si cambió algún dato; ocultar es preferencia de
+    // vista y no ensucia el archivo.
+    if (next !== text || !shown !== hidden) onApply(next, !shown);
     onOpenChange(false);
   };
 
@@ -172,6 +179,27 @@ export function TitleBlockDialog({
           >
             <FieldSet>
               <FieldGroup className="gap-2">
+                <Field
+                  orientation="horizontal"
+                  className="items-center gap-2 border-b border-border/60 pb-3"
+                >
+                  <Checkbox
+                    id="tb-show-block"
+                    checked={shown}
+                    disabled={disabled}
+                    aria-label="Mostrar cajetín en el plano"
+                    onCheckedChange={(checked) => setShown(checked === true)}
+                  />
+                  <div className="flex flex-col gap-0.5">
+                    <FieldLabel htmlFor="tb-show-block" className="text-xs font-normal">
+                      Mostrar cajetín en el plano
+                    </FieldLabel>
+                    <FieldDescription className="text-[10px]">
+                      Sólo afecta la vista: el documento no se modifica.
+                    </FieldDescription>
+                  </div>
+                </Field>
+
                 {ROWS.map((row, rowIndex) => (
                   <Field
                     key={row.label}
