@@ -106,7 +106,11 @@ const onSegmentInterior = (seg: NetSegment, x: number, y: number): boolean => {
   return false;
 };
 
+/** Contador de reconstrucciones de red. Lo lee el benchmark; no altera el resultado. */
+export const networkStats = { builds: 0 };
+
 export function buildNetwork(records: CadeRecordModel[]): Network {
+  networkStats.builds += 1;
   const segments = new Map<number, NetSegment>();
   const cables = new Map<string, number[]>();
   const junctionPoints: (Point & { sheet: number; recordId: number })[] = [];

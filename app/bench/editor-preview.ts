@@ -14,7 +14,7 @@
  *   node --expose-gc bench/editor-preview.ts --sizes=1000,5000,10000 --runs=7
  */
 import { createEditor, applyDrag, projectOf, select } from '../src/editor/state.ts';
-import { buildNetwork, validate } from '../src/editor/network.ts';
+import { buildNetwork, networkStats, validate } from '../src/editor/network.ts';
 import { attachPoints } from '../src/editor/pins.ts';
 import { snapContext } from '../src/editor/wiring/snap.ts';
 import { hitContext } from '../src/editor/wiring/hitTest.ts';
@@ -60,6 +60,8 @@ interface SizeResult {
   blocks: number;
   moveRuns: number;
   releaseRuns: number;
+  moveBuilds: number;
+  releaseBuilds: number;
   move: Breakdown;
   release: Breakdown;
 }
@@ -102,6 +104,7 @@ function runSize(target: number): SizeResult {
   }
 
   const moveSamples: Array<Record<string, number>> = [];
+  networkStats.builds = 0;
   for (let r = 0; r < MOVE_RUNS; r++) {
     gc();
     const t0 = performance.now();
@@ -142,7 +145,10 @@ function runSize(target: number): SizeResult {
     });
   }
 
+  const moveBuilds = networkStats.builds / MOVE_RUNS;
+
   const releaseSamples: Array<Record<string, number>> = [];
+  networkStats.builds = 0;
   for (let r = 0; r < RELEASE_RUNS; r++) {
     gc();
     const t0 = performance.now();
@@ -175,6 +181,8 @@ function runSize(target: number): SizeResult {
     blocks: sheet.blocks,
     moveRuns: MOVE_RUNS,
     releaseRuns: RELEASE_RUNS,
+    moveBuilds,
+    releaseBuilds: networkStats.builds / RELEASE_RUNS,
     move: summarize(moveSamples),
     release: summarize(releaseSamples),
   };
@@ -193,8 +201,8 @@ if (JSON_OUT) {
     console.log(
       `${r.records} registros (${r.components} comp · ${r.cables} cables · ${r.junctions} uniones) · ${r.blocks} bloques`,
     );
-    console.log(line('mover ', r.move, Object.keys(r.move)));
-    console.log(line('soltar', r.release, Object.keys(r.release)));
+    console.log(line('mover ', r.move, Object.keys(r.move)) + ` · redes ${r.moveBuilds}`);
+    console.log(line('soltar', r.release, Object.keys(r.release)) + ` · redes ${r.releaseBuilds}`);
     console.log('');
   }
   if (!globalThis.gc) console.log('aviso: corré con --expose-gc para reducir ruido de recolección.');

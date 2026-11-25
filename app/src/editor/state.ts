@@ -51,7 +51,7 @@ import {
   nextSlot,
 } from '../model/orientation.ts';
 import type { Rotation } from '../model/transform.ts';
-import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
+import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY, type Network } from './network.ts';
 import { attachPoints, type Point } from './pins.ts';
 import { routeOrthogonal, type Box } from './wiring/router.ts';
 import { normalizeOrthogonal, projectOnSegment } from './wiring/geometry.ts';
@@ -138,10 +138,14 @@ function commit(state: EditorState, text: string, selection = state.selection): 
  * puntos protegidos son los que el usuario está arrastrando: ahí una punta
  * suelta es parte del gesto, no un descuido.
  */
-function pruneDeadStubs(before: CadeRecordModel[], text: string, protectPoints: Point[]): string {
+function pruneDeadStubs(
+  before: CadeRecordModel[],
+  text: string,
+  protectPoints: Point[],
+  beforeNet: Network = buildNetwork(before),
+): { text: string; net: Network | null } {
   const afterProject = buildProject(parse(text));
   const afterNet = buildNetwork(afterProject.records);
-  const beforeNet = buildNetwork(before);
   // Las claves llevan la hoja adelante (`0|42,486`); acá se comparan por
   // coordenada, que es lo que el usuario mueve.
   const protect = new Set(protectPoints.map((p) => `${p.x},${p.y}`));
@@ -165,8 +169,11 @@ function pruneDeadStubs(before: CadeRecordModel[], text: string, protectPoints: 
     if (otherDegree < 2 && !other?.pin && !other?.junction) continue;
     deadIds.add(segId);
   }
-  if (deadIds.size === 0) return text;
-  return serializeProject({ ...afterProject, records: afterProject.records.filter((r) => !deadIds.has(r.id)) });
+  if (deadIds.size === 0) return { text, net: afterNet };
+  return {
+    text: serializeProject({ ...afterProject, records: afterProject.records.filter((r) => !deadIds.has(r.id)) }),
+    net: null,
+  };
 }
 
 /**
@@ -175,10 +182,15 @@ function pruneDeadStubs(before: CadeRecordModel[], text: string, protectPoints: 
  * porque un punto suelto puede ser una derivación puesta a propósito y el snap
  * la usa como imán. Se devuelve texto nuevo para entrar en el MISMO commit.
  */
-function pruneOrphanJunctions(before: CadeRecordModel[], text: string): string {
-  const after = buildProject(parse(text));
-  const beforeNet = buildNetwork(before);
-  const afterNet = buildNetwork(after.records);
+function pruneOrphanJunctions(
+  before: CadeRecordModel[],
+  text: string,
+  beforeNet: Network = buildNetwork(before),
+  /** Red de `text`, sólo si un paso anterior devolvió exactamente ese texto. */
+  after?: { text: string; net: Network | null },
+): string {
+  const afterProject = buildProject(parse(text));
+  const afterNet = after?.text === text && after.net !== null ? after.net : buildNetwork(afterProject.records);
   const dead = new Set<number>();
 
   for (const j of afterNet.junctionPoints) {
@@ -189,7 +201,7 @@ function pruneOrphanJunctions(before: CadeRecordModel[], text: string): string {
     if (!now || !was || now.pin) continue;
     if (was.ends.length + was.through.length < 2) continue;
     if (now.ends.length + now.through.length >= 2) continue;
-    for (const rec of after.records) {
+    for (const rec of afterProject.records) {
       if (rec.code !== JUNCTION_CODE || rec.sheet !== j.sheet) continue;
       if (rec.geometry[8] !== j.x || rec.geometry[9] !== j.y) continue;
       dead.add(rec.id);
@@ -197,7 +209,26 @@ function pruneOrphanJunctions(before: CadeRecordModel[], text: string): string {
   }
 
   if (dead.size === 0) return text;
-  return serializeProject({ ...after, records: after.records.filter((r) => !dead.has(r.id)) });
+  return serializeProject({ ...afterProject, records: afterProject.records.filter((r) => !dead.has(r.id)) });
+}
+
+/**
+ * Corre las dos podas de una edición compartiendo las redes que no cambiaron.
+ *
+ * La red anterior es la misma para las dos podas: mismos registros, mismo
+ * alcance. La red posterior sólo se reutiliza si la primera poda devolvió el
+ * texto intacto; si eliminó un tramo, la red de después es otra y se reconstruye.
+ */
+function pruneEdits(
+  before: CadeRecordModel[],
+  text: string,
+  protectPoints: Point[],
+  between: (draft: string) => string = (draft) => draft,
+): string {
+  const beforeNet = buildNetwork(before);
+  const dead = pruneDeadStubs(before, text, protectPoints, beforeNet);
+  const next = between(dead.text);
+  return pruneOrphanJunctions(before, next, beforeNet, dead.net !== null && dead.text === next ? dead : undefined);
 }
 
 /**
@@ -353,10 +384,7 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
 
   return commit(
     state,
-    pruneOrphanJunctions(
-      project.records,
-      pruneDeadStubs(project.records, serializeWith(project, edits) + appended.join(''), protect),
-    ),
+    pruneEdits(project.records, serializeWith(project, edits) + appended.join(''), protect),
   );
 }
 
@@ -677,10 +705,7 @@ export function moveEndpoint(state: EditorState, id: number, end: 0 | 1, x: numb
     edits.set(index, withWirePoints(rec, next));
     return commit(
       state,
-      pruneOrphanJunctions(
-        project.records,
-        pruneDeadStubs(project.records, serializeWith(project, edits), [target]),
-      ),
+      pruneEdits(project.records, serializeWith(project, edits), [target]),
     );
   }
 
@@ -709,7 +734,7 @@ export function moveEndpoint(state: EditorState, id: number, end: 0 | 1, x: numb
     project.prefix +
     project.records.map((r, i) => edits.get(i) ?? r.raw).join('') +
     leg2;
-  return commit(state, pruneOrphanJunctions(project.records, pruneDeadStubs(project.records, text, [target])), [
+  return commit(state, pruneEdits(project.records, text, [target]), [
     id,
     newId,
   ]);
@@ -845,10 +870,7 @@ export function moveVertex(state: EditorState, from: Point, to: Point, sheet = 0
 
   const firstPass = compose(new Set());
 
-  const finalText = pruneOrphanJunctions(
-    project.records,
-    simplifyCollinear(pruneDeadStubs(project.records, firstPass, [from, to])),
-  );
+  const finalText = pruneEdits(project.records, firstPass, [from, to], simplifyCollinear);
   const next = commit(state, finalText);
 
   // La selección tiene que seguir al cable: si no, después de mover un extremo
