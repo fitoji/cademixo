@@ -7,6 +7,7 @@
     "build": "pnpm --filter electro-simulador build",
     "preview": "pnpm --filter electro-simulador preview",
     "test": "pnpm --filter electro-simulador test",
+  "bench": "pnpm --filter electro-simulador bench",
   "test:e2e": "pnpm --filter electro-simulador test:e2e",
     "report": "pnpm --filter electro-simulador report",
     "spike": "pnpm --filter electro-simulador spike",

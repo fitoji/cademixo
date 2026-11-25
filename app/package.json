@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "preview": "vite preview",
     "test": "node --test",
+    "bench": "node --expose-gc bench/editor-preview.ts",
     "report": "node src/report.ts",
     "spike": "node spike/make-spike.ts",
     "catalog": "node scripts/make-catalog.ts",
