@@ -181,10 +181,11 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null;
 - La capa se dibuja **antes** de cables y componentes (queda debajo).
 - `fit` no cambia: se agrega **Ver → Encuadrar hoja** (`sheetFitToken`) que encuadra la
   página completa. Sin layout, cae en el encuadre normal.
-- **Editar → Cajetín → «Mostrar cajetín en el plano»** (checkbox del diálogo, arriba de las
-  filas) apaga la capa sin tocar el documento: es preferencia de vista, no ensucia el
-  archivo. Se aplica junto con el resto del formulario, así que Cancelar la descarta.
-  `Encuadrar hoja` sigue funcionando con la capa apagada porque la geometría se conserva.
+- **Archivo → Configuración del proyecto… → «Mostrar cajetín en el plano»** apaga la capa
+  sin tocar el documento: es preferencia de vista, no ensucia el archivo, y aplica en el
+  acto. `Encuadrar hoja` sigue funcionando con la capa apagada porque la geometría se
+  conserva. Es el primer ajuste de ese diálogo; ahí van a vivir el formato de hoja, el tipo
+  de cajetín y el contorno cuando se implementen.
 
 ### Fase 4 — Verificación
 

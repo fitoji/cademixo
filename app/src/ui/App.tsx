@@ -166,6 +166,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Resizable, ResizableHandle, ResizablePanel, layoutStorage } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/sonner';
 import { SettingsDialog } from './SettingsDialog.tsx';
+import { ProjectSettingsDialog } from './ProjectSettingsDialog.tsx';
 import { TitleBlockDialog } from './TitleBlockDialog.tsx';
 import { ShortcutsDialog } from './ShortcutsDialog.tsx';
 import { SaveAsDialog } from './SaveAsDialog.tsx';
@@ -244,6 +245,7 @@ export function App(): JSX.Element {
   const scope = useSyncExternalStore(subscribeScope, getScope, getScope);
   const settings = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [titleBlockOpen, setTitleBlockOpen] = useState(false);
   /** Propiedades/Avisos: el mismo Drawer lateral con dos entradas. */
@@ -1691,6 +1693,13 @@ export function App(): JSX.Element {
                     Exportar atajos
                   </MenubarItem>
                 </MenubarGroup>
+                <MenubarSeparator />
+                <MenubarGroup>
+                  <MenubarItem onSelect={() => setProjectSettingsOpen(true)}>
+                    <PaletteIcon />
+                    Configuración del proyecto…
+                  </MenubarItem>
+                </MenubarGroup>
               </MenubarContent>
             </MenubarMenu>
 
@@ -2182,17 +2191,17 @@ export function App(): JSX.Element {
         open={titleBlockOpen}
         onOpenChange={setTitleBlockOpen}
         text={state?.text ?? ''}
-        hidden={titleBlockHidden}
         disabled={running}
-        onApply={(next, hidden) => {
-          setTitleBlockHidden(hidden);
-          // `commit` devuelve el mismo estado si el texto no cambió, así que
-          // ocultar el cajetín no marca el documento como modificado.
-          setState((s) => (s ? setTitleBlock(s, next) : s));
-        }}
+        onApply={(next) => setState((s) => (s ? setTitleBlock(s, next) : s))}
       />
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <ProjectSettingsDialog
+        open={projectSettingsOpen}
+        onOpenChange={setProjectSettingsOpen}
+        titleBlockHidden={titleBlockHidden}
+        onTitleBlockHiddenChange={setTitleBlockHidden}
+      />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
       <SaveAsDialog
