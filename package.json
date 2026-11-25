@@ -11,6 +11,7 @@
     "report": "pnpm --filter electro-simulador report",
     "spike": "pnpm --filter electro-simulador spike",
     "catalog": "pnpm --filter electro-simulador catalog",
-    "componentes": "pnpm --filter electro-simulador componentes"
+    "componentes": "pnpm --filter electro-simulador componentes",
+    "bump": "pnpm --filter electro-simulador bump"
   }
 }

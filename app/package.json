@@ -16,7 +16,8 @@
     "report": "node src/report.ts",
     "spike": "node spike/make-spike.ts",
     "catalog": "node scripts/make-catalog.ts",
-    "componentes": "node scripts/make-component-docs.ts"
+    "componentes": "node scripts/make-component-docs.ts",
+    "bump": "node scripts/bump-version.ts"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",

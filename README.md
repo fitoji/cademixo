@@ -92,7 +92,13 @@ pnpm build      # typecheck + bundle de producción
 
 # inventario de códigos de un archivo
 pnpm report test/fixtures/arranque-paro-motor-3f.cad
+
+# sube la versión según los commits convencionales del tramo
+pnpm bump            # feat → minor, fix → patch, …! → major
+pnpm bump --dry-run  # muestra el salto sin escribir
 ```
+
+El tramo de `pnpm bump` arranca en el último commit que tocó `app/package.json`, así que no dependen de tags. También acepta el tipo forzado (`pnpm bump minor`) y `--tag` para crear `vX.Y.Z`.
 
 Salida del inventario: cada código con su frecuencia, los designadores observados y los `layouts` cuando un registro no sigue el layout estándar de 11 campos.
 
