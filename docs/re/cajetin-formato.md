@@ -44,6 +44,13 @@ está en orden de argumento.
 | 10 | `+0xc4` | 279 | alto de página (mm) |
 | 11 | `+0xc0` | 210 | ancho de página (mm) |
 
+**Ocultar el cajetín**: CADe lo hace con el campo 4 (`+0x90`) a `0`, que corresponde a
+`Archivo → Configuración → Cajetín: Ninguno`. Evidencia: `app/test/fixtures/arranque-paro-motor-3fcajetinoculto`
+tiene los numéricos `1,0,1,0,2,0,1,0,0,279,210` y al abrirlo en CADe el diálogo muestra
+«Ninguno» y la hoja no dibuja el bloque de título. Su versión sin ocultar
+(`arranque-paro-motor-3f.cad`) tiene el campo 4 en `2` (Cajetín 2). Los 14 flags quedan en `1` en
+ambos archivos: **no** son los que ocultan el cajetín; el trailer y sus textos siguen presentes.
+
 Defaults del constructor (`FUN_00408840`): `local_14[0x22]=1 (+0x88)`, `[0x23]=1 (+0x8c)`,
 `[0x29]=1 (+0xa4)`, `[0x24]=2 (+0x90)`, `[0x58]=2.0`, `[0x28]=0 (+0xa0)`, `[0x20]=1 (+0x80)`,
 `[0x2a]=0 (+0xa8)`, `[0x2b]=0 (+0xac)`, `[0x31]=0x117 (+0xc4=279)`, `[0x30]=0xd2 (+0xc0=210)`.

@@ -112,3 +112,22 @@ test('cambiar un numérico respeta el ancho y el terminador &&&', () => {
   assert.deepEqual(titlePageSize(parseTitleBlock(resized)!), { alto: 210, ancho: 210 });
   assert.equal(resized.includes('*210*210&&&'), true);
 });
+
+test('ocultar el cajetín en CADe es el campo 4 a 0, no los flags', () => {
+  const visible = fixture('arranque-paro-motor-3f.cad');
+  const hidden = fixture('arranque-paro-motor-3fcajetinoculto');
+  const a = parseTitleBlock(visible)!;
+  const b = parseTitleBlock(hidden)!;
+
+  assert.equal(titleCajetin(a), 2, 'el original tiene Cajetín 2');
+  assert.equal(titleCajetin(b), 0, 'el oculto tiene Cajetín: Ninguno');
+  assert.equal(titleContorno(b), false);
+
+  // Los 14 flags siguen en 1: no son el mecanismo de ocultación.
+  assert.equal(b.visibility.every(Boolean), true);
+  assert.deepEqual(b.alignment, [1, 1, 1, 1, 1, 1, 1]);
+
+  // El trailer sigue completo; CADe no borra los textos al ocultar el cajetín.
+  assert.equal(titleValues(b)[9], 'arranque-paro-motor-3f.cad');
+  assert.equal(serialize(parse(hidden)), hidden);
+});
