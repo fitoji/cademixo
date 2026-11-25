@@ -44,3 +44,11 @@ export function groupSymbols<T extends { code: number; group: SymbolGroup }>(
   for (const list of byGroup.values()) list.sort((a, b) => a.code - b.code);
   return byGroup;
 }
+
+/**
+ * Copia ordenada por código. La usa la paleta también para el buscador, que
+ * ordena por relevancia y necesita un desempate estable: el código.
+ */
+export function codeOrder<T extends { code: number }>(symbols: readonly T[]): T[] {
+  return [...symbols].sort((a, b) => a.code - b.code);
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GROUP_ORDER, groupSymbols } from '../src/ui/palette-order.ts';
+import { GROUP_ORDER, codeOrder, groupSymbols } from '../src/ui/palette-order.ts';
 import { symbolList, lineList } from '../src/symbols/library.ts';
 
 test('el orden de la paleta sigue el menú Barras de CADe_SIMU V4', () => {
@@ -51,5 +51,18 @@ test('automáticos y fusibles siguen la numeración de CADe_SIMU', () => {
   assert.deepEqual(
     byGroup.get('fusible')!.map((s) => s.code),
     [5000, 5001, 5002, 5003, 5005, 5006, 5007, 5008],
+  );
+});
+
+test('los símbolos se pueden ordenar por código sin mutar la lista original', () => {
+  const all = [...symbolList(), ...lineList()];
+  const ordered = codeOrder(all);
+  const codes = ordered.map((s) => s.code);
+  assert.deepEqual(codes, [...codes].sort((a, b) => a - b));
+  assert.notEqual(ordered, all, 'devuelve una copia ordenada');
+  assert.notDeepEqual(
+    all.map((s) => s.code).slice(0, 5),
+    codes.slice(0, 5),
+    'el catálogo no viene ordenado: si lo estuviera, este test no probaría nada',
   );
 });

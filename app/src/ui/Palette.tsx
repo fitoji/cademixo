@@ -36,7 +36,7 @@ const GROUP_LABEL: Record<SymbolGroup, string> = {
   otro: 'Otros',
 };
 
-import { GROUP_ORDER, groupSymbols } from './palette-order.ts';
+import { GROUP_ORDER, codeOrder, groupSymbols } from './palette-order.ts';
 
 /** Tono por familia: pinta las miniaturas, no el esquema. */
 const GROUP_TONE: Record<SymbolGroup, string> = {
@@ -101,7 +101,7 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
   // Buscador: por código («6007», «6») o por nombre, con acentos incluidos.
   const [query, setQuery] = useState('');
   const searching = query.trim() !== '';
-  const matches = searching ? searchSymbols(available, query) : [];
+  const matches = searching ? searchSymbols(codeOrder(available), query) : [];
   const firstMatch = matches[0];
 
   const favSymbols = favorites
