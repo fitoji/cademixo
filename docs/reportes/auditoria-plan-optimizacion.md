@@ -1,21 +1,22 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-25 (revisión 4)
+**Fecha:** 2026-11-25 (revisión 5)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría de solo lectura sobre el editor. El benchmark agregado no modifica código de producción.
+**Tipo:** auditoría de solo lectura sobre el editor, más el benchmark agregado y la etapa 1 de deduplicación de red.
 
-> **Revisión 4.** Incorpora el benchmark integrado de la etapa 0 (`app/bench/`), que mide mover y soltar por separado sobre hojas cableadas, y corrige tres conclusiones de la revisión 3: no hay base para hablar de FPS, el total de "soltar" no estaba medido de forma consistente, y el índice de hit-test se posterga en lugar de descartarse. Ver «Historial de correcciones».
+> **Revisión 5.** Aplica la etapa 1 acordada: compartir la red anterior entre las dos podas y reutilizar la posterior solo si el texto no cambió. Incluye el antes/después medido, la verificación de equivalencia (texto, uniones, deshacer) y el conteo de reconstrucciones. Ver «Historial de correcciones».
 
 ## Resumen ejecutivo
 
 1. **El diagnóstico del plan es correcto.** Se verificaron sus siete afirmaciones sobre `App.tsx` y `Canvas.tsx`: el preview de arrastre reconstruye el documento y la identidad de `records` invalida bornes, red del lienzo, snap, hit-test y rutas.
 2. **La etapa 0 ya tiene herramienta.** `pnpm bench` mide, sobre hojas cableadas de 1.000/5.000/10.000 registros, el costo de JavaScript de **mover** y de **soltar** por separado. No mide render de React ni presentación en el navegador: sus totales **no son FPS**.
 3. **En ambas fases domina la operación de estado, `applyDrag`.** A 9.787 registros: mover 2.707 ms (applyDrag 1.875) y soltar 3.850 ms (applyDrag 1.924). La causa es estructural: cada edición ejecuta `pruneDeadStubs` y `pruneOrphanJunctions`, y cada uno hace `parse + buildProject + 2 × buildNetwork` (`state.ts:141-178, 356-358, 680-682`): **~4 reconstrucciones completas de red por edición**.
-4. **`buildNetwork` es el primitivo que se repite en todo el camino.** Además de las 4 de `applyDrag`, lo llaman la cadena del lienzo (`Canvas.tsx:321`), `validate` (`network.ts:224`) y `buildNetlist` (`netlist.ts:179`), que a su vez es el motor de `circuitFrom`. Son ~5 reconstrucciones por movimiento y ~7 por confirmación.
-5. **Segundo costo del movimiento: la cadena del lienzo** (~740 ms a 10k: `buildNetwork` 408, `attachPoints` 148, `snapContext` 150, `wireCornerPaths` 30). En la confirmación, detrás de `applyDrag`: `circuitFrom` 884 ms, `validate` 628 ms, `buildNetwork` 428 ms. Todos comparten el mismo primitivo.
-6. **`hitContext` cuesta 0,4 ms a 10k, pero eso mide construcción de contexto, no consulta.** La consulta de hit-test recorre candidatos por evento. **Se posterga** el índice hasta medirla; no se descarta.
-7. **La premisa de escala sigue sin evidencia de uso real.** No hay conteo de registros por hoja en proyectos reales. El benchmark demuestra cuánto cuesta cada tamaño, no que esos tamaños existan.
+4. **Etapa 1 aplicada y medida.** Compartir la red anterior entre las dos podas y reutilizar la posterior solo si el texto no cambió (`pruneEdits`) lleva las reconstrucciones de **5 → 3 por movimiento** y **7 → 5 por confirmación**. A 9.787 registros: mover 2.766 → 1.958 ms (−29 %) y soltar 3.715 → 2.729 ms (−27 %); `applyDrag` 1.833 → 1.191 ms (−35 %). El texto resultante, las uniones y la entrada de deshacer son **idénticos** (verificado por hash antes/después y suite completa 911/911).
+5. **`buildNetwork` es el primitivo que se repite en todo el camino.** Aun después de la etapa 1, lo llaman la cadena del lienzo (`Canvas.tsx:321`), `validate` (`network.ts:224`) y `buildNetlist` (`netlist.ts:179`), que es el motor de `circuitFrom`. Quedan 3 reconstrucciones por movimiento y 5 por confirmación.
+6. **Segundo costo del movimiento: la cadena del lienzo** (~740 ms a 10k: `buildNetwork` 408, `attachPoints` 148, `snapContext` 150, `wireCornerPaths` 30). En la confirmación, detrás de `applyDrag`: `circuitFrom` 884 ms, `validate` 628 ms, `buildNetwork` 428 ms. Todos comparten el mismo primitivo.
+7. **`hitContext` cuesta 0,4 ms a 10k, pero eso mide construcción de contexto, no consulta.** La consulta de hit-test recorre candidatos por evento. **Se posterga** el índice hasta medirla; no se descarta.
+8. **La premisa de escala sigue sin evidencia de uso real.** No hay conteo de registros por hoja en proyectos reales. El benchmark demuestra cuánto cuesta cada tamaño, no que esos tamaños existan.
 
 ## 1. Alcance y método
 
@@ -51,6 +52,23 @@ Mediana en milisegundos, una hoja cableada:
 - La cadena del lienzo es el segundo costo del movimiento y escala de forma parecida: su `buildNetwork` es el mismo primitivo.
 - En la confirmación, `circuitFrom` (884 ms) y `validate` (628 ms) quedan detrás de `applyDrag`; ambos vuelven a reconstruir la red por dentro (`netlist.ts:179`, `network.ts:224`).
 
+### 2.b Etapa 1 aplicada: antes y después
+
+Cambio (`state.ts`): `pruneEdits` construye **una** red para los registros anteriores y la comparte con las dos podas; la red posterior de `pruneDeadStubs` se reutiliza en `pruneOrphanJunctions` **solo si devolvió el texto intacto**. Si la primera poda eliminó un tramo, la red de después es otra y se reconstruye. El alcance también se respeta: la red compartida corresponde siempre a los mismos registros.
+
+Mismo benchmark, mismo fixture y mismo equipo; el "antes" se obtuvo revirtiendo solo el cambio de `state.ts` y repitiendo el bench.
+
+| ~Registros | Fase | Antes | Después | Δ | `buildNetwork` |
+|---|---|---|---|---|---|
+| 1.009 | mover | 71,5 ms | 56,6 ms | −21 % | 5 → 3 |
+| 1.009 | soltar | 90,3 ms | 77,9 ms | −14 % | 7 → 5 |
+| 9.787 | mover | 2.766,5 ms | 1.957,8 ms | −29 % | 5 → 3 |
+| 9.787 | soltar | 3.715,3 ms | 2.729,3 ms | −27 % | 7 → 5 |
+
+`applyDrag` a 9.787 registros: 1.832,7 → 1.191,0 ms al mover (−35 %) y 1.739,8 → 1.023,1 ms al soltar (−41 %). La cadena del lienzo no cambia: no era su alcance.
+
+**Equivalencia verificada.** Se capturaron hashes del texto resultante de `move`, `bend`, `segment` y `vertex` sobre el fixture, más longitud del texto, uniones, derivaciones, `past.length` y `dirty`. Las cuatro salidas son idénticas antes y después. Suite completa: 911/911 en serie.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -73,15 +91,17 @@ Mediana en milisegundos, una hoja cableada:
 
 ## 4. Dónde se repite `buildNetwork`
 
-Una sola confirmación de edición a ~10k registros reconstruye la red aproximadamente siete veces:
+| Origen | Antes | Ahora | Evidencia |
+|---|---|---|---|
+| `pruneDeadStubs` (red anterior) | 1 | 1, compartida con la otra poda | `state.ts` `pruneEdits` |
+| `pruneDeadStubs` (red posterior) | 1 | 1 | `state.ts` |
+| `pruneOrphanJunctions` (red anterior) | 1 | 0, usa la compartida | `state.ts` |
+| `pruneOrphanJunctions` (red posterior) | 1 | 0 si el texto no cambió; 1 si cambió | `state.ts` |
+| `Canvas` sobre registros provisionales | 1 | 1 | `Canvas.tsx:321` |
+| `validate` | 1 | 1 | `network.ts:224` |
+| `buildNetlist` → `circuitFrom` | 1 | 1 | `netlist.ts:179` |
 
-| Origen | Veces | Evidencia |
-|---|---|---|
-| `pruneDeadStubs` (antes y después) | 2 | `state.ts:141-145` |
-| `pruneOrphanJunctions` (antes y después) | 2 | `state.ts:178-182` |
-| `Canvas` sobre registros provisionales | 1 | `Canvas.tsx:321` |
-| `validate` | 1 | `network.ts:224` |
-| `buildNetlist` → `circuitFrom` | 1 | `netlist.ts:179` |
+Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por movimiento: 5 → 3.
 
 `buildNetlist` suma además un lazo anidado `segmentos × nodos` (`netlist.ts:187-194`).
 
@@ -108,10 +128,11 @@ Una sola confirmación de edición a ~10k registros reconstruye la red aproximad
 ## 7. Orden recomendado
 
 1. **Etapa 0 — hecha, con una deuda.** El benchmark de estado y derivaciones existe. Falta la traza de navegador para render de React y presentación de cuadros; sin ella no se puede afirmar nada sobre fluidez percibida.
-2. **Etapa 1 — reducir reconstrucciones de red por edición.** Candidato medido y de mayor retorno: una red por versión del documento, compartida por `prune*`, `validate` y `buildNetlist`. Comparar con `pnpm bench`. Si el costo de `applyDrag` cae al orden de la serialización, el preview por delta puede dejar de ser necesario; eso lo decide la medición, no la intuición.
-3. **Etapa 2 — preview por delta**, si tras la etapa 1 el movimiento sigue fuera de presupuesto. Delta por ID sin tocar `state.text` ni pasar por `commit()`; al soltar, una sola aplicación canónica.
-4. **Etapa 3 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
-5. **Etapa 4 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
+2. **Etapa 1 — primer incremento hecho** (ver 2.b). Queda el resto del camino: `validate` y `buildNetlist` siguen reconstruyendo la red por dentro, y el lienzo la reconstruye en cada preview. El siguiente incremento natural es que esos consumidores acepten una red ya construida por versión del documento.
+3. **Traza de navegador a 10.000 registros.** Con el estado ya más barato, la decisión sobre el preview por delta depende de cuánto pesen el render de React y la entrega de cuadros, que todavía no se midieron.
+4. **Etapa 2 — preview por delta**, solo si la traza muestra que el movimiento sigue fuera de presupuesto. Delta por ID sin tocar `state.text` ni pasar por `commit()`; al soltar, una sola aplicación canónica.
+5. **Etapa 3 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
+6. **Etapa 4 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
 ## 8. Los gates de performance existentes
 
@@ -147,6 +168,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 5 (2026-11-25).** Aplica la etapa 1 acordada con su verificación:
+  - `pruneEdits` comparte la red anterior entre las dos podas y reutiliza la posterior solo si el texto no cambió; si la primera poda eliminó un tramo, se reconstruye.
+  - Reconstrucciones por evento: 5 → 3 al mover y 7 → 5 al soltar. Tiempos a 9.787 registros: 2.766 → 1.958 ms al mover y 3.715 → 2.729 ms al soltar.
+  - Equivalencia: hashes del texto, uniones, derivaciones, `past.length` y `dirty` idénticos en `move`, `bend`, `segment` y `vertex`; suite completa 911/911.
+  - Se agrega `networkStats` en `network.ts` para que el benchmark cuente reconstrucciones.
 - **Revisión 4 (2026-11-25).** Benchmark integrado y tres correcciones pedidas en revisión:
   - Se elimina la inferencia de FPS: los totales son costo de JavaScript en Node, sin medición de cuadros.
   - Se elimina el total de "1,3 s al soltar" mezclado (validate sin cables + red cableada + `circuitFrom` de una corrida). El benchmark mide las tres piezas sobre la misma hoja y con 3 corridas; `circuitFrom` queda como costo medido, no como cuello confirmado de producto.
