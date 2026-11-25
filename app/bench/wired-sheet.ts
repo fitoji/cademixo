@@ -12,7 +12,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createEditor, projectOf } from '../src/editor/state.ts';
-import { buildNetwork } from '../src/editor/network.ts';
+import { attachPoints } from '../src/editor/pins.ts';
+import { buildNetwork, netKey } from '../src/editor/network.ts';
 import { GEOMETRY, withId, withPosition, withWirePoints } from '../src/model/project.ts';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'test', 'fixtures');
@@ -28,6 +29,8 @@ export interface WiredSheet {
   cables: number;
   junctions: number;
   blocks: number;
+  /** Componente conectado de un bloque central, para trazas en navegador. */
+  traceId: number;
 }
 
 export function wiredSheetText(targetRecords: number): WiredSheet {
@@ -40,9 +43,11 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
   const blocks = Math.max(1, Math.ceil(targetRecords / blockSize));
 
   const raws: string[] = [];
+  const componentIdsByBlock: number[][] = [];
   let id = 1;
   for (let b = 0; b < blocks; b++) {
     const dx = b * BLOCK_GAP;
+    const blockComponents: number[] = [];
     for (const rec of base.records) {
       // El cajetín es único por hoja: no se replica.
       if (b > 0 && rec.id === titleId) continue;
@@ -58,8 +63,10 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
       } else if (g.length > GEOMETRY.y) {
         raw = withPosition(rec, g[GEOMETRY.x]! + dx, g[GEOMETRY.y]!);
       }
+      if (rec.kind === 'component') blockComponents.push(id);
       raws.push(withId({ ...rec, raw }, id++));
     }
+    componentIdsByBlock.push(blockComponents);
   }
 
   const text = (base.hasMagic ? 'CADe_SIMU' : '') + base.prefix + raws.join('');
@@ -68,6 +75,25 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
   const components = check.records.filter((r) => r.kind === 'component').length;
   const network = buildNetwork(check.records);
   const junctions = [...network.nodes.values()].filter((n) => n.junction || n.kind === 'tee').length;
+
+  // Componente conectado de un bloque central: la traza en navegador necesita
+  // arrastrar algo con cables, no un símbolo suelto en el borde de la hoja.
+  const pins = attachPoints(check.records);
+  const midBlock = Math.floor(componentIdsByBlock.length / 2);
+  let traceId = 0;
+  for (const candidate of componentIdsByBlock[midBlock] ?? []) {
+    const connected = (pins.get(candidate) ?? []).some((p) => {
+      const node = network.nodes.get(netKey(0, p.x, p.y));
+      return node !== undefined && (node.ends.length > 0 || node.through.length > 0);
+    });
+    if (connected) {
+      traceId = candidate;
+      break;
+    }
+  }
+  if (traceId === 0) {
+    throw new Error('la hoja generada no tiene un componente conectado para trazar');
+  }
 
   // Guardas: un benchmark sobre un documento que no re-parsea o que perdió la
   // conectividad mediría otra cosa.
@@ -78,5 +104,5 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
     throw new Error(`la hoja generada no tiene cableado: ${cables} cables, ${junctions} uniones`);
   }
 
-  return { text, records: check.records.length, components, cables, junctions, blocks };
+  return { text, records: check.records.length, components, cables, junctions, blocks, traceId };
 }

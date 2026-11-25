@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test:e2e": "playwright test",
+    "trace": "playwright test e2e/preview-trace.spec.ts",
     "preview": "vite preview",
     "test": "node --test",
     "bench": "node --expose-gc bench/editor-preview.ts",
