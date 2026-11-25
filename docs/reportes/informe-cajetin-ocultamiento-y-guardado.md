@@ -56,17 +56,21 @@ Observado comparando los dos fixtures y en experiments anteriores con `Guardar c
 
 | Hecho de CADe | Decisión nuestra |
 |---------------|------------------|
-| El cajetín se oculta con el campo 4 = 0 | `titleCajetin(block)` expone el selector; el dibujo (cuando se implemente) debe condicionarse a `!== 0` |
-| Los flags no se leen en CADe | Los leemos tal como están en el archivo: es la única forma de no perder información |
+| El cajetín se oculta con el campo 4 = 0 | `titleCajetin(block)` expone el selector y `titleBlockLayout` sólo dibuja con «Cajetín 2»: con `0` o `1` devuelve `null` |
+| Los flags no se leen en CADe | Los leemos tal como están en el archivo para no perder información, y además deciden qué filas se dibujan (`visibility[row]`) |
 | CADe reescribe los 14 flags al aceptar el diálogo | Cambiar uno no altera los demás (`withTitleFlags`) |
 | CADe descarta registros propios | Ningún registro inventado; los atajos van en sidecar |
 | Variante de 12 tokens | El parser preserva 10 o 12 tokens byte a byte |
 | `Archivo` se regenera del nombre | Nosotros respetamos el texto del archivo; no lo reescribimos |
 | Guardar reordena ids | Nuestro serializer conserva el texto original salvo el trailer editado |
 
-**Estado actual**: el lienzo todavía **no dibuja** el cajetín, así que no hay nada que ocultar en la
-app. El diálogo `Editar → Cajetín` muestra las 7 filas incluso cuando el campo 4 es `0`; reflejar
-«Ninguno» sería el paso siguiente para igualar al original.
+**Estado actual** (revisado el 2026-11-25, después de este informe): el lienzo **ya dibuja** el
+cajetín desde `7b38b62` (`model/title-block-layout.ts` + `ui/TitleBlockLayer.tsx`). Como sólo está
+medida la geometría del cajetín 2, `titleBlockLayout` devuelve `null` con el campo 4 en `0` o en `1`:
+con «Ninguno» no se dibuja nada y con «Cajetín 1» tampoco, en vez de inventarle una geometría.
+El diálogo `Editar → Cajetín` sigue mostrando las 7 filas aunque el campo 4 sea `0`. Ocultar la capa
+en la app es una preferencia de vista (`Archivo → Configuración del proyecto…`), no el campo 4 del
+archivo; y las filas respetan el check «Mostrar» de cada una, que CADe ignora al dibujar.
 
 ## 5. Evidencia
 
