@@ -165,6 +165,7 @@ import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { Resizable, ResizableHandle, ResizablePanel, layoutStorage } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/sonner';
+import { AboutDialog } from './AboutDialog.tsx';
 import { SettingsDialog } from './SettingsDialog.tsx';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog.tsx';
 import { TitleBlockDialog } from './TitleBlockDialog.tsx';
@@ -246,6 +247,9 @@ export function App(): JSX.Element {
   const settings = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  /** La marca abre «Acerca de…»; al cerrar, el foco vuelve a ella. */
+  const aboutTrigger = useRef<HTMLButtonElement | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [titleBlockOpen, setTitleBlockOpen] = useState(false);
   /** Propiedades/Avisos: el mismo Drawer lateral con dos entradas. */
@@ -1609,16 +1613,28 @@ export function App(): JSX.Element {
           </div>
         )}
         <header className="relative z-10 flex h-[46px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 shadow-chrome-down">
-          <div className="mr-0.5 flex shrink-0 items-baseline gap-1.5">
-            <img
-              src={mascotUrl}
-              alt=""
-              aria-hidden="true"
-              className="h-6 w-6 shrink-0 self-center object-contain"
-            />
-            <strong className="text-[13.5px] font-semibold tracking-tight">cadeMixo</strong>
-            <span className="font-mono text-[10.5px] text-muted-foreground">v{pkg.version}</span>
-          </div>
+          {/* La marca es un botón: es la entrada a «Acerca de…», como en CADe. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                ref={aboutTrigger}
+                aria-label="Acerca de cadeMixo"
+                onClick={() => setAboutOpen(true)}
+                className="-ml-1 mr-0.5 flex shrink-0 cursor-pointer items-baseline gap-1.5 rounded-[min(var(--radius-sm),4px)] px-1 py-0.5 transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <img
+                  src={mascotUrl}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-6 w-6 shrink-0 self-center object-contain"
+                />
+                <strong className="text-[13.5px] font-semibold tracking-tight">cadeMixo</strong>
+                <span className="font-mono text-[10.5px] text-muted-foreground">v{pkg.version}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Acerca de cadeMixo</TooltipContent>
+          </Tooltip>
 
           <Menubar>
             <MenubarMenu>
@@ -2201,6 +2217,12 @@ export function App(): JSX.Element {
         onOpenChange={setProjectSettingsOpen}
         titleBlockHidden={titleBlockHidden}
         onTitleBlockHiddenChange={setTitleBlockHidden}
+      />
+      <AboutDialog
+        open={aboutOpen}
+        onOpenChange={setAboutOpen}
+        version={pkg.version}
+        returnFocusTo={aboutTrigger}
       />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 
