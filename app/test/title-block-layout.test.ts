@@ -36,6 +36,23 @@ test('sin cajetín no hay layout', () => {
   assert.equal(titleBlockLayout(null), null);
 });
 
+test('el cajetín 1 en A4 mide 207 × 36 y queda abajo a la derecha', () => {
+  const text = fixture('cajetin1-medido.cad');
+  const layout = layoutOf(text)!;
+  assert.ok(layout);
+  assert.deepEqual(layout.page, { width: 279, height: 210 });
+  const xs = layout.lines.flatMap((l) => [l.x1, l.x2]);
+  const ys = layout.lines.flatMap((l) => [l.y1, l.y2]);
+  assert.equal(Math.min(...xs), 69);
+  assert.equal(Math.max(...xs), 276);
+  assert.equal(Math.min(...ys), 171);
+  assert.equal(Math.max(...ys), 207);
+  const texts = layout.cells.map((c) => c.text);
+  assert.deepEqual(texts.slice(0, 6), ['02-nov.-202', 'EMPRESA', 'DIB1', 'DIB2', 'COM1', 'COM2']);
+  assert.ok(texts.includes('1NUM1 de 1NUM2'));
+  assert.ok(texts.includes('cajetin-probe.cad'));
+});
+
 test('cajetín «ninguno» no se dibuja', () => {
   assert.equal(layoutOf(withTitleNumeric(PROBE, 3, 0)), null);
 });

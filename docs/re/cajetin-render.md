@@ -234,9 +234,11 @@ filas. Nuestro editor sí respeta los flags del archivo y dibuja las 7 filas, as
 alto que en CADe aunque tenga la misma anchura. Esa desviación está documentada en
 `docs/reportes/informe-cajetin-ocultamiento-y-guardado.md`.
 
-El cajetín 1 todavía **no está implementado** en `title-block-layout.ts` (devuelve `null` para
-cualquier selector distinto de 2). Su geometría fina (columnas y filas internas) requiere una
-captura con los campos llenos; la medición de arriba sólo da el tamaño y la posición relativos.
+El cajetín 1 **sí está implementado**, medido en `app/test/fixtures/cajetin1-medido.cad` (A4H):
+bloque de **207 × 36** abajo a la derecha (origen `69,171`), con filas `6/6/6/9/9` y columnas
+`0/30/60/90/156/207`. Arriba lleva Fecha y Entidad; las dos filas siguientes, Dibujado y
+Comprobado con sus subcascillas; abajo, la fecha con el Título centrado y las celdas de Hoja y
+Archivo a la derecha. `titleBlockLayout` devuelve su geometría cuando `cajetin === 1`.
 
 ## Pendientes fuera de este plan
 

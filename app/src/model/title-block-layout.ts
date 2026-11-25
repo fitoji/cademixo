@@ -83,6 +83,14 @@ const LABEL_WIDTH = 30;
 const BLOCK_INSET = 3;
 const BAND_STEP = 50;
 
+/** Segundo bloque del diálogo: medido en `cajetin1-medido.cad` (A4 horizontal). */
+const BLOCK1 = {
+  width: 207,
+  rows: [6, 6, 6, 9, 9],
+  columns: [0, 30, 60, 90, 156, 207],
+  height: 36,
+} as const;
+
 export const TITLE_LAYOUT = {
   margin: MARGIN,
   blockWidth: BLOCK_WIDTH,
@@ -101,6 +109,70 @@ export const TITLE_LAYOUT = {
   /** Ancho del bloque en una hoja de ese ancho. */
   widthFor: (_pageWidth: number): number => BLOCK_WIDTH,
 };
+
+function cajetin1Layout(values: string[], alignOfRow: (row: number) => 0 | 1 | 2): SheetLayout {
+  const width = 279;
+  const height = 210;
+  const left = width - BLOCK_INSET - BLOCK1.width;
+  const top = height - BLOCK_INSET - BLOCK1.height;
+  const [, c1, c2, c3, c4, c5] = BLOCK1.columns;
+  const [, r1, r2, r3, r4, r5] = [0, 6, 12, 18, 27, 36].map((y) => top + y);
+
+  const lines: Line[] = [
+    ...rectLines(left, top, BLOCK1.width, BLOCK1.height, 2),
+    { x1: left + c1, y1: top, x2: left + c1, y2: r3, weight: 1 },
+    { x1: left + c2, y1: top, x2: left + c2, y2: r3, weight: 1 },
+    { x1: left + c3, y1: top, x2: left + c3, y2: r3, weight: 1 },
+    { x1: left + c4, y1: top, x2: left + c4, y2: r5, weight: 1 },
+    { x1: left + c1, y1: r1, x2: left + c3, y2: r1, weight: 1 },
+    { x1: left + c1, y1: r2, x2: left + c3, y2: r2, weight: 1 },
+    { x1: left + c1, y1: r3, x2: left + c5, y2: r3, weight: 1 },
+    { x1: left + c4, y1: r4, x2: left + c5, y2: r4, weight: 1 },
+  ];
+
+  const cell = (
+    field: number,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    caption?: string,
+    emphasis = false,
+  ): Cell => ({
+    rect: { x: left + x, y: top + y, w, h },
+    align: alignOfRow(field === 4 ? 2 : field === 5 ? 3 : field === 9 ? 6 : Math.floor(field / 2)),
+    text: values[field] ?? '',
+    caption,
+    emphasis,
+  });
+
+  return {
+    page: { width, height },
+    lines,
+    cells: [
+      cell(6, c1, 0, c2 - c1, r1 - top, 'Fecha'),
+      cell(4, c4, 0, c5 - c4, r3 - top, 'Entidad', true),
+      cell(0, c1, r1 - top, c2 - c1, r2 - r1, 'Fecha'),
+      cell(1, c2, r1 - top, c3 - c2, r2 - r1, 'Nombre'),
+      cell(2, c1, r2 - top, c2 - c1, r3 - r2, 'Fecha'),
+      cell(3, c2, r2 - top, c3 - c2, r3 - r2, 'Nombre'),
+      cell(5, c1, r3 - top, c4 - c1, r5 - r3, undefined, true),
+      {
+        rect: { x: left + c4, y: r3, w: c5 - c4, h: r4 - r3 },
+        align: alignOfRow(5),
+        text: `${values[7] ?? ''} de ${values[8] ?? ''}`,
+        caption: 'Hoja',
+        emphasis: false,
+      },
+      cell(9, c4, r4 - top, c5 - c4, r5 - r4, 'Archivo'),
+    ],
+    labels: [
+      { text: 'Dibujado', x: left + 2, y: r1 - 2, anchor: 'start' },
+      { text: 'Comprobado', x: left + 2, y: r2 - 2, anchor: 'start' },
+      { text: 'Fecha', x: left + 2, y: r4 - 2, anchor: 'start' },
+    ],
+  };
+}
 
 /** Rótulo de cada fila, en el orden del diálogo `Editar → Cajetín`. */
 const ROW_LABELS = [
@@ -163,7 +235,8 @@ function rectLines(x: number, y: number, w: number, h: number, weight: 1 | 2): L
  */
 export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
   if (!block) return null;
-  if (titleCajetin(block) !== 2) return null;
+  const cajetin = titleCajetin(block);
+  if (cajetin !== 1 && cajetin !== 2) return null;
   if (titlePageFormat(block) !== 1) return null;
 
   const size = titlePageSize(block);
@@ -171,9 +244,13 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
   const height = Math.min(size.alto, size.ancho);
   if (width <= 0 || height <= 0) return null;
 
+  const values = titleValues(block);
+  if (cajetin === 1) {
+    return cajetin1Layout(values, (row) => alignOf(block.alignment[row]));
+  }
+
   const contorno = titleContorno(block);
   const referenciado = titleReferenciado(block);
-  const values = titleValues(block);
 
   // Las filas ocultas desde `Editar → Cajetín` no se dibujan y el bloque se
   // acorta: la caja queda anclada al borde inferior del marco.
