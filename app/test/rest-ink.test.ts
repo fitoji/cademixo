@@ -88,7 +88,10 @@ test('el dibujo en reposo de los 227 códigos es el calibrado', () => {
     hash,
     // Regenerada al pasar la paleta del 8017 de catorce puntos a una cuña
     // rellena y al migrar el 6007 a la captura real de CADe (tres dados).
-    'ec11f4cfb09a3023afb7a4cbc8cad3a30491a297a4e6992c4e097095717213db',
+    // Regenerada al añadir el cuadro de disparo del segundo polo del 6002,
+    // medido en PR1 (refOnly 65 -> 50, overlap 151 -> 171, stray 0). El 6001
+    // conserva el cuadro sólo en el primer polo (`test01.png`).
+    'cdb74546024c0a400d318f1b194eec7578a9e6a45f835fcda0c93c2abe8cba8f',
     `la tinta en reposo cambió (huella ${hash}): el dibujo sin simular ya no es el calibrado`,
   );
 });

@@ -15,7 +15,10 @@
 - El verificador raster (`overlay-diff.ts`) tenía el mapeo por defecto de la captura de PR1
   **6 unidades corrido en Y** (`OY=-138.5` en vez de `-162`). Con el valor viejo, símbolos ya
   calibrados daban `stray≠0`.
-- Con ambos arreglos, 6001 y 6002 pasan el gate `stray=0` en sus capturas correspondientes.
+- El 6002 (Automático II) dibujaba el cuadrado de disparo **solo en el primer polo**; en PR1 se ve
+  uno por polo. Corregido a `tripSquare:'all'`. El 6001 (Automático IN) sí lleva uno solo, como
+  muestra `test01.png`.
+- Con los arreglos, 6001 y 6002 pasan el gate `stray=0` en sus capturas correspondientes.
 - Commit `0f9ae26` (`fix(symbols): place the breaker trip square on the measured centre`), pusheado.
 
 ## 2. Método
@@ -84,15 +87,28 @@ Números completos de la corrida final:
 | Símbolo | ref | sym | overlap | refOnly | symOnly | stray |
 |---------|-----|-----|---------|---------|---------|-------|
 | 6001 | 326 | 641 | 218 | 108 | 423 | 0 |
-| 6002 | 221 | 422 | 156 | 65 | 266 | 0 |
+| 6002 | 221 | 460 | 171 | 50 | 289 | 0 |
 
 `refOnly` corresponde a rótulos y al anillo antialias, como esperado.
+
+### Cuadrado en el segundo polo del 6002
+
+El gate `stray` **no penaliza tinta que falta**: el 6002 pasaba con un solo cuadrado aunque la
+captura tiene dos. La evidencia fue el `refOnly`: al dibujar el segundo cuadrado bajó de 65 a 50 y
+el `overlap` subió de 151 a 171, sin aparecer `stray`. En `automaticoin.png` el primer ejemplar
+(código 6002) también muestra los dos cuadros. El 6001, en cambio, no cambió: en `test01.png` el
+segundo polo no lleva cuadro y al añadirlo aparecían 46 píxeles de `stray`.
+
+Lección: para detectar tinta ausente hay que mirar `refOnly` y la captura, no solo `stray`.
 
 ## 5. Cambios aplicados
 
 | Archivo | Cambio |
 |---------|--------|
 | `app/src/symbols/draw.ts` | `tiltedSquare(x−2.95, 5.9, 1.35, 18)` → `tiltedSquare(x−2.95, 5.0, 1.35, 18)`, con la medición documentada |
+| `app/src/symbols/families.ts` | 6002 `tripSquare:'first'` → `'all'`; documentación de `cadesimuPole` y del helper |
+| `app/test/protection-symbols.test.ts` | 6002 pasa de 1 a 2 cuadros de disparo |
+| `app/test/rest-ink.test.ts` | Huella de tinta en reposo regenerada por el cuadro nuevo del 6002 |
 | `.agents/skills/cadesimu-calibration/assets/overlay-diff.ts` | `OY` por defecto `−138.5` → `−162` |
 | `.agents/skills/cadesimu-calibration/SKILL.md` | Regla del gate: `oy = y del registro`; se elimina `y−12` |
 
@@ -115,7 +131,7 @@ La nota «6001/2001 no cierran con ese mapeo» del task log se debe a esto, no a
 | Código | Uso | Estado |
 |--------|-----|--------|
 | 6001 | dos polos, cuadro en el primero | Verificado en `test01.png` (`stray=0`) |
-| 6002 | dos polos, cuadro en el primero | Verificado en PR1 (`stray=0`) |
+| 6002 | dos polos, cuadro en ambos | Verificado en PR1 (`stray=0`, `refOnly=50`) |
 | 6003 | tres polos, cuadro en todos | Verificado **por proporción** en `cade-6007-vs-6003.png` |
 | 6004 | tres polos + N | Sin captura en el repo; hereda el helper |
 | 6000 | un polo, cuadro en todos | Sin cambio de código; no reverificado |
@@ -133,6 +149,7 @@ la vista visible (en este caso una franja de 792×205) y la automatización MDI 
 ## 8. Verificación
 
 - `node --test test/symbol-anchors.test.ts test/symbol-grid.test.ts`: **56/56**.
+- Suite completa: **869/870**; el único fallo es `wiring-performance` (`120 previews`), sensible a carga.
 - `npx tsc --noEmit`: limpio.
 - `node scripts/make-calibration.ts`: regeneró `docs/cadesimu-svg/calibration.html` sin cambios.
 - Gate raster: `stray=0` en 3000, 3001, 8000, 2001, 6001 y 6002 con los mapeos de §3.

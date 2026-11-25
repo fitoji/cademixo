@@ -62,13 +62,13 @@ test('el guion del automático va hacia el centro del aparato', () => {
 });
 
 test('el cuadro de disparo va donde lo pone CADeSimu', () => {
-  // El monofásico (6000) y el tripolar (6003) lo llevan en todos sus polos; el
-  // bipolar (6001, medido en la captura de la hoja) sólo en el primero; el 6002
-  // hereda la del bipolar y el 6004 la del tripolar.
+  // El monofásico (6000), el bipolar 6002 y el tripolar (6003) lo llevan en
+  // todos sus polos; el 6001 (medido en test01.png) sólo en el primero. El 6004
+  // hereda la del tripolar.
   const filled = (code: number, w = 18): number =>
     resolveSymbol(code, []).shapes(w, 15).filter((s) => s.fill).length;
   assert.equal(filled(6000, 12), 1, 'el monofásico lleva el cuadro en su único polo');
-  assert.equal(filled(6002, 12), 1, 'el bipolar lleva el cuadro en el primer polo');
+  assert.equal(filled(6002, 12), 2, 'el bipolar 6002 lleva el cuadro en los dos polos');
   assert.equal(filled(6003, 18), 3, 'el tripolar lleva el cuadro en los tres polos');
   assert.equal(filled(6004, 18), 3, 'el 6004 hereda la del tripolar');
 });

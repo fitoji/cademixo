@@ -65,9 +65,11 @@ export const CADESIMU_BLADE_DEG = round((Math.atan2(3, 6) * 180) / Math.PI);
  * segundo queda a su izquierda (de −3,3 a −1,5), porque la cuchilla de cada
  * polo se abre siempre hacia la izquierda. Por eso `dashLeft`.
  *
- * El detalle de disparo (cuadrado negro inclinado) va SÓLO en el primer polo:
- * en la captura de la hoja el segundo polo no lo lleva, aunque el automático
- * tripolar de `components_png` lo lleva en los tres.
+ * El detalle de disparo (cuadrado negro inclinado) lo decide cada código con
+ * `withTrip`: el 6001 lo lleva sólo en el primer polo (`test01.png`); el 6002
+ * y el 6003 lo llevan en todos (`PR1` y `cade-6007-vs-6003.png`). El gate raster
+ * no penaliza tinta que falta (`refOnly`), así que un cuadro ausente no se
+ * detecta como `stray`: hay que mirar la captura.
  *
  * La media diagonal del cuadro se midió por área en dos referencias
  * independientes: la captura de la hoja (127 px de tinta, con 6 px por unidad)

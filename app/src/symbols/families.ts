@@ -181,15 +181,14 @@ const coilVertical = (code: number): SymbolDef => {
 /**
  * En qué polos va el cuadro de disparo del automático.
  *
- * - `first`: sólo en el primer polo. Medido en el automático IN (6001) de la
- *   captura real: el segundo polo no lo lleva.
- * - `all`: en todos los polos. Medido en el monofásico (6000) y en el tripolar
- *   (6003) de `components_png`.
+ * - `first`: sólo en el primer polo. Medido en el automático IN (6001) de
+ *   `test01.png`: el segundo polo no lo lleva.
+ * - `all`: en todos los polos. Medido en el automático II (6002) de PR1 y en
+ *   el III (6003) de `cade-6007-vs-6003.png`.
  *
- * Los dos datos conviven porqueCADeSimu dibuja el cuadro sobre cada polo de
- * un automático trifásico y sólo sobre el primero de uno bipolar: es una
- * diferencia observada, no una regla deducida. Para los códigos sin medida
- * (6002 y 6004) se hereda la del aparato más cercano por número de polos.
+ * Los dos datos conviven porque CADeSimu dibuja el cuadro sobre cada polo del
+ * automático II y III, y sólo sobre el primero del IN. Es una diferencia
+ * observada, no una regla deducida.
  */
 type TripSquare = 'first' | 'all' | 'none';
 
@@ -328,8 +327,8 @@ const signalLamp = (code: number, group: SymbolGroup): SymbolDef => ({
  * Automático IN de dos polos, anclado al origen.
  *
  * Los polos caen sobre los bornes (el segundo a 6 unidades, la grilla de
- * CADeSimu) y el detalle de disparo va sólo en el primer polo, como en la
- * captura de la hoja (`data/samples/tests01/test01.png`).
+ * CADeSimu) y el detalle de disparo va SÓLO en el primer polo, como en la
+ * captura real (`data/samples/tests01/test01.png`).
  */
 const cadesimuBreaker = (code: number, n: number, size: { w: number; h: number }): SymbolDef => ({
   code,
@@ -495,7 +494,7 @@ export const FAMILY_SYMBOLS: SymbolDef[] = [
   // cuarto polo necesita 8 (ver `4017` en la lista de regletas).
   protectionDevice(6000, 1, { w: 12, h: 15 }, { cadesimu: true, tripSquare: 'all', cadeOrder: true }), // medido
   cadesimuBreaker(6001, 2, { w: 12, h: 15 }), // medido sobre la captura de CADeSimu
-  protectionDevice(6002, 2, { w: 12, h: 15 }, { cadesimu: true, tripSquare: 'first', cadeOrder: true }), // medido
+  protectionDevice(6002, 2, { w: 12, h: 15 }, { cadesimu: true, tripSquare: 'all', cadeOrder: true }), // medido
   protectionDevice(6003, 3, { w: 18, h: 15 }, { cadesimu: true, tripSquare: 'all', cadeOrder: true }), // medido
   protectionDevice(6004, 3, { w: 18, h: 15 }, { cadesimu: true, tripSquare: 'all', cadeOrder: true }), // medido
   // Diferencial: toroide cruzando los polos por abajo y disparador arriba a la
