@@ -197,4 +197,4 @@ forman un solo aparato (no "el primero"), y la misma regla vale para bobinas y c
 En la app: `apparatusKey` (`model/project.ts`) es la única clave, `App.tsx` ignora el clic
 sobre un conmutador enlazado y propaga el estado a todo el grupo; `partKey` y su
 normalización desaparecieron. Evidencia completa en `docs/pruebas-cadesimu-windows.md` y
-`docs/informe-rea-cadesimu-designadores.md`.
+`docs/reportes/informe-rea-cadesimu-designadores.md`.

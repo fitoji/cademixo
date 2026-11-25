@@ -2,7 +2,7 @@
 
 Objetivo: eliminar la clase de bugs que produce tener la semántica de cada código de
 componente repartida en cinco tablas que se contradicen.
-Fuente: `docs/auditoria-v0.3.md` (P1-1) y el reconocimiento de tablas del 2026-11-06.
+Fuente: `docs/reportes/auditoria-v0.3.md` (P1-1) y el reconocimiento de tablas del 2026-11-06.
 
 ## Specs
 

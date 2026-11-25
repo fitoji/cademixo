@@ -107,7 +107,7 @@ app/
   src/editor/network.ts    red de cables, uniones y validaciones
   src/sim/netlist.ts       dibujo -> circuito: redes y aparatos
   src/sim/solver.ts        lógica de contactores con enclavamiento
-  src/symbols/library.ts   símbolos IEC 60617 en SVG
+  src/symbols/library.ts   símbolos en SVG, dibujados a semejanza de CADe_SIMU
   src/symbols/templates.ts plantillas crudas por código (generadas)
   src/ui/                  app React: canvas, paleta, inspector
   src/report.ts            CLI de inventario
@@ -115,6 +115,10 @@ app/
 docs/cade-format.md        gramática del formato, verificado vs. hipótesis
 odd/tasks/                 plan de construcción por fases
 ```
+
+## Informes y auditorías
+
+Las auditorías e informes técnicos están centralizados en el [índice de reportes](docs/reportes/indice_reporte.md): Auditoría del Electro-Simulador v0.3.0; Auditoría del sistema de avisos; Semántica del designador en CADe_SIMU V4; El cajetín de CADe_SIMU V4; y Auditoría de las 4D en cadeMixo.
 
 ## El formato, en cuatro ideas
 
@@ -145,6 +149,12 @@ Los fixtures de `app/test/fixtures/` son esquemas eléctricos de terceros, usado
 
 Este repositorio no contiene código de CADe_SIMU. El conocimiento del formato proviene de observar archivos de datos; la implementación es propia.
 
+## Símbolos
+
+Los símbolos son propios: SVG escritos en `app/src/symbols/` a semejanza de los que dibuja CADe_SIMU, con la caja de conexión medida sobre archivos reales. No se copian elementos de colecciones de terceros; por eso el repositorio no necesita créditos de símbolos.
+
+Los bornes no los define el dibujo: salen del registro del `.cad`, así que un símbolo nuevo nunca cambia el formato ni el round-trip.
+
 ## Créditos
 
-Los símbolos normalizados de `app/src/symbols/qet.ts` provienen de la colección de elementos de **QElectroTech** (EN 60617), licencia **CC-BY 3.0**. Ver [NOTICE-qet.md](NOTICE-qet.md).
+cadeMixo está inspirado en CADe_SIMU, pero no usa su código: el parser, el solver y los símbolos son propios.

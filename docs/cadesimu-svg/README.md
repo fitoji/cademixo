@@ -25,4 +25,4 @@ registro, y su geometría está medida contra la captura
 - El `.cad` se incluye como referencia; el parser real del repositorio lo lee sin cambios.
 - La orientación, el tamaño, las etiquetas y la simbología exacta de CADe_SIMU se tomaron de
   la captura, no de este prototipo.
-- No editar `templates.ts` ni `qet.ts` si se generan automáticamente.
+- No editar `templates.ts`: se genera automáticamente.

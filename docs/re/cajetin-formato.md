@@ -1,6 +1,6 @@
 # Cajetín de CADe_SIMU: referencia técnica
 
-> Anexo de `docs/re/informe-cajetin-cadesimu.md`, que tiene la narrativa y la evidencia de cada
+> Anexo de `docs/reportes/informe-cajetin-cadesimu.md`, que tiene la narrativa y la evidencia de cada
 > conclusión. Acá van sólo offsets, formatos y direcciones.
 >
 > Direcciones de Ghidra con image base `0x800000`; VA del PE = dirección − `0x400000`.

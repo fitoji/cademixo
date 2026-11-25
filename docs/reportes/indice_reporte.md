@@ -1,0 +1,11 @@
+# Índice de reportes
+
+Índice de informes técnicos y auditorías del proyecto. Cada documento conserva su alcance y evidencia originales; consultá la nota de confianza antes de tomar sus conclusiones como estado actual.
+
+| Informe | Fecha | Tipo | Alcance y resumen | Confianza / estado |
+|---|---|---|---|---|
+| [Auditoría del Electro-Simulador v0.3.0](auditoria-v0.3.md) | 2026-11-06 | Auditoría técnica | Revisión de solo lectura de `app/`: parser, modelo, solver, editor e interfaz de producto; incluye mediciones y prioridades. | Diagnóstico basado en el commit `86041c2` y mediciones de esa fecha. No representa necesariamente el estado actual; el propio informe documenta una errata posterior sobre el rendimiento del parser. |
+| [Auditoría del sistema de avisos](auditoria-sistema-avisos.md) | 2026-11-23 | Auditoría funcional | Detección, presentación, navegación y acciones del sistema «Avisos» de cadeMixo. | Revisión de solo lectura sobre `65eedd8`; hallazgos y mediciones deben contrastarse con cambios posteriores. |
+| [Semántica del designador en CADe_SIMU V4](informe-rea-cadesimu-designadores.md) | 2026-11-23 | Informe de ingeniería inversa | Comportamiento del binario real al vincular y accionar bobinas, contactos auxiliares y protecciones; comparación con el modelo de la app. | Evidencia experimental sobre CADe_SIMU V4 y archivos de prueba. El alcance se limita al binario y escenarios descritos en el informe. |
+| [El cajetín de CADe_SIMU V4](informe-cajetin-cadesimu.md) | 2026-11-24 | Informe de ingeniería inversa | Estructura del cajetín en archivos `.cad`, offsets, campos, flags y comportamiento de lectura/escritura. | Análisis contrastado con binario, fixtures y GUI real. El informe indica que el análisis está cerrado y aplicado en la app; verificá el estado actual del código por separado. |
+| [Auditoría de las 4D en cadeMixo](auditoria-4d-ia.md) | 2026-11-25 | Auditoría técnica | Duplicación, concentración de responsabilidades, deuda técnica y dependencia de IA en la aplicación y sus pruebas. | Confianza condicionada: el árbol de trabajo estaba sucio durante la investigación. Se observó la referencia Git `ff29572`, pero los resultados describen el árbol local inspeccionado y no deben atribuirse automáticamente a ese commit ni a un `main` limpio. |
