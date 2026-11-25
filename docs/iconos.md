@@ -108,7 +108,7 @@ Estos no los elegimos nosotros: vienen con los componentes y existen para que el
 
 ## Lo que NO es un ícono
 
-Los símbolos del lienzo (210 símbolos en la paleta, sobre un catálogo de 270 códigos CADe_SIMU) no son iconografía de interfaz y no se cuentan acá: son geometría del plano. Viven en `src/symbols/library.ts`, se dibujan con `SymbolGlyph` y usan los tokens de tinta del diagrama (`--ink`, `--wire`, `--select`), escalan con el zoom y no llevan etiqueta. Su origen es la colección de QElectroTech (CC-BY 3.0, ver `NOTICE-qet.md`).
+Los símbolos del lienzo (210 símbolos en la paleta, sobre un catálogo de 270 códigos CADe_SIMU) no son iconografía de interfaz y no se cuentan acá: son geometría del plano. Viven en `src/symbols/library.ts`, se dibujan con `SymbolGlyph` y usan los tokens de tinta del diagrama (`--ink`, `--wire`, `--select`), escalan con el zoom y no llevan etiqueta. El dibujo es propio: se compone con las primitivas de `draw.ts` y las familias de `families.ts`, a semejanza de los símbolos de CADe_SIMU, sin colecciones de terceros.
 
 Tampoco cuentan los tonos por familia de la paleta (`--tone-*`): son puntos de color, no íconos.
 

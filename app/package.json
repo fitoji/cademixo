@@ -16,9 +16,7 @@
     "report": "node src/report.ts",
     "spike": "node spike/make-spike.ts",
     "catalog": "node scripts/make-catalog.ts",
-    "componentes": "node scripts/make-component-docs.ts",
-    "qet": "node scripts/import-qet.ts",
-    "qet:sheet": "node scripts/qet-sheet.ts"
+    "componentes": "node scripts/make-component-docs.ts"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",

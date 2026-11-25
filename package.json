@@ -11,8 +11,6 @@
     "report": "pnpm --filter electro-simulador report",
     "spike": "pnpm --filter electro-simulador spike",
     "catalog": "pnpm --filter electro-simulador catalog",
-    "componentes": "pnpm --filter electro-simulador componentes",
-    "qet": "pnpm --filter electro-simulador qet",
-    "qet:sheet": "pnpm --filter electro-simulador qet:sheet"
+    "componentes": "pnpm --filter electro-simulador componentes"
   }
 }

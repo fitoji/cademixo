@@ -52,7 +52,7 @@ Restricciones y límites declarados:
 - Nombre del producto: **cadeMixo**.
 - Interfaz en español, sin plan de i18n para v1.
 - CADe_SIMU es el anti-referente de interacción: se reimplementa, no se decompila ni se reconstruye. El repositorio no contiene código de CADe_SIMU.
-- Símbolos IEC 60617 tomados de la colección de QElectroTech, licencia CC-BY 3.0; el crédito vive en `NOTICE-qet.md` y debe conservarse.
+- Símbolos propios en SVG, dibujados a semejanza de los de CADe_SIMU; sin colecciones de terceros ni créditos de símbolos.
 - El binario propietario en `data/` no se versiona ni se redistribuye.
 
 ## Evidence on Hand

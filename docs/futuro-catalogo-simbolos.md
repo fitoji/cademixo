@@ -13,11 +13,10 @@ Salida: símbolo normalizado con geometría, bornes declarados y metadatos.
 
 ## Por qué NO se hace ahora
 
-La app ya resuelve los símbolos de tres formas con un contrato único
-(`app/src/symbols/`): dibujo propio (`families.ts` + `draw.ts`), EN 60617
-importado (`qet.ts` + `qet-adapter.ts`) y hoja DXF (`dxf.ts` + `import-dxf.ts`),
-seleccionables por `pack.ts` (`base` / `dxf` / `cadesimu`). Un proyecto aparte
-hoy sería una cuarta fuente de verdad, no una mejora.
+La app ya resuelve los símbolos con un contrato único
+(`app/src/symbols/`): dibujo propio sobre las primitivas de `draw.ts`, agrupado
+por familias en `families.ts` y con la caja de conexión declarada por código.
+Un proyecto aparte hoy sería una segunda fuente de verdad, no una mejora.
 
 ## Condición para retomarlo
 

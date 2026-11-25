@@ -92,8 +92,8 @@ const textOf = (label: Label): string =>
 
 /** SVG autocontenido: sin CSS externo, para que se vea igual en cualquier visor. */
 function glyphSvg(input: SymbolDef): string {
-  // resolveSymbol aplica la geometría importada de EN 60617 (qet-adapter): si no,
-  // la miniatura mostraría el dibujo a mano y no lo que pinta el lienzo.
+  // resolveSymbol resuelve el símbolo que pinta el lienzo: si acá se dibujara la
+  // definición cruda, la miniatura no coincidiría con el dibujo.
   const sym = resolveSymbol(
     input.code,
     input.pins.map((pin) => pin.name),

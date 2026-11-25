@@ -71,8 +71,9 @@ function boxesOf(rec: CadeRecordModel): Box[] {
 /**
  * Devuelve, por id de componente, los puntos donde sus cables lo tocan.
  *
- * Un extremo compartido por dos cajas se asigna a la más cercana, para que un
- * empalme entre componentes vecinos no duplique el pin.
+ * Un extremo se asigna a todas las cajas que contiene. Esto conserva la conexión
+ * en serie entre componentes apilados, aunque un empalme compartido produzca
+ * puntos de borne en más de un componente.
  */
 export function attachPoints(records: CadeRecordModel[]): Map<number, Point[]> {
   const boxes: Box[] = [];

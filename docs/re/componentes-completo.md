@@ -4,7 +4,7 @@
 > Generado con `node scripts/make-inventory.ts`.
 > Calibración y fidelidad de las geometrías: `docs/re/informe-calibracion-simbolos.md`.
 
-## En el catálogo CADe_SIMU (212)
+## En el catálogo CADe_SIMU (224)
 
 | Código | Nombre | Grupo |
 |---|---|---|
@@ -26,12 +26,12 @@
 | `1057` | Variador velocidad cc. | potencia |
 | `1058` | Variador velocidad cc. | potencia |
 | `1076` | Relé 1 canal | potencia |
-| `2000` | Contactor II | potencia |
-| `2001` | Contactor III | potencia |
-| `2003` | Interruptor II | potencia |
-| `2004` | Interruptor III | potencia |
-| `2006` | Contactor I | potencia |
-| `2007` | Interruptor I | potencia |
+| `2000` | Contactor II | contactor |
+| `2001` | Contactor III | contactor |
+| `2003` | Interruptor II | contactor |
+| `2004` | Interruptor III | contactor |
+| `2006` | Contactor I | contactor |
+| `2007` | Interruptor I | contactor |
 | `3000` | Alimentación L | alimentacion |
 | `3001` | Alimentación N | alimentacion |
 | `3002` | Alimentación PE | alimentacion |
@@ -57,19 +57,21 @@
 | `4015` | Regleta redonda 2 | borne |
 | `4016` | Regleta redonda 3 | borne |
 | `4019` | Cable - | linea |
-| `5000` | Fusible I | proteccion |
-| `5001` | Fusible IN | proteccion |
-| `5002` | Fusible II | proteccion |
-| `5003` | Fusible III | proteccion |
-| `5005` | Seccionador I | proteccion |
-| `5006` | Seccionador IN | proteccion |
-| `5007` | Seccionador II | proteccion |
-| `5008` | Seccionador III | proteccion |
+| `5000` | Fusible monofásico | fusible |
+| `5001` | Fusible II | fusible |
+| `5002` | Fusible II | fusible |
+| `5003` | Fusible III | fusible |
+| `5005` | Seccionador I | fusible |
+| `5006` | Seccionador IN | fusible |
+| `5007` | Seccionador II | fusible |
+| `5008` | Seccionador III | fusible |
 | `6000` | Automático I | proteccion |
 | `6001` | Automático IN | proteccion |
 | `6002` | Automático II | proteccion |
 | `6003` | Automático III | proteccion |
+| `6004` | Automático IIIN | proteccion |
 | `6005` | Diferencial IN | proteccion |
+| `6006` | Diferencial IIIN | proteccion |
 | `6007` | Relé térmico | proteccion |
 | `6008` | Disyuntor II | proteccion |
 | `6009` | Disyuntor III | proteccion |
@@ -186,22 +188,23 @@
 | `7883` | Presostato NC 3 hilos PNP | sensor |
 | `8000` | Contacto pulsador NA | mando |
 | `8001` | Contacto pulsador NC | mando |
-| `8002` | Contacto pulsador NA-NC | senalizacion |
-| `8003` | Contacto pulsador conmutado | senalizacion |
-| `8004` | Contacto pulsador seta NA | senalizacion |
-| `8005` | Contacto pulsador seta NC | senalizacion |
-| `8006` | Contacto pulsador seta NA-NC | senalizacion |
-| `8007` | Contacto pulsador seta conmutado | senalizacion |
-| `8008` | Contacto interruptor NA | senalizacion |
-| `8009` | Contacto interruptor NC | senalizacion |
-| `8010` | Contacto interruptor NA-NC | senalizacion |
-| `8011` | Contacto interruptor conmutado | senalizacion |
+| `8002` | Contacto pulsador NA-NC | mando |
+| `8003` | Contacto pulsador conmutado | mando |
+| `8004` | Contacto pulsador seta NA | mando |
+| `8005` | Contacto pulsador seta NC | mando |
+| `8006` | Contacto pulsador seta NA-NC | mando |
+| `8007` | Contacto pulsador seta conmutado | mando |
+| `8008` | Contacto interruptor NA | mando |
+| `8009` | Contacto interruptor NC | mando |
+| `8010` | Contacto interruptor NA-NC | mando |
+| `8011` | Contacto interruptor conmutado | mando |
 | `8012` | Contacto final de carrera NA | mando |
 | `8013` | Contacto final de carrera NC | mando |
-| `8014` | Contacto final de carrera NA-NC | senalizacion |
-| `8015` | Contacto final de carrera conmutado | senalizacion |
+| `8014` | Contacto final de carrera NA-NC | mando |
+| `8015` | Contacto final de carrera conmutado | mando |
 | `8100` | Pulsador | senalizacion |
 | `8101` | Piloto | senalizacion |
+| `8102` | Botonera | senalizacion |
 | `8103` | LED | senalizacion |
 | `9000` | Bobina monoestable | mando |
 | `9001` | Bobina biestable | mando |
@@ -212,7 +215,6 @@
 | `9006` | Temporizador a la conexión desconexión | mando |
 | `9007` | Temporizador intermitente | mando |
 | `9008` | Señalización óptica | senalizacion |
-| `9008` | Señalización óptica | senalizacion |
 | `9009` | Señalización óptica intermitente | senalizacion |
 | `9010` | Timbre | senalizacion |
 | `9011` | Zumbador | senalizacion |
@@ -220,6 +222,16 @@
 | `9013` | Bocina | senalizacion |
 | `10050` | Contacto NA | mando |
 | `10051` | Contacto NC | mando |
+| `10500` | Actuador de simple efecto | neumatico |
+| `10502` | Actuador sin vástago | neumatico |
+| `10503` | Actuador sin vástago magnético | neumatico |
+| `10504` | Actuador de doble efecto | neumatico |
+| `10505` | Pinza neumática simple efecto | neumatico |
+| `10506` | Pinza neumática | neumatico |
+| `10507` | Ventosa | neumatico |
+| `10508` | Motor neumático | neumatico |
+| `10509` | Motor neumático reversible | neumatico |
+| `10550` | Actuador lineal eléctrico | neumatico |
 
 ## Extras del proyecto, no están en CADe_SIMU (3)
 
@@ -227,8 +239,4 @@
 |---|---|---|
 | `8016` | Lámpara de señalización | mando |
 | `8017` | Contacto del térmico | mando |
-| `8018` | Contacto auxiliar NC doble | mando |
-
-## Extras importados de QElectroTech (0)
-
-- (ninguno)
+| `8018` | Conmutador de dos posiciones | mando |

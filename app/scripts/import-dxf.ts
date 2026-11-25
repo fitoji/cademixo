@@ -10,7 +10,7 @@
  *
  * Qué NO hace: no define bornes. Los bornes siguen siendo los del código de
  * CADe_SIMU (el registro los guarda y el CAD los espera así); acá sólo se
- * reemplaza el dibujo. Es la misma regla que `qet-adapter.ts`.
+ * reemplaza el dibujo.
  *
  * El mapa es curado: cada entrada fija el rótulo esperado y su posición en la
  * hoja, así el recorte no depende de adivinar por nombre repetido.

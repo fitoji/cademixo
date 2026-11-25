@@ -219,7 +219,7 @@ test('pulsadores y bobina redibujados usan la caja medida en archivos reales', (
   for (const [code, top, bottom] of expected) {
     const sym = symbolFor(code);
     assert.ok(sym, `${code} debe tener símbolo propio`);
-    assert.ok(sym.size, `${code} debe declarar caja (para que QET no lo pise)`);
+    assert.ok(sym.size, `${code} debe declarar caja: es la grilla de conexión`);
     assert.deepEqual(sym.pins.map((p) => p.name), [top, bottom], `${code}`);
     assert.equal(sym.pins[0]!.nx * sym.size.w, 0, `${code}: bornes sobre el borde izquierdo`);
     const y = sym.pins.map((p) => p.ny * sym.size!.h);
