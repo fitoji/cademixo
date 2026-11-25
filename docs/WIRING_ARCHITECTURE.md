@@ -1,6 +1,6 @@
 # Propuesta de arquitectura: sistema moderno de cableado
 
-**Proyecto:** [fitoji/rea-ing-inversa](https://github.com/fitoji/rea-ing-inversa)  
+**Proyecto:** [fitoji/cademixo](https://github.com/fitoji/cademixo)  
 **Estado:** propuesta de diseño, pendiente de contrastar con todos los archivos fuente  
 **Fecha:** 2026-11-12
 
@@ -259,7 +259,7 @@ function applyWiringTransaction(
 
 ## Referencias
 
-- Repositorio: https://github.com/fitoji/rea-ing-inversa
+- Repositorio: https://github.com/fitoji/cademixo
 - React Flow: https://reactflow.dev/
 - JointJS routers: https://docs.jointjs.com/api/routers/
 

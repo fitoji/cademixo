@@ -2,6 +2,8 @@
 
 `rea-ing-inversa.json` es el export de la memoria de Engram **de este proyecto**: sesiones, observaciones y prompts. Se versiona para que el conocimiento del proyecto viaje con el repo y no dependa de una máquina.
 
+> **Nombre legacy:** el repo ahora se llama `cademixo` (antes `rea-ing-inversa`), pero la key de proyecto en Engram sigue siendo `rea-ing-inversa`: cambiarla dejaría inaccesibles las ~60 observaciones guardadas bajo esa key. Por eso el archivo y el flag `--project` conservan el nombre viejo.
+
 ## Cómo regenerarlo
 
 Desde la raíz del repositorio:

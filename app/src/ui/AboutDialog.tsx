@@ -16,8 +16,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-const REPOSITORY = 'https://github.com/fitoji/rea-ing-inversa';
-const REPOSITORY_LABEL = 'github.com/fitoji/rea-ing-inversa';
+const REPOSITORY = 'https://github.com/fitoji/cademixo';
+const REPOSITORY_LABEL = 'github.com/fitoji/cademixo';
 
 /**
  * Marca de GitHub (trazado de Simple Icons, CC0): lucide no incluye logos de
