@@ -68,7 +68,7 @@ import {
 } from '../editor/state.ts';
 import { buildNetwork, validate } from '../editor/network.ts';
 import { parseTitleBlock } from '../model/title-block.ts';
-import { titleBlockLayout } from '../model/title-block-layout.ts';
+import { DEFAULT_VISIBLE_ROWS, titleBlockLayout } from '../model/title-block-layout.ts';
 import { apparatusKey, boundsOf, roundTrips } from '../model/project.ts';
 import {
   SIMULATION_TICK_MS,
@@ -240,6 +240,8 @@ export function App(): JSX.Element {
   const [sheetFitToken, setSheetFitToken] = useState(0);
   /** Oculta la capa dibujada sin tocar el documento: es una preferencia de vista. */
   const [titleBlockHidden, setTitleBlockHidden] = useState(false);
+  /** Filas del cajetín encendidas en la sesión; sin valor, las de `DEFAULT_VISIBLE_ROWS`. */
+  const [rowVisibility, setRowVisibility] = useState<boolean[] | null>(null);
   const [zoom, setZoom] = useState(4);
   const [mode, setMode] = useState<Mode>(readMode);
   const [styleMode, setStyleMode] = useState<StyleMode>(readStyle);
@@ -441,6 +443,7 @@ export function App(): JSX.Element {
       const mode = options.mode ?? 'cade';
       const hash = drawingHash(text);
       setState(createEditor(text));
+      setRowVisibility(null);
       setFileName(name);
       setDocumentMode(mode);
       if (options.bindings) {
@@ -877,8 +880,12 @@ export function App(): JSX.Element {
    * documento (incluido el trailer editado desde `Editar → Cajetín`).
    */
   const titleLayout = useMemo(
-    () => titleBlockLayout(state ? parseTitleBlock(state.text) : null),
-    [state],
+    () =>
+      titleBlockLayout(
+        state ? parseTitleBlock(state.text) : null,
+        rowVisibility ?? DEFAULT_VISIBLE_ROWS,
+      ),
+    [state, rowVisibility],
   );
 
   const network = useMemo(() => buildNetwork(project?.records ?? []), [project]);
@@ -2211,8 +2218,12 @@ export function App(): JSX.Element {
         open={titleBlockOpen}
         onOpenChange={setTitleBlockOpen}
         text={state?.text ?? ''}
+        visibility={rowVisibility ?? DEFAULT_VISIBLE_ROWS}
         disabled={running}
-        onApply={(next) => setState((s) => (s ? setTitleBlock(s, next) : s))}
+        onApply={(next, visibility) => {
+          setRowVisibility(visibility);
+          setState((s) => (s ? setTitleBlock(s, next) : s));
+        }}
       />
 
       <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />

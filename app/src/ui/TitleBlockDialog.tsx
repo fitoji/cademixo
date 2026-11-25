@@ -71,13 +71,16 @@ export function TitleBlockDialog({
   open,
   onOpenChange,
   text,
+  visibility: visibleRows,
   onApply,
   disabled = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   text: string;
-  onApply: (nextText: string) => void;
+  /** Filas encendidas en la sesión. */
+  visibility: readonly boolean[];
+  onApply: (nextText: string, visibility: boolean[]) => void;
   disabled?: boolean;
 }): JSX.Element {
   const [values, setValues] = useState<string[]>([]);
@@ -93,7 +96,7 @@ export function TitleBlockDialog({
     setAvailable(block !== null);
     setValues(block ? block.fields.map((field) => field.value.trimEnd()) : []);
     setWidths(block ? block.fields.map((field) => field.width) : [...FIELD_WIDTHS]);
-    setVisibility(block ? block.visibility : ROWS.map(() => true));
+    setVisibility([...visibleRows]);
     setAlignment(
       block
         ? (block.alignment.map((n) => (n === 2 ? 2 : n === 1 ? 1 : 0)) as Alignment[])
@@ -134,7 +137,7 @@ export function TitleBlockDialog({
       align[i] = value;
     });
     next = withTitleFlags(next, { visibility: vis, alignment: align });
-    if (next !== text) onApply(next);
+    onApply(next, visibility);
     onOpenChange(false);
   };
 

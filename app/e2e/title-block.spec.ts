@@ -32,11 +32,12 @@ test('el cajetín se dibuja sobre la hoja y sigue al diálogo', async ({ page })
 
   const block = page.locator('.title-block');
   await expect(block).toHaveCount(1);
-  for (const text of ['DIB1', 'EMPRESA', 'TITULO', 'Dibujado', 'Entidad', 'Archivo']) {
+  // Al abrir se dibujan tres filas, como en la vista previa de CADe.
+  for (const text of ['DIB1', 'COM1', 'EMPRESA', 'Dibujado', 'Comprobado', 'Entidad']) {
     await expect(block.getByText(text, { exact: true })).toHaveCount(1);
   }
-  // El fixture trae «Comprobado» oculto en sus flags: no se dibuja.
-  await expect(block.getByText('Comprobado', { exact: true })).toHaveCount(0);
+  await expect(block.getByText('Archivo', { exact: true })).toHaveCount(0);
+  await expect(block.getByText('TITULO', { exact: true })).toHaveCount(0);
 
   // «Encuadrar hoja» deja la página entera dentro del lienzo.
   await page.getByRole('menuitem', { name: 'Ver' }).click();
@@ -56,11 +57,12 @@ test('el cajetín se dibuja sobre la hoja y sigue al diálogo', async ({ page })
   await page.getByRole('menuitem', { name: 'Cajetín' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox', { name: 'Título' }).fill('PLANO NUEVO');
-  await dialog.getByRole('checkbox', { name: 'Mostrar Comprobado' }).check();
+  await dialog.getByRole('checkbox', { name: 'Mostrar Título' }).check();
+  await dialog.getByRole('checkbox', { name: 'Mostrar Archivo' }).check();
   await dialog.getByRole('button', { name: 'Aceptar' }).click();
   await expect(block.getByText('PLANO NUEVO', { exact: true })).toHaveCount(1);
-  await expect(block.getByText('Comprobado', { exact: true })).toHaveCount(1);
-  await expect(block.getByText('COM1', { exact: true })).toHaveCount(1);
+  await expect(block.getByText('Archivo', { exact: true })).toHaveCount(1);
+  await expect(block.getByText('pr1.cadARCH20', { exact: true })).toHaveCount(1);
 });
 
 test('«Mostrar cajetín» de Configuración del proyecto apaga la capa sin ensuciar el documento', async ({ page }) => {

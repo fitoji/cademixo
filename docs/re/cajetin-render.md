@@ -155,11 +155,13 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null;
   densidad el contenido es ilegible en pantalla. El ancho nominal duplicado (414) no entra
   en la hoja de 279, así que el bloque toma todo el ancho del marco interior (259) y crece
   en alto: `259 × 84`.
-- **Visibilidad**: `block.visibility[row]` decide si la fila se dibuja. Una fila oculta no
-  emite celdas ni rótulo, y el bloque se acorta desde arriba contra el borde inferior del
-  marco. Es lo que hace que el check «Mostrar» del diálogo actúe sobre el dibujo.
-- El fixture `cajetin-probe.cad` trae `visibility[1] = 0` (Comprobado oculto): los tests de
-  geometría corren con las siete filas visibles.
+- **Visibilidad**: la decide la sesión (`titleBlockLayout(block, visibility)`), no el
+  archivo. Arranca con las **tres primeras filas** —lo que muestra la vista previa de CADe—
+  y el check «Mostrar» del diálogo prende el resto en el acto, guardándolo además en el
+  trailer. Una fila apagada no emite celdas ni rótulo y el bloque se acorta desde arriba
+  contra el borde inferior del marco.
+- Los flags del trailer **no se leen al abrir**: CADe los escribe y nunca los vuelve a
+  leer. Si se leyeran, `motor_con_inversion_giro.cad` (`0110000`) dibujaría 2 filas de 7.
 - Rótulos de fila: Dibujado, Comprobado, Entidad, Título, Fecha, Número, Archivo.
 - Encabezados de columna en las filas de dos campos: `Fecha`/`Nombre` en las firmas y
   `Hoja`/`Total` en la numeración (es el `"%s de %s"` del binario).
@@ -229,10 +231,10 @@ El ancho del cajetín 2 medido en el dibujante es **207 unidades**, con division
 **259 × 84** a **207 × 42** y se ancló abajo a la izquierda con 3 unidades de margen.
 
 **Detalle importante**: en estos fixtures los 14 flags están en `1`, pero CADe no los lee al abrir
-(son de sólo escritura) y muestra su estado interno: sólo Dibujado y Comprobado visibles, o sea 3
-filas. Nuestro editor sí respeta los flags del archivo y dibuja las 7 filas, así que el bloque es más
-alto que en CADe aunque tenga la misma anchura. Esa desviación está documentada en
-`docs/reportes/informe-cajetin-ocultamiento-y-guardado.md`.
+(son de sólo escritura) y muestra su estado interno: tres filas. Nuestro editor arranca igual, con
+las tres primeras, y desde `Editar → Cajetín` se prenden las demás: al crecer hacia arriba, un
+bloque de siete filas (42 unidades) entra en la banda que ocupa el dibujo en estos fixtures y se
+superpone, aunque siempre **debajo** de los componentes.
 
 El cajetín 1 **sí está implementado**, medido en `app/test/fixtures/cajetin1-medido.cad` (A4H):
 bloque de **207 × 36** abajo a la derecha (origen `69,171`), con filas `6/6/6/9/9` y columnas

@@ -174,6 +174,13 @@ function cajetin1Layout(values: string[], alignOfRow: (row: number) => 0 | 1 | 2
   };
 }
 
+/**
+ * Filas encendidas al abrir un documento: las tres primeras, que es lo que
+ * muestra la vista previa de CADe. El resto se prende desde `Editar → Cajetín`
+ * y ahí el bloque crece hacia arriba, encima del dibujo si hace falta.
+ */
+export const DEFAULT_VISIBLE_ROWS: readonly boolean[] = [true, true, true, false, false, false, false];
+
 /** Rótulo de cada fila, en el orden del diálogo `Editar → Cajetín`. */
 const ROW_LABELS = [
   'Dibujado',
@@ -233,7 +240,10 @@ function rectLines(x: number, y: number, w: number, h: number, weight: 1 | 2): L
  * Devuelve `null` sin trailer, con cajetín distinto del 2 y con un formato que
  * no sea A4 horizontal: sólo esa combinación está medida.
  */
-export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
+export function titleBlockLayout(
+  block: TitleBlock | null,
+  visibility?: readonly boolean[],
+): SheetLayout | null {
   if (!block) return null;
   const cajetin = titleCajetin(block);
   if (cajetin !== 1 && cajetin !== 2) return null;
@@ -252,10 +262,11 @@ export function titleBlockLayout(block: TitleBlock | null): SheetLayout | null {
   const contorno = titleContorno(block);
   const referenciado = titleReferenciado(block);
 
-  // Las filas ocultas desde `Editar → Cajetín` no se dibujan y el bloque se
-  // acorta: la caja queda anclada al borde inferior del marco.
+  // Las filas apagadas no se dibujan y el bloque se acorta: la caja queda
+  // anclada al borde inferior del marco. La visibilidad viene de la sesión y no
+  // de los flags del trailer, que CADe escribe y nunca vuelve a leer.
   const rows = ROW_FIELDS.map((fields, row) => ({ fields, row })).filter(
-    ({ row }) => block.visibility[row] !== false,
+    ({ row }) => visibility?.[row] !== false,
   );
 
   const blockWidth = TITLE_LAYOUT.widthFor(width);
