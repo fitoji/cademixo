@@ -5,7 +5,7 @@
  * visibilidad del cajetín; cuando se muevan acá el formato de hoja, el tipo de
  * cajetín y el contorno, van en el mismo `FieldSet`.
  *
- * Aplica en el acto, igual que `SettingsDialog`: no hay Aceptar/Cancelar.
+ * Aplica en el acto, igual que el cajón de `Ver → Configuración…`: no hay Aceptar/Cancelar.
  */
 
 import type { JSX } from 'react';

@@ -166,7 +166,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Resizable, ResizableHandle, ResizablePanel, layoutStorage } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/sonner';
 import { AboutDialog } from './AboutDialog.tsx';
-import { SettingsDialog } from './SettingsDialog.tsx';
+import { SettingsDrawer } from './SettingsDrawer.tsx';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog.tsx';
 import { TitleBlockDialog } from './TitleBlockDialog.tsx';
 import { ShortcutsDialog } from './ShortcutsDialog.tsx';
@@ -2211,7 +2211,7 @@ export function App(): JSX.Element {
         onApply={(next) => setState((s) => (s ? setTitleBlock(s, next) : s))}
       />
 
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsDrawer open={settingsOpen} onOpenChange={setSettingsOpen} />
       <ProjectSettingsDialog
         open={projectSettingsOpen}
         onOpenChange={setProjectSettingsOpen}
