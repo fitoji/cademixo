@@ -36,7 +36,7 @@ const GROUP_LABEL: Record<SymbolGroup, string> = {
   otro: 'Otros',
 };
 
-import { GROUP_ORDER } from './palette-order.ts';
+import { GROUP_ORDER, groupSymbols } from './palette-order.ts';
 
 /** Tono por familia: pinta las miniaturas, no el esquema. */
 const GROUP_TONE: Record<SymbolGroup, string> = {
@@ -90,12 +90,7 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
   const available = [...symbolList(), ...lineList()].filter(
     (sym) => scope === 'all' || CATALOG[sym.code] !== undefined,
   );
-  const byGroup = new Map<SymbolGroup, typeof available>();
-  for (const sym of available) {
-    const list = byGroup.get(sym.group) ?? [];
-    list.push(sym);
-    byGroup.set(sym.group, list);
-  }
+  const byGroup = groupSymbols(available);
   // Categorías plegadas: con el catálogo completo la lista no entra de una vista.
   // El mismo estado sirve a las dos orientaciones; arrancan todas plegadas.
   const [openCats, setOpenCats] = useState<string[]>([]);
