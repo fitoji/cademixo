@@ -8,6 +8,7 @@
     "preview": "pnpm --filter electro-simulador preview",
     "test": "pnpm --filter electro-simulador test",
   "bench": "pnpm --filter electro-simulador bench",
+  "bench:query": "pnpm --filter electro-simulador bench:query",
   "trace": "pnpm --filter electro-simulador trace",
   "test:e2e": "pnpm --filter electro-simulador test:e2e",
     "report": "pnpm --filter electro-simulador report",
