@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 26)
+**Fecha:** 2026-11-26 (revisión 27)
 **Rama:** `astra-perfo`
-**Tipo:** pasada diagnóstica del gesto de trazado (marcas de punta a punta).
+**Tipo:** A/B de la capa transitoria con la métrica correcta.
 
-> **Revisión 26.** Marca entrada, `routeOrthogonal` y actualización del fantasma en el DOM: la espera está **antes** de actualizar el SVG (ruta ~7 ms, `pointermove` → DOM 144–200 ms). Además, movimientos que no cambian la ruta igual la recalculan por identidad del hover. Sin cambios de renderer. Ver 2.w.
+> **Revisión 27.** Corrige el emparejamiento de la rev. 26: `pointermove` → DOM del fantasma es ~10,6 ms, no 144–200 ms. Con esa métrica, la capa transitoria **sí mejora** (10,6 → 7,3–9,2 ms de mediana) y **se mantiene**. Además, la fase B confirma coordenadas efectivas repetidas. Ver 2.x.
 
 ## Resumen ejecutivo
 
@@ -588,6 +588,23 @@ El test de goldens baja de 1.054 a 93 ms con las mismas rutas.
 
 `buildBoxIndex` sigue afuera. El renderer no se tocó.
 
+### 2.x Capa transitoria: A/B con la métrica correcta
+
+**Corrección de método:** la rev. 26 informó 144–200 ms porque emparejaba las mutaciones con las llamadas a la ruta **por índice**. Emparejando cada mutación con el `pointermove` inmediatamente anterior, la respuesta del fantasma es **~10,6 ms**; los 144–200 ms eran el intervalo entre movimientos.
+
+**A/B intercalado en producción** (misma trayectoria, 2 trazas por lado; métrica principal `pointermove` → mutación de `d`; p95 de cuadro como control):
+
+| Lado | Mediana (ms) | p95 (ms) | p95 de cuadro | Movimientos sin actualizar el fantasma |
+|---|---|---|---|---|
+| Sin split | 10,6 / 10,6 | 13,3 / 13,6 | 50,1 / 50,0 | 1 de 7 (fase A) |
+| **Con split** | **9,2 / 7,3** | **12,1 / 10,6** | 50,0 / 50,0 | 1 de 7 |
+
+**Resultado:** la separación baja de forma **consistente** el tiempo que tarda el cable en responder al puntero (~10,6 → 7,3–9,2 ms de mediana; p95 13,5 → 10,6–12,1), sin cambiar el p95 de cuadro. **Se mantiene.**
+
+**Fase B (pasos de 0,3 px):** 6 movimientos, **6 recálculos de ruta**, pero **una sola ruta efectiva única** (`from,to` idénticos en las 6 llamadas) y 0 mutaciones de `d`. Confirma que las **coordenadas efectivas se repiten**; el criterio para el cambio de igualdad de hover es **cero recálculos para el mismo objetivo**, sin alterar el snap ni la ruta confirmada. Queda como cambio separado.
+
+**Nota:** el p95 de cuadro sigue en 50 ms con y sin split; la mejora es de latencia de respuesta, no de cadencia.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -662,8 +679,9 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 14. **Router indexado** (ver 2.t): rutas idénticas y costo por ruta 195,5/762,6 → 9,7/10,0 ms; p95 del gesto 150–167 → 50–67 ms con los mismos 8 recálculos.
 15. **Re-perfil del trazado** (ver 2.u): el router ya no es el cuello (62 ms propios). Queda React/nativo.
 16. **Capa transitoria: probada y revertida** (ver 2.v). Cero recorridos de escena, misma ruta, pero el p95 no mejora (50 → 50 ms).
-17. **Marcas de punta a punta** (ver 2.w): la espera está **antes** del SVG (ruta ~7 ms vs 144–200 ms hasta el DOM). El memo del fantasma se invalida por identidad del `hover` y produce recálculos redundantes.
-18. **Próximos pasos medibles:** repetir el A/B de la capa transitoria con `pointermove` → DOM; y evitar el recálculo por valor. `buildBoxIndex` y el renderer siguen afuera.
+17. **Marcas de punta a punta** (ver 2.w): con el emparejamiento corregido, `pointermove` → DOM del fantasma es ~10,6 ms (la rev. 26 había emparejado por índice). El memo del fantasma se invalida por identidad del `hover`.
+18. **Capa transitoria: mantenida con la métrica correcta** (ver 2.x). Mediana 10,6 → 7,3–9,2 ms; p95 13,5 → 10,6–12,1; p95 de cuadro sin cambios.
+19. **Igualdad de hover:** fase B confirma coordenadas efectivas repetidas (6 llamadas, 1 ruta única). Próximo cambio separado, con criterio de cero recálculos para el mismo objetivo.
 
 ## 8. Los gates de performance existentes
 
@@ -712,6 +730,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 27 (2026-11-26).** A/B de la capa transitoria con la métrica correcta:
+  - Se corrige el emparejamiento de la rev. 26: `pointermove` → DOM del fantasma ~10,6 ms (los 144–200 ms eran el intervalo entre movimientos por emparejar por índice).
+  - Con split: mediana 7,3–9,2 ms y p95 10,6–12,1 vs 10,6 y 13,3–13,6; p95 de cuadro igual (50) → se mantiene.
+  - Fase B: 6 llamadas con 1 ruta efectiva única → habilita la igualdad de hover con cero recálculos. Baseline en `preview-prod-transient-split-v2.json`.
+- **Revisión 26 (2026-11-26).** Marcas de punta a punta del trazado (entrada, router, DOM del fantasma) y comparación objetivo que cambia vs que no. La conclusión de latencia de esa revisión quedó corregida en la 27.
 - **Revisión 25 (2026-11-26).** Capa transitoria probada y revertida:
   - Cuatro capas memoizadas (escena, marcador, tiradores/marcas, fantasma/marquee) con el mismo orden visual.
   - A/B: p95 50,0 vs 50,0–50,1 ms; 0 recorridos de escena y misma ruta.

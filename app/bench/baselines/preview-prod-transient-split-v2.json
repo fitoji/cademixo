@@ -1,0 +1,16 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "blocks": 228 },
+  "gesture": "wirediag: A pasos de 10 px (objetivo cambia), B pasos de 0.3 px (misma ruta)",
+  "metric": "pointermove -> mutacion de d del fantasma, emparejando cada mutacion con el pointermove inmediatamente anterior; movimientos sin actualizacion contados aparte. p95 de cuadro como control.",
+  "controlSinSplit": [
+    { "phase": "A", "moves": 7, "routeCalls": 6, "uniqueEffectiveRoutes": 6, "ghostUpdates": 6, "movesWithoutUpdate": 1, "moveToGhostMedian": 10.6, "moveToGhostP95": 13.3, "frameP95": 50.1 },
+    { "phase": "B", "moves": 6, "routeCalls": 6, "uniqueEffectiveRoutes": 1, "ghostUpdates": 0, "movesWithoutUpdate": 6, "moveToGhostMedian": null, "moveToGhostP95": null, "frameP95": 33.3 }
+  ],
+  "conSplit": [
+    { "phase": "A", "moves": 7, "routeCalls": 6, "uniqueEffectiveRoutes": 6, "ghostUpdates": 6, "movesWithoutUpdate": 1, "moveToGhostMedian": 9.2, "moveToGhostP95": 12.1, "frameP95": 50.0 },
+    { "phase": "B", "moves": 6, "routeCalls": 6, "uniqueEffectiveRoutes": 1, "ghostUpdates": 0, "movesWithoutUpdate": 6, "moveToGhostMedian": null, "moveToGhostP95": null, "frameP95": 33.3 }
+  ],
+  "correction": "La rev. 26 informo 144-200 ms porque emparejaba por indice. Con el emparejamiento correcto (mutacion -> pointermove anterior) la respuesta del fantasma es ~10,6 ms de mediana.",
+  "conclusion": "El split baja la latencia de respuesta del fantasma de forma consistente (~10,6 -> 7,3-9,2 ms de mediana; p95 13,5 -> 10,6-12,1) sin cambiar el p95 de cuadro. Se mantiene. En la fase B las coordenadas efectivas se repiten (6 llamadas, 1 ruta unica), lo que habilita el cambio de igualdad de hover con criterio de cero recalculos para el mismo objetivo."
+}
