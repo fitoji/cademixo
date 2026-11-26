@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 8)
+**Fecha:** 2026-11-26 (revisión 9)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + etapa 1 + traza dev/producción + preview por delta.
+**Tipo:** auditoría + benchmark + etapas 1-3 (delta y confirmación).
 
-> **Revisión 8.** Implementa el preview por delta para el gesto de mover, con los criterios de aceptación de la rev. 7: cero redes en `pointermove`, una sola edición al soltar, misma conectividad y deshacer, y comparación contra la línea base de producción. p95 al mover: 1.266,6 → 50,0 ms. Ver «Historial de correcciones».
+> **Revisión 9.** Comparte la red final del documento entre `App`, `validate` y `buildNetlist` (y por lo tanto `circuitFrom`), sin tocar las redes intermedias de `applyDrag`. Reconstrucciones por soltar: 6 → 4. A/B intercalado en producción: 3,34–3,61 s → 2,45–2,61 s. Ver «Historial de correcciones».
 
 ## Resumen ejecutivo
 
@@ -19,6 +19,7 @@
 8. **La premisa de escala sigue sin evidencia de uso real.** No hay conteo de registros por hoja en proyectos reales. El benchmark demuestra cuánto cuesta cada tamaño, no que esos tamaños existan.
 9. **Traza en navegador, dev y producción (9.577 registros cableados).** En producción el p95 del intervalo entre frames al mover es **1.266,6 ms** y la edición se confirma en el DOM a los **2,48–2,64 s**; en dev esos valores son 2.833 ms y 5,4–5,8 s. Al mover, `applyDrag` y la red dominan (React, 13 % en dev). Al soltar, **los cuatro consumidores reconstruyen red**: `applyDrag` 1,46 s, `circuitFrom` 1,13 s, `validate` 0,83 s y `buildNetwork` de `App` 0,60 s (inclusivo, dev). **Decisión: preview por delta para el movimiento; red compartida entre consumidores para la confirmación.**
 10. **Preview por delta implementado para mover.** `moveDelta` comparte la regla del commit como cálculo puro; el lienzo dibuja el delta sin tocar documento ni historial. En producción el p95 al mover baja de **1.266,6 a 50,0 ms** (−96 %) y soltar no regresa (2.446,7–2.528,8 ms). Ver 2.d.
+11. **Red final compartida en la confirmación.** `validate` y `buildNetlist` aceptan la red ya construida; `App` se la pasa junto con `circuitFrom`. Las redes intermedias de `applyDrag` **no** se comparten: una poda puede cambiarlas. Reconstrucciones por soltar: **6 → 4**; A/B intercalado en producción: **3,34–3,61 s → 2,45–2,61 s** (−26 %). Ver 2.e.
 
 ## 1. Alcance y método
 
@@ -136,13 +137,50 @@ Implementado para el gesto de **mover**, el que tiene línea base:
 | Mismo texto, conectividad y deshacer | Cumplido: hashes idénticos al estado previo para `move`, `bend`, `segment` y `vertex`; 915/915 pruebas |
 | Cancelación sin cambios ni historial | Cumplido: prueba de `Escape` durante el arrastre de componentes |
 | p95 al mover (producción, misma hoja y trayectoria) | **1.266,6 → 50,0 ms** (−96 %); media 160,9 → 21,2 ms |
-| Soltar (producción) | **2.446,7–2.528,8 ms** vs línea base 2.481,1–2.637,6 → sin regresión |
+| Soltar (producción) | **2.446,7–2.528,8 ms** en esa corrida; la ruta de confirmación no cambió con el delta. Comparaciones absolutas entre sesiones no son válidas (ver varianza en 2.e) |
 
 **Límites de este incremento:**
 
 - Sólo el gesto de mover. Arrastrar vértice, tramo o doblez sigue usando el preview por documento completo.
 - El preview usa los bornes de la hoja visible; en documentos de varias hojas, un cable de otra hoja con las mismas coordenadas no se previsualiza (el commit conserva el comportamiento actual).
 - Durante el gesto, los cables afectados se dibujan sin esquinas redondeadas: usan los extremos del delta.
+
+### 2.e Confirmación: red final compartida
+
+Cambio:
+
+- `validate(records, network?)` y `buildNetlist(records, network?)` aceptan una red ya construida para los **mismos registros y alcance**.
+- `circuitFrom` recibe `network` en sus opciones y lo pasa a `buildNetlist`.
+- `App` construye una red del proyecto y la pasa a los tres consumidores.
+- Las redes intermedias de `applyDrag` (podas) **no** se comparten: si una poda cambia los registros, esa red ya no representa el resultado final.
+
+Reconstrucciones completas por fase (contador `networkStats`, expuesto como `window.__networkStats` para la traza):
+
+| Fase | Antes | Después |
+|---|---|---|
+| Movimiento | 0 | 0 |
+| Soltar | 6 | 4 |
+
+Las dos que quedan fuera del conjunto compartido son las de `applyDrag` (antes y después de la poda) y la del lienzo, que reconstruye sobre los registros de la hoja.
+
+A/B de latencia en producción, intercalado en la misma sesión, misma hoja y trayectoria:
+
+| Lado | Corrida 1 | Corrida 2 | Redes |
+|---|---|---|---|
+| Antes | 3.415,3–3.545,5 ms | 3.337,8–3.606,8 ms | 6 |
+| Después | 2.512,8–2.610,3 ms | 2.452,4–2.574,0 ms | 4 |
+
+Medición aislada en Node, misma sesión, mediana de 5: **2.684 → 2.020 ms** (−25 %), 5 → 3 reconstrucciones.
+
+**Varianza:** el mismo código midió 2,45 s y 3,42 s en invocaciones distintas (hasta 40 %). Por eso el antes/después se corre **intercalado y back-to-back**; comparar contra corridas de otra sesión no es válido. Queda agregado a las trampas de medición.
+
+**Equivalencia exigida y verificada:**
+
+- Avisos: `validate(records, net)` devuelve los mismos hallazgos que `validate(records)` (`deepEqual`).
+- Conectividad: `buildNetlist(records, net)` devuelve el mismo netlist y `circuitFrom` el mismo circuito.
+- Sin reconstrucciones: los tres consumidores con red compartida no incrementan `networkStats`.
+- Un solo paso de deshacer: el commit sigue siendo único (prueba del controlador y traza).
+- 917/917 pruebas.
 
 ## 3. Verificación de las afirmaciones del plan
 
@@ -204,8 +242,8 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 
 1. **Etapa 0 — hecha.** Benchmark de estado (`pnpm bench`), traza en dev y **línea base de producción** (`app/bench/baselines/preview-prod.json`).
 2. **Etapa 1 — primer incremento hecho** (ver 2.b). Quedan pendientes los consumidores que todavía reconstruyen red por dentro (`validate`, `buildNetlist`) y el lienzo, que la reconstruye en cada preview.
-3. **Etapa 2 — preview por delta: hecho para mover** (ver 2.d). Siguiente: extender el mismo delta a vértice, tramo y doblez, midiendo cada gesto por separado.
-4. **Etapa 3 — confirmación por separado.** Compartir una red por versión y alcance del documento entre `applyDrag`, `App`, `validate` y `buildNetlist`, con el benchmark como vara. Es lo que queda para bajar el soltar (2,45–2,53 s en producción).
+3. **Etapa 2 — preview por delta: hecho para mover** (ver 2.d). Siguiente: extender el mismo delta a vértice, tramo y doblez, cada gesto con su propia línea base.
+4. **Etapa 3 — confirmación: primer incremento hecho** (ver 2.e). Compartir la red final bajó el soltar 26 %. Quedan las redes de `applyDrag` (podas) y la del lienzo: la próxima vara es decidir si conviene reutilizar la red de la poda cuando el texto no cambió, sin compartir las intermedias cuando sí cambió.
 5. **Etapa 4 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
 6. **Etapa 5 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
@@ -228,6 +266,7 @@ Para que las próximas mediciones no repitan los errores de las revisiones anter
 7. **Mirar sólo tiempo propio**: `validate` y `circuitFrom` parecían baratos (135 y 129 ms) porque delegan en `buildNetwork`/`attachPoints`; en inclusivo cuestan 829 y 1.129 ms. Todo consumidor del mismo primitivo se mide inclusivo.
 8. **Usar el `transform` del componente como señal de commit**: ya muestra el preview durante el arrastre. La señal correcta es que el gesto entre al historial («Deshacer» habilitado).
 9. **Elegir un componente fuera de pantalla o sin cables**: tras ajustar la hoja, el primer bloque puede quedar fuera de la vista. El generador expone un `traceId` de un bloque central y verifica por red que está conectado.
+10. **Comparar corridas de sesiones distintas**: el mismo build midió 2,45 s y 3,42 s al soltar (hasta 40 % de diferencia). Para decisiones, correr antes y después **intercalados** en la misma sesión.
 
 ## 10. Reproducibilidad
 
@@ -255,6 +294,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 9 (2026-11-26).** Red final compartida en la confirmación:
+  - `validate` y `buildNetlist` aceptan la red construida; `circuitFrom` la propaga; `App` pasa la suya. Las redes intermedias de `applyDrag` quedan fuera a propósito.
+  - Reconstrucciones por soltar 6 → 4; Node 2.684 → 2.020 ms; A/B intercalado en producción 3,34–3,61 s → 2,45–2,61 s.
+  - Equivalencia de avisos, netlist y circuito verificada por pruebas; 917/917.
+  - Se documenta la varianza entre sesiones (hasta 40 %) y la regla de medir intercalado. Baseline en `app/bench/baselines/preview-prod-confirm.json`.
 - **Revisión 8 (2026-11-26).** Preview por delta para mover:
   - `moveDelta` compartido por preview y commit; el lienzo no toca App durante `pointermove`.
   - Cero redes en el gesto (`red` 1,8 ms en el perfil dev), cero historial y cero escrituras.

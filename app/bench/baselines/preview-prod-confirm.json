@@ -1,0 +1,97 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": {
+    "records": 9577,
+    "components": 2736,
+    "cables": 6156,
+    "junctions": 456,
+    "blocks": 228,
+    "traceId": 4790
+  },
+  "view": {
+    "zoom": 2.755794095160401,
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "steps": 12,
+    "stepPx": 4
+  },
+  "move": {
+    "p95": 50,
+    "mean": 21.754508137603676,
+    "frames": [
+      97,
+      98,
+      96,
+      99,
+      98
+    ],
+    "builds": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "release": {
+    "domLatency": [
+      2547.699999988079,
+      2610.300000011921,
+      2588.800000011921,
+      2528.2999999821186,
+      2512.7999999821186
+    ],
+    "nextFrame": [
+      2612.399999976158,
+      2680.5999999940395,
+      2666.4000000059605,
+      2597.5,
+      2582.399999976158
+    ],
+    "builds": [
+      4,
+      4,
+      4,
+      4,
+      4
+    ]
+  },
+  "limits": [
+    "latencia hasta actualización de DOM, no presentación confirmada",
+    "p95 del intervalo entre callbacks de rAF",
+    "build de producción (minificado: sin atribución por función)"
+  ],
+  "ab": {
+    "before": {
+      "release": [
+        3415.3,
+        3510.3,
+        3463.9,
+        3469.1,
+        3545.5
+      ],
+      "builds": 6,
+      "runs": 2
+    },
+    "after": {
+      "release": [
+        2547.699999988079,
+        2610.300000011921,
+        2588.800000011921,
+        2528.2999999821186,
+        2512.7999999821186
+      ],
+      "builds": [
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "runs": 2
+    }
+  },
+  "note": "A/B intercalado en la misma sesión: el mismo código varió hasta 40% entre invocaciones, por eso el antes/después se corre back-to-back."
+}
