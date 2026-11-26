@@ -54,9 +54,9 @@ import type { Rotation } from '../model/transform.ts';
 import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY, type Network } from './network.ts';
 import { attachPoints, type Point } from './pins.ts';
 import { routeOrthogonal, type Box } from './wiring/router.ts';
-import { normalizeOrthogonal, projectOnSegment } from './wiring/geometry.ts';
+import { projectOnSegment } from './wiring/geometry.ts';
 import { pathPoints, wirePathsOf } from './wiring/types.ts';
-import { planVertexMove } from './wiring/preview-geometry.ts';
+import { planSegmentPolyline, planVertexMove } from './wiring/preview-geometry.ts';
 
 export type { Rotation };
 
@@ -1152,8 +1152,6 @@ function writePolyline(state: EditorState, segmentIds: number[], points: Point[]
   return commit(state, text, edit.ids);
 }
 
-const nearPoint = (a: Point, b: Point): boolean =>
-  Math.abs(a.x - b.x) < AXIS_TOL && Math.abs(a.y - b.y) < AXIS_TOL;
 
 /**
  * Raws de los `4001` que hacen falta donde un extremo cae en el INTERIOR de
@@ -1213,26 +1211,12 @@ export function moveSegment(state: EditorState, id: number, at: Point, to: Point
   const q = points[index + 1]!;
   if (!p || !q) return state;
 
-  const vertical = Math.abs(p.x - q.x) < AXIS_TOL;
-  const newValue = vertical ? to.x : to.y;
-  const oldValue = vertical ? p.x : p.y;
-  if (Math.abs(newValue - oldValue) < AXIS_TOL) return state;
-
+  // Mismo plan que usa el preview: preview y commit no pueden divergir.
+  const plan = planSegmentPolyline(points, index, to);
+  if (plan.kind === 'none') return state;
   // Tramo extremo: el borne no se mueve, se inserta un codo (S2).
-  if (index === 0 || index === points.length - 2) return bendCable(state, id, at, to, sheet);
-
-  const movedP = vertical ? { x: newValue, y: p.y } : { x: p.x, y: newValue };
-  const movedQ = vertical ? { x: newValue, y: q.y } : { x: q.x, y: newValue };
-  const out: Point[] = points.slice(0, index);
-  const a = points[index - 1]!;
-  const bendA = vertical ? { x: a.x, y: movedP.y } : { x: movedP.x, y: a.y };
-  if (!nearPoint(bendA, a) && !nearPoint(bendA, movedP)) out.push(bendA);
-  out.push(movedP, movedQ);
-  const b = points[index + 2]!;
-  const bendB = vertical ? { x: b.x, y: movedQ.y } : { x: movedQ.x, y: b.y };
-  if (!nearPoint(bendB, movedQ) && !nearPoint(bendB, b)) out.push(bendB);
-  out.push(...points.slice(index + 2));
-  return writePolyline(state, path.segmentIds, normalizeOrthogonal(out));
+  if (plan.kind === 'end') return bendCable(state, id, at, to, sheet);
+  return writePolyline(state, path.segmentIds, plan.points);
 }
 
 /** Inserta un tramo de cable entre dos puntos. */

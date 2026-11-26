@@ -9,8 +9,10 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { applyDrag, createEditor, projectOf, select } from '../src/editor/state.ts';
-import { bendPreviewLegs, isVertexPlanSafe, planVertexMove } from '../src/editor/wiring/preview-geometry.ts';
+import { bendPreviewLegs, isVertexPlanSafe, legsOf, planSegmentPolyline, planVertexMove } from '../src/editor/wiring/preview-geometry.ts';
 import { wirePoints, type WirePoints } from '../src/model/project.ts';
+import { buildNetwork, cableNumberOf } from '../src/editor/network.ts';
+import { pathPoints, wirePathsOf } from '../src/editor/wiring/types.ts';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const ARRANQUE = readFileSync(join(FIXTURES, 'arranque-paro-motor-3f.cad'), 'latin1');
@@ -120,4 +122,44 @@ test('el preview del vértice cubre los tramos que escribe el commit (incluye un
   assert.ok(checked > 0, 'algún vértice debe ejercitar el preview');
   assert.ok(multi > 0, 'debe cubrir un vértice compartido por varios tramos (unión T)');
   assert.ok(unsafe > 0 || checked > 0, 'los casos no seguros caen al preview por documento');
+});
+
+test('el preview del cable agrupado coincide con la polilínea completa que escribe el commit', () => {
+  const base = createEditor(ARRANQUE);
+  const project = projectOf(base);
+  const network = buildNetwork(project.records);
+  const grouped = wirePathsOf(network).find((path) => path.segmentIds.length >= 3);
+  assert.ok(grouped, 'el fixture debe tener una polilínea de varios tramos');
+
+  const points = pathPoints(network, grouped);
+  const index = 1; // tramo interior: el commit normaliza los vecinos
+  const id = grouped.segmentIds[index]!;
+  const source = project.records.find((r) => r.id === id)!;
+  const cable = cableNumberOf(source);
+  const p = points[index]!;
+  const q = points[index + 1]!;
+  const vertical = Math.abs(p.x - q.x) < 0.01;
+
+  let checked = 0;
+  for (const delta of [6, -6, 12]) {
+    const at = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+    const to = vertical ? { x: at.x + delta, y: at.y } : { x: at.x, y: at.y + delta };
+    const plan = planSegmentPolyline(points, index, to);
+    if (plan.kind !== 'polyline') continue;
+    const out = applyDrag(select(base, [id]), { kind: 'segment', id, at, to, sheet: 0 });
+    if (out.text === base.text) continue;
+
+    // Todo el cable, no sólo el tramo agarrado: la normalización toca vecinos.
+    const cableRecords = projectOf(out).records.filter(
+      (r) => r.kind === 'connection' && r.sheet === 0 && cableNumberOf(r) === cable,
+    );
+    const written = cableRecords.map((r) => wirePoints(r)).filter((x): x is WirePoints => x !== null);
+    assert.deepEqual(
+      written.map(sig).sort(),
+      legsOf(plan.points).map(sig).sort(),
+      `cable agrupado con delta ${delta}`,
+    );
+    checked += 1;
+  }
+  assert.ok(checked > 0, 'algún desplazamiento debe ejercitar la polilínea');
 });

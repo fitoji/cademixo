@@ -7,7 +7,8 @@ import { shapesBounds } from '../symbols/draw.ts';
 import { componentHitBox } from './hit-box.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
 import { moveDelta, type DragOp, type Rotation } from '../editor/state.ts';
-import { bendPreviewLegs, isVertexPlanSafe, planVertexMove } from '../editor/wiring/preview-geometry.ts';
+import { bendPreviewLegs, isVertexPlanSafe, legsOf, planSegmentPolyline, planVertexMove } from '../editor/wiring/preview-geometry.ts';
+import { pathPoints, wirePathsOf, type WirePath } from '../editor/wiring/types.ts';
 import { idle, startMarquee, startMove, startPan, startSegment, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
 import { attachPoints, type Point } from '../editor/pins.ts';
 import { buildNetwork, cableSegments } from '../editor/network.ts';
@@ -323,7 +324,11 @@ export function Canvas(props: Props): JSX.Element {
   const [movePreview, setMovePreview] = useState<{ dx: number; dy: number } | null>(null);
   // Preview del gesto de tramo: la polilínea que el commit va a escribir, sin
   // reconstruir el documento. Sólo para cables de un solo tramo.
-  const [wirePreview, setWirePreview] = useState<{ id: number; legs: WirePoints[] } | null>(null);
+  const [wirePreview, setWirePreview] = useState<{
+    ids: Set<number>;
+    legs: WirePoints[];
+    tone: ConductorTone;
+  } | null>(null);
   // Preview del gesto de vértice: tramos que el commit va a escribir. Puede
   // afectar varios registros (uniones T), así que se ocultan todos.
   const [vertexPreview, setVertexPreview] = useState<{
@@ -339,6 +344,13 @@ export function Canvas(props: Props): JSX.Element {
     [movePreview, records, pins, selection],
   );
   const network = useMemo(() => buildNetwork(records), [records]);
+  // Polilínea de cable por tramo, para previsualizar los agrupados.
+  const wirePathById = useMemo(() => {
+    const byId = new Map<number, WirePath>();
+    for (const path of wirePathsOf(network)) for (const id of path.segmentIds) byId.set(id, path);
+    return byId;
+  }, [network]);
+
   // Hoja que se está dibujando: los registros llegan recortados a esta página.
   const sheet = records[0]?.sheet ?? 0;
   // Bornes con identidad (componente + índice), para navegarlos con el teclado.
@@ -491,8 +503,32 @@ export function Canvas(props: Props): JSX.Element {
             const op = e.op;
             const rec = records.find((r) => r.id === op.id);
             const pts = rec ? wirePoints(rec) : null;
-            if (pts && cableSegments(network, op.id).length === 1) {
-              setWirePreview({ id: op.id, legs: bendPreviewLegs(pts, op.at, op.to) });
+            const group = cableSegments(network, op.id);
+            if (pts && rec && group.length === 1) {
+              setWirePreview({ ids: new Set([op.id]), legs: bendPreviewLegs(pts, op.at, op.to), tone: conductorToneOf(rec.code) });
+            } else if (pts && rec && group.length > 1) {
+              // Cable agrupado: se mueve el tramo y se normaliza toda la polilínea.
+              const path = wirePathById.get(op.id);
+              if (!path) {
+                setWirePreview(null);
+                onDragPreview(op);
+              } else {
+                const plan = planSegmentPolyline(pathPoints(network, path), path.segmentIds.indexOf(op.id), op.to);
+                if (plan.kind === 'polyline') {
+                  setWirePreview({
+                    ids: new Set(path.segmentIds),
+                    legs: legsOf(plan.points),
+                    tone: conductorToneOf(rec.code),
+                  });
+                } else if (plan.kind === 'none') {
+                  // Sin cambio: no se toca el documento ni se reconstruye.
+                  setWirePreview(null);
+                } else {
+                  // Extremo del cable agrupado: el commit usa bendCable.
+                  setWirePreview(null);
+                  onDragPreview(op);
+                }
+              }
             } else {
               setWirePreview(null);
               onDragPreview(e.op);
@@ -871,7 +907,7 @@ export function Canvas(props: Props): JSX.Element {
           {showTitleBlock && <TitleBlockLayer layout={titleLayout} />}
 
           {records.map((rec) => {
-            if (wirePreview !== null && rec.id === wirePreview.id) return null;
+            if (wirePreview !== null && wirePreview.ids.has(rec.id)) return null;
             if (vertexPreview !== null && vertexPreview.hidden.has(rec.id)) return null;
             if (rec.kind === 'connection')
               return (
@@ -919,7 +955,7 @@ export function Canvas(props: Props): JSX.Element {
           {wirePreview?.legs.map((leg, i) => (
             <path
               key={`wire-preview-${i}`}
-              className="wire"
+              className={`wire ${wirePreview.tone}`}
               d={`M${leg.x1} ${leg.y1}L${leg.x2} ${leg.y2}`}
             />
           ))}

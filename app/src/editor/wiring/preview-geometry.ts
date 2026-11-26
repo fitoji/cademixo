@@ -9,6 +9,7 @@
  */
 import type { Point } from '../pins.ts';
 import { wirePoints, type CadeRecordModel, type WirePoints } from '../../model/project.ts';
+import { normalizeOrthogonal } from './geometry.ts';
 
 const TOL = 0.01;
 
@@ -174,4 +175,51 @@ export function isVertexPlanSafe(records: readonly CadeRecordModel[], plan: Vert
     if (legs.some((leg) => collinearOverlap(leg, pts))) return false;
   }
   return true;
+}
+
+export type SegmentPlan =
+  | { kind: 'none' }
+  | { kind: 'end' }
+  | { kind: 'polyline'; points: Point[] };
+
+/**
+ * Plan puro de `moveSegment` para un tramo interior de la polilínea: mueve el
+ * tramo y normaliza los vecinos. `kind: 'end'` indica que el commit resuelve el
+ * extremo con `bendCable` y el gesto no se previsualiza.
+ */
+export function planSegmentPolyline(points: readonly Point[], index: number, to: Point): SegmentPlan {
+  const p = points[index];
+  const q = points[index + 1];
+  if (!p || !q) return { kind: 'none' };
+  const vertical = Math.abs(p.x - q.x) < TOL;
+  const newValue = vertical ? to.x : to.y;
+  const oldValue = vertical ? p.x : p.y;
+  if (Math.abs(newValue - oldValue) < TOL) return { kind: 'none' };
+  if (index === 0 || index === points.length - 2) return { kind: 'end' };
+
+  const movedP = vertical ? { x: newValue, y: p.y } : { x: p.x, y: newValue };
+  const movedQ = vertical ? { x: newValue, y: q.y } : { x: q.x, y: newValue };
+  const out: Point[] = points.slice(0, index);
+  const a = points[index - 1]!;
+  const bendA = vertical ? { x: a.x, y: movedP.y } : { x: movedP.x, y: a.y };
+  if (!same(bendA, a) && !same(bendA, movedP)) out.push(bendA);
+  out.push(movedP, movedQ);
+  const b = points[index + 2]!;
+  const bendB = vertical ? { x: b.x, y: movedQ.y } : { x: movedQ.x, y: b.y };
+  if (!same(bendB, movedQ) && !same(bendB, b)) out.push(bendB);
+  out.push(...points.slice(index + 2));
+
+  return { kind: 'polyline', points: normalizeOrthogonal(out) };
+}
+
+/** Tramos entre puntos consecutivos, sin nulos. */
+export function legsOf(points: readonly Point[]): WirePoints[] {
+  const legs: WirePoints[] = [];
+  for (let i = 0; i + 1 < points.length; i++) {
+    const a = points[i]!;
+    const b = points[i + 1]!;
+    if (same(a, b)) continue;
+    legs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+  }
+  return legs;
 }
