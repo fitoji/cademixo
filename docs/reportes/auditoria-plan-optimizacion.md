@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 30)
+**Fecha:** 2026-11-26 (revisión 31)
 **Rama:** `astra-perfo`
-**Tipo:** verificación de entrega de la rama.
+**Tipo:** publicación de la rama y PR.
 
-> **Revisión 30.** Verifica la rama contra `main` antes de integrar: 924/924 en unidad, pasada de producción con la hoja grande (`move` 33,3 · `pan` 33,3–33,4 · `wire` 50,0–50,1 ms) y E2E con los **mismos 3 fallos preexistentes**, confirmados en la base y documentados aparte. Corrige dos defectos de entrega (resumen de la traza de `pan` y registro ilimitado en `__routeTimes`). Ver 2.aa.
+> **Revisión 31.** Publica `astra-perfo` y abre el [PR #10](https://github.com/fitoji/cademixo/pull/10) contra `main`. La revisión de las cuatro lentes se preflighteó sobre `main..astra-perfo` (`review-4ccf84ba70dd6d8c`, sólo commits) y el consentimiento fue **declinado** para este candidato: no hay recibo de revisión y la compuerta no lo exigía (`medium / under_budget`). Ver 2.aa.
 
 ## Resumen ejecutivo
 
@@ -666,7 +666,9 @@ El test de goldens baja de 1.054 a 93 ms con las mismas rutas.
 1. La rama `pan` de la traza rompía en `zoom: view.zoom` después de escribir el JSON (`view` no existe en ese scope); el resumen ahora usa `zoom`.
 2. `routeOrthogonal` registraba cada llamada en `window.__routeTimes` y el arreglo crecía sin límite en producción. Ahora sólo registra si la traza instala el arreglo; sin diagnóstico no asigna ni crece. Verificado: `wirediag` sigue midiendo 6 recálculos en la fase A y 0 en la B.
 
-**Revisión:** el assess del rango `main..astra-perfo` da **medium / under_budget** (`review_due: false`): 48 archivos, 4.894 líneas. No hay recibo pendiente ni requerido por la compuerta. Sin push.
+**Revisión:** el assess del rango `main..astra-perfo` da **medium / under_budget** (`review_due: false`): 49 archivos, 5.007 líneas. La revisión voluntaria de las cuatro lentes se preflighteó sobre el rango congelado (`review-4ccf84ba70dd6d8c`, target `sha256:debc13…`, sólo commits, lentes `risk/resilience/readability/reliability`) y el consentimiento se **declinó** para este candidato: no se creó lineage, lentes ni recibo.
+
+**Publicación:** rama `astra-perfo` pusheada y [PR #10](https://github.com/fitoji/cademixo/pull/10) abierto contra `main`. El PR tiene 54 archivos: los 49 del cambio más los del commit `232a577` (rename), que estaba en la `main` local y todavía no en `origin/main`. El archivo ajeno `.agents/skills/composition-patterns/SKILL.md` quedó fuera (0 archivos de `.agents` en el PR).
 
 ## 3. Verificación de las afirmaciones del plan
 
@@ -746,7 +748,7 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 18. **Capa transitoria: mantenida con la métrica correcta** (ver 2.x). Mediana 10,6 → 7,3–9,2 ms; p95 13,5 → 10,6–12,1; p95 de cuadro sin cambios.
 19. **Igualdad de hover implementada** (ver 2.y): igualdad exacta del punto snapeado. Fase B: 6 → **0 recálculos** y p95 de cuadro 33,3 → **16,7 ms**. Fase A: mismos 6 objetivos y rutas efectivas idénticas; latencia al DOM sin cambio. Se mantiene.
 20. **Trazado cerrado** (ver 2.z). El índice no se puede cachear por documento: se construye sobre `blockers`, que excluye las cajas que tocan origen o destino. Los ~50 ms restantes requieren medir el trabajo de esos cuadros antes de suponer una causa.
-21. **Verificación de entrega** (ver 2.aa): 924/924; producción `move` 33,3 · `pan` 33,3–33,4 · `wire` 50,0–50,1 ms; E2E con los mismos 3 fallos preexistentes confirmados en `main`. Assess `medium / under_budget`, sin recibo requerido. Sin push.
+21. **Verificación de entrega** (ver 2.aa): 924/924; producción `move` 33,3 · `pan` 33,3–33,4 · `wire` 50,0–50,1 ms; E2E con los mismos 3 fallos preexistentes confirmados en `main`. Assess `medium / under_budget`; la revisión voluntaria de cuatro lentes se preflighteó y el consentimiento se declinó (sin recibo). Rama pusheada y [PR #10](https://github.com/fitoji/cademixo/pull/10) abierto.
 
 ## 8. Los gates de performance existentes
 
@@ -795,6 +797,9 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 31 (2026-11-26).** Publicación:
+  - `astra-perfo` pusheada; [PR #10](https://github.com/fitoji/cademixo/pull/10) contra `main`, 54 archivos, 0 de `.agents`.
+  - Revisión de cuatro lentes preflighteada (`review-4ccf84ba70dd6d8c`) y consentimiento declinado para el candidato: sin recibo, compuerta en `medium / under_budget`.
 - **Revisión 30 (2026-11-26).** Verificación de entrega:
   - 54 commits adelante de `main`, 0 atrás. Unidad 924/924 y build OK.
   - Producción: `move` 33,3 (5/5, 0 rebuilds), `pan` 33,3–33,4 (5/5), `wire` 50,0–50,1 con 8 recálculos (3/3).
