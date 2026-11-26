@@ -88,6 +88,7 @@ test.describe('traza del preview', () => {
       blocks: parsed.blocks,
       traceId: parsed.traceId,
       traceGroupedWireId: parsed.traceGroupedWireId,
+      traceGroupedEndWireId: parsed.traceGroupedEndWireId,
     };
     const text = readFileSync(sheetPath, 'latin1');
 
@@ -129,7 +130,7 @@ test.describe('traza del preview', () => {
     if (GESTURE === 'move') {
       read = () => transformOf(page, sheet.traceId);
     } else {
-      const wireTarget = WIRE_ID > 0 ? WIRE_ID : process.env.PREVIEW_TRACE_GROUPED ? sheet.traceGroupedWireId : 0;
+      const wireTarget = WIRE_ID > 0 ? WIRE_ID : process.env.PREVIEW_TRACE_END ? sheet.traceGroupedEndWireId : process.env.PREVIEW_TRACE_GROUPED ? sheet.traceGroupedWireId : 0;
       const wire = wireTarget > 0 ? await pickWireById(page, wireTarget) : await pickStraightWire(page);
       expect(wire, 'debe haber un cable recto visible').not.toBeNull();
       wireId = wire!.id;

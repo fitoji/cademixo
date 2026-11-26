@@ -34,6 +34,8 @@ export interface WiredSheet {
   traceId: number;
   /** Tramo interior de una polilínea agrupada real del bloque central. */
   traceGroupedWireId: number;
+  /** Tramo extremo de esa misma polilínea (el commit usa bendCable). */
+  traceGroupedEndWireId: number;
 }
 
 export function wiredSheetText(targetRecords: number): WiredSheet {
@@ -108,6 +110,7 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
   // el bloque central: es el caso que el preview por documento todavía cubre.
   const midX = Math.floor(blocks / 2) * BLOCK_GAP;
   let traceGroupedWireId = 0;
+  let traceGroupedEndWireId = 0;
   for (const path of wirePathsOf(network)) {
     if (path.segmentIds.length < 2) continue;
     const middle = path.segmentIds[Math.floor(path.segmentIds.length / 2)]!;
@@ -117,6 +120,7 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
     const cx = (pts.x1 + pts.x2) / 2;
     if (cx < midX || cx > midX + BLOCK_GAP) continue;
     traceGroupedWireId = middle;
+    traceGroupedEndWireId = path.segmentIds[0]!;
     break;
   }
   if (traceGroupedWireId === 0) {
@@ -132,5 +136,5 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
     throw new Error(`la hoja generada no tiene cableado: ${cables} cables, ${junctions} uniones`);
   }
 
-  return { text, records: check.records.length, components, cables, junctions, blocks, traceId, traceGroupedWireId };
+  return { text, records: check.records.length, components, cables, junctions, blocks, traceId, traceGroupedWireId, traceGroupedEndWireId };
 }
