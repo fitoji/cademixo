@@ -812,8 +812,15 @@ export function Canvas(props: Props): JSX.Element {
     // Marcador del objetivo magnético durante el dibujo y los arrastres de cable.
     if (wireStart) {
       const t = snapOf(world);
-      setHover(t.point);
-      setSnapMark(t.kind === 'grid' ? null : t.point);
+      // Igualdad exacta del punto ya snapeado: si x e y no cambian, se conserva
+      // el objeto anterior y la ruta no se recalcula. Sin tolerancias nuevas.
+      setHover((prev) => (prev !== null && prev.x === t.point.x && prev.y === t.point.y ? prev : t.point));
+      setSnapMark((prev) => {
+        const next = t.kind === 'grid' ? null : t.point;
+        if (prev === null && next === null) return prev;
+        if (prev !== null && next !== null && prev.x === next.x && prev.y === next.y) return prev;
+        return next;
+      });
     } else if (gesture.kind === 'vertex') {
       const t = snapOf(world, gesture.exclude);
       setSnapMark(t.kind === 'grid' ? null : t.point);
