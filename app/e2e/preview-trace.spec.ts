@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const APP = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RECORDS = Number(process.env.PREVIEW_TRACE_RECORDS ?? 9787);
-const GESTURE = (process.env.PREVIEW_TRACE_GESTURE ?? 'move') as 'move' | 'segment' | 'vertex';
+const GESTURE = (process.env.PREVIEW_TRACE_GESTURE ?? 'move') as 'move' | 'segment' | 'vertex' | 'pan' | 'wire';
 // Los gestos de cable se arrastran más lejos y en menos pasos: cada evento
 // reconstruye el documento hoy, y el snap devuelve un paso corto a un borne.
 const RUNS = Number(process.env.PREVIEW_TRACE_RUNS ?? 5);
@@ -295,6 +295,86 @@ test.describe('traza del preview', () => {
       }
       throw new Error('no se pudo deshacer con Meta+z ni Control+z');
     };
+
+    if (GESTURE === 'wire') {
+      // Trazado de cable con la paleta: "Cable fase" + dos clics.
+      await page.getByRole('button', { name: /líneas y cables/i }).click();
+      await page.getByRole('button', { name: 'Cable fase' }).click();
+
+      const wireRuns: Record<string, unknown>[] = [];
+      for (let run = -1; run < RUNS; run++) {
+        await page.evaluate(() => {
+          const t = (window as any).__trace;
+          t.loaf.length = 0;
+          t.startFrames();
+          (window as any).__routeStats.calls = 0;
+        });
+        const t0 = await page.evaluate(() => performance.now());
+        await page.mouse.click(startX, startY);
+        for (let s = 1; s <= STEPS; s++) {
+          await page.mouse.move(startX + s * STEP_PX, startY + s * STEP_PX * 0.6);
+        }
+        await page.mouse.click(startX + STEPS * STEP_PX, startY + STEPS * STEP_PX * 0.6);
+        const t1 = await page.evaluate(() => performance.now());
+        const raw = await page.evaluate(() => {
+          const t = (window as any).__trace;
+          return {
+            stamps: t.stopFrames() as number[],
+            loaf: t.loaf as any[],
+            calls: (window as any).__routeStats.calls as number,
+          };
+        });
+        if (run >= 0) {
+          const intervals = raw.stamps.slice(1).map((s, i) => s - raw.stamps[i]!);
+          wireRuns.push({
+            p95: pct(intervals, 0.95),
+            mean: intervals.reduce((a, b) => a + b, 0) / Math.max(1, intervals.length),
+            frames: intervals.length,
+            routeCalls: raw.calls,
+            wallMs: t1 - t0,
+          });
+        }
+        // Deshacer el cable para repetir desde el mismo estado.
+        for (const key of ['Meta+z', 'Control+z']) {
+          await page.keyboard.press(key);
+          try {
+            await page.waitForFunction(() => {
+              const undo = document.querySelector('button[aria-label="Deshacer"]') as HTMLButtonElement | null;
+              return undo === null || undo.disabled;
+            }, null, { timeout: 30_000 });
+            break;
+          } catch {
+            /* otra combinación */
+          }
+        }
+      }
+
+      let profileRows: Row[] = [];
+      if (PROFILE) {
+        const pressed = await page.getByRole('button', { name: 'Cable fase' }).getAttribute('aria-pressed');
+        if (pressed !== 'true') await page.getByRole('button', { name: 'Cable fase' }).click();
+        const cdp = await context.newCDPSession(page);
+        await cdp.send('Profiler.enable');
+        await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
+        await cdp.send('Profiler.start');
+        await page.mouse.click(startX, startY);
+        for (let s = 1; s <= STEPS; s++) await page.mouse.move(startX + s * STEP_PX, startY + s * STEP_PX * 0.6);
+        profileRows = selfTimes((await cdp.send('Profiler.stop')).profile);
+        await page.mouse.click(startX + STEPS * STEP_PX, startY + STEPS * STEP_PX * 0.6);
+      }
+
+      const result = {
+        gesture: 'wire',
+        sheet,
+        target: URL_OVERRIDE ?? 'dev (webServer)',
+        runs: wireRuns,
+        profile: PROFILE ? { rows: profileRows.slice(0, 18), bucket: bucket(profileRows) } : null,
+        limits: ['p95 del intervalo entre callbacks de rAF', 'routeCalls cuenta cálculos de routeOrthogonal', 'algoritmo vs render solo se separa en el perfil dev'],
+      };
+      writeFileSync(OUT, JSON.stringify(result, null, 2));
+      console.log(JSON.stringify({ out: OUT, gesture: 'wire', runs: wireRuns, bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
+      return;
+    }
 
     if (GESTURE === 'pan') {
       // Frecuencia real de pantalla en reposo (sin gesto).

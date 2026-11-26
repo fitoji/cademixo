@@ -114,7 +114,15 @@ class MinHeap {
 }
 
 /** Ruta ortogonal óptima según `longitud + λ·codos`. */
+/** Contador de cálculos de ruta. Lo lee el benchmark; no altera el resultado. */
+export const routeStats = { calls: 0 };
+
+if (typeof window !== 'undefined') {
+  (window as unknown as { __routeStats?: typeof routeStats }).__routeStats = routeStats;
+}
+
 export function routeOrthogonal(request: RouteRequest): RouteResult {
+  routeStats.calls += 1;
   const { from, to } = request;
   const padding = request.padding ?? 1;
   const bendPenalty = request.bendPenalty ?? 20;
