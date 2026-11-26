@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 14)
+**Fecha:** 2026-11-26 (revisión 15)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + deltas de mover, tramo, vértice y cables agrupados.
+**Tipo:** auditoría + benchmark + deltas + cierre del A/B del soltar del vértice.
 
-> **Revisión 14.** Extiende el delta a los **cables agrupados** (tramo interior) con la polilínea normalizada compartida entre preview y commit. Movimiento 933 → 50 ms y 12 → 0 reconstrucciones durante `pointermove`; soltar con las mismas 3 redes. Ver 2.j.
+> **Revisión 15.** Cierra el A/B del **soltar del vértice** alternando `d972fa4` y `6dd8929` en la misma sesión: no hay aumento consistente (medianas 3.403 vs 3.530 ms, +3,7 %, rangos solapados). Mide además el **tramo extremo** de un cable agrupado: 51 reconstrucciones y p95 ≈ 4 s. Ver 2.k y 2.l.
 
 ## Resumen ejecutivo
 
@@ -296,6 +296,34 @@ A/B con el mismo fixture y en la misma sesión:
 
 **Límites:** sólo tramo interior de cables agrupados. El tramo extremo y los planes de vértice con solapamiento colineal conservan el fallback.
 
+### 2.k Soltar del vértice: A/B cerrado
+
+**Método:** se alternaron en la misma sesión los builds de `d972fa4` (commit inmediatamente anterior al delta de vértice) y `6dd8929` (delta), con la misma hoja, vértice, zoom y trayectoria. 5 muestras por corrida, 3 corridas por lado (15 muestras por lado). Métrica principal: `pointerup` → DOM confirmado.
+
+**Criterio pre-fijado:** aumento relevante si la mediana del lado nuevo es ≥ 1,10 × la anterior **y** el mínimo del lado nuevo supera la mediana del anterior.
+
+| Lado | Muestras (ms) | Mediana | Redes al soltar |
+|---|---|---|---|
+| Antes (`d972fa4`) | 2.258–3.518 | 3.403 | 6 |
+| Después (`6dd8929`) | 2.371–3.635 | 3.530 | 6 |
+
+**Resultado:** +3,7 % de mediana, rangos completamente solapados. Ambos lados muestran **dos estados de rendimiento** (~2,3–2,5 s y ~3,4–3,6 s) sin correlación con el build. **El criterio pre-fijado no se cumple: no hay aumento consistente.** No se perfila la confirmación porque no hay una diferencia que explicar.
+
+**Confusor declarado:** el movimiento difiere entre builds (p95 2.633 ms antes vs 50 ms después), así que la carga de CPU previa al soltar no es la misma. Por eso se exigió una separación fuerte antes de hablar de regresión.
+
+### 2.l Tramo extremo de un cable agrupado: medición sin delta
+
+**Fixture:** `traceGroupedEndWireId` apunta al tramo extremo de la misma polilínea de 3 tramos. En Node se verifica que el gesto cambia el texto (`bendCable` inserta vértice y codo).
+
+**Producción** (`PREVIEW_TRACE_END=1`; sin delta: cae al preview por documento):
+
+| Corrida | p95 al mover | Redes al iniciar | Redes durante `pointermove` | Soltar | Redes al soltar |
+|---|---|---|---|---|---|
+| 1 | 4.016,5 ms | 1 | **51** | 5.154–5.475 ms | 10 |
+| 2 | 3.983,2 ms | 1 | **51** | 5.168–5.381 ms | 10 |
+
+Es el próximo bloqueo medido: 51 reconstrucciones por gesto, p95 ≈ 4 s y 10 redes al soltar. Extender el delta ahí sería un cambio separado; no se implementó.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -359,9 +387,10 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 3. **Etapa 2 — preview por delta: hecho para mover** (ver 2.d). Siguiente: extender el mismo delta a vértice, tramo y doblez, cada gesto con su propia línea base.
 4. **Etapa 3 — confirmación: dos incrementos hechos** (ver 2.e y 2.f). La red final compartida bajó el soltar 26 %; reutilizar la red de la poda llevó las reconstrucciones a 3 pero **sin mejora de latencia consistente**. Se detiene acá: no se justifica más complejidad en confirmación.
 5. **Etapa 4 — gestos de cable: deltas hechos.** Tramo, vértice y tramo interior de cables agrupados ya no reconstruyen red durante `pointermove`. Queda el tramo **extremo** de un cable agrupado, que sigue en `bendCable` con preview por documento.
-6. **Pendiente de medición:** el soltar del vértice subió de rango en la muestra del A/B; no se confirma ni descarta regresión. Medir con más repeticiones antes de darlo por cerrado, sin mezclarlo con el soltar de agrupados.
-7. **Etapa 5 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
-8. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
+6. **Soltar del vértice: cerrado sin regresión demostrada.** A/B alternado de 15 muestras por lado: mediana +3,7 %, rangos solapados; el criterio pre-fijado no se cumple (ver 2.k). Queda documentado, sin perfilar.
+7. **Tramo extremo agrupado:** medido (51 reconstrucciones, p95 ≈ 4 s, ver 2.l). Es el próximo candidato a delta, como cambio separado.
+8. **Etapa 5 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
+9. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
 ## 8. Los gates de performance existentes
 
@@ -410,6 +439,10 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 15 (2026-11-26).** Cierre del soltar del vértice y medición del extremo agrupado:
+  - A/B alternado `d972fa4` vs `6dd8929`, 15 muestras por lado: medianas 3.403 vs 3.530 ms (+3,7 %), rangos solapados, dos estados de rendimiento en ambos lados. Criterio pre-fijado no cumplido → sin regresión consistente; no se perfila.
+  - Tramo extremo agrupado sin delta: 51 reconstrucciones por gesto, p95 ≈ 4 s, 10 redes al soltar. Próximo candidato.
+  - Baselines: `preview-prod-vertex-release-ab.json`, `preview-prod-grouped-end.json`.
 - **Revisión 14 (2026-11-26).** Delta de cables agrupados (tramo interior):
   - `planSegmentPolyline` compartido por preview y commit, con normalización de la polilínea completa; `moveSegment` refactorizado sobre el plan.
   - A/B intercalado: p95 933 → 50 ms; 12 → 0 redes durante `pointermove`; soltar con las mismas 3 redes.

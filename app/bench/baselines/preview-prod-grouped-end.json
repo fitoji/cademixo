@@ -1,0 +1,12 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "gesture": "segment sobre el tramo EXTREMO de un cable agrupado (bendCable)",
+  "note": "Sin delta: el tramo extremo cae al preview por documento. 6 pasos de 10 px, 5 corridas, 2 corridas. En Node se verifica que el gesto cambia el texto (bendCable inserta vertice y codo).",
+  "runs": [
+    { "p95": 4016.5, "startBuilds": 1, "duringMoveBuilds": 51, "release": [5341.1, 5475.4, 5287.6, 5209.2, 5153.7], "releaseBuilds": 10 },
+    { "p95": 3983.2, "startBuilds": 1, "duringMoveBuilds": 51, "release": [5381.4, 5229.8, 5250.4, 5168.2, 5207.8], "releaseBuilds": 10 }
+  ],
+  "conclusion": "Es el proximo bloqueo medido: 51 reconstrucciones por gesto, p95 ~4 s y 10 redes al soltar. Extender el delta ahi seria un cambio separado."
+}
