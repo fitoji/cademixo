@@ -25,6 +25,8 @@ const STEPS = Number(process.env.PREVIEW_TRACE_STEPS ?? 12);
 const STEP_PX = 4;
 const TARGET_ZOOM = 2;
 const OUT = process.env.PREVIEW_TRACE_OUT ?? join(tmpdir(), 'preview-trace.json');
+const URL_OVERRIDE = process.env.PREVIEW_TRACE_URL;
+const PROFILE = process.env.PREVIEW_TRACE_PROFILE !== '0';
 
 const pct = (xs: number[], p: number): number => {
   if (xs.length === 0) return NaN;
@@ -62,21 +64,65 @@ function bucket(rows: Row[]): Record<string, number> {
   return out;
 }
 
+/**
+ * Tiempo inclusivo por función: la función más todo lo que llama. Se toma el
+ * máximo entre sus instancias para no duplicar recursión. Es lo que hay que
+ * mirar para saber cuánto cuesta `validate` con su `buildNetwork` adentro.
+ */
+function inclusiveTimes(profile: { nodes: any[]; samples: number[]; timeDeltas: number[] }): Row[] {
+  const byId = new Map<number, any>(profile.nodes.map((n: any) => [n.id, n]));
+  const parent = new Map<number, number>();
+  for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id);
+  const self = new Map<number, number>();
+  for (let i = 0; i < profile.samples.length; i++) {
+    const id = profile.samples[i]!;
+    self.set(id, (self.get(id) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000);
+  }
+  const incl = new Map<number, number>(self);
+  for (const [id, ms] of self) {
+    let p = parent.get(id);
+    while (p !== undefined) {
+      incl.set(p, (incl.get(p) ?? 0) + ms);
+      p = parent.get(p);
+    }
+  }
+  const byName = new Map<string, Row>();
+  for (const [id, ms] of incl) {
+    const node = byId.get(id);
+    if (!node) continue;
+    const name: string = node.callFrame?.functionName || '(anónima)';
+    const url: string = node.callFrame?.url || '';
+    const key = `${name}\u0000${url}`;
+    const prev = byName.get(key);
+    if (!prev || ms > prev.ms) byName.set(key, { name, url, ms });
+  }
+  return [...byName.values()].sort((a, b) => b.ms - a.ms);
+}
+
 test.describe('traza del preview', () => {
   test.skip(!process.env.PREVIEW_TRACE, 'correr con PREVIEW_TRACE=1');
   test.setTimeout(1_800_000);
 
   test('mover y soltar con hoja cableada', async ({ page, context }) => {
     const sheetPath = join(tmpdir(), `preview-trace-${RECORDS}.cad`);
-    const sheet = JSON.parse(
+    const parsed = JSON.parse(
       execFileSync('node', [join(APP, 'bench/write-sheet.ts'), sheetPath, String(RECORDS)], { cwd: APP }).toString(),
     ) as { records: number; components: number; cables: number; junctions: number; blocks: number; traceId: number };
+    // Sólo metadatos: el texto de la hoja vive en el archivo, no en el resultado.
+    const sheet = {
+      records: parsed.records,
+      components: parsed.components,
+      cables: parsed.cables,
+      junctions: parsed.junctions,
+      blocks: parsed.blocks,
+      traceId: parsed.traceId,
+    };
     const text = readFileSync(sheetPath, 'latin1');
     const id = sheet.traceId;
     const selector = `g[data-id="${id}"]`;
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/');
+    await page.goto(URL_OVERRIDE ?? '/');
     await page.waitForSelector('svg[role="application"]');
 
     await page.evaluate(({ name, text }) => {
@@ -241,35 +287,49 @@ test.describe('traza del preview', () => {
     }
 
     // Pasada con perfilado: atribución por función, mover y soltar por separado.
-    const cdp = await context.newCDPSession(page);
-    await cdp.send('Profiler.enable');
-    await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
-    await cdp.send('Profiler.start');
-    await drag();
-    const moveProfile = (await cdp.send('Profiler.stop')).profile;
-    await page.evaluate(() => { (window as any).__trace.release = null; });
-    await cdp.send('Profiler.start');
-    await page.mouse.up();
-    await page.waitForFunction(() => (window as any).__trace.release !== null, null, { timeout: 180_000 });
-    const releaseProfile = (await cdp.send('Profiler.stop')).profile;
+    let moveRows: Row[] = [];
+    let releaseRows: Row[] = [];
+    let moveInclusive: Row[] = [];
+    let releaseInclusive: Row[] = [];
+    if (PROFILE) {
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Profiler.enable');
+      await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
+      await cdp.send('Profiler.start');
+      await drag();
+      const moveProfile = (await cdp.send('Profiler.stop')).profile;
+      await page.evaluate(() => { (window as any).__trace.release = null; });
+      await cdp.send('Profiler.start');
+      await page.mouse.up();
+      await page.waitForFunction(() => (window as any).__trace.release !== null, null, { timeout: 180_000 });
+      const releaseProfile = (await cdp.send('Profiler.stop')).profile;
 
-    const moveRows = selfTimes(moveProfile);
-    const releaseRows = selfTimes(releaseProfile);
+      moveRows = selfTimes(moveProfile);
+      releaseRows = selfTimes(releaseProfile);
+      moveInclusive = inclusiveTimes(moveProfile);
+      releaseInclusive = inclusiveTimes(releaseProfile);
+    }
+
     const result = {
       sheet,
       view: { zoom, viewport: { width: 1440, height: 900 }, steps: STEPS, stepPx: STEP_PX },
+      target: URL_OVERRIDE ?? 'dev (webServer)',
       move: { p95: pct(moveP95, 0.5), mean: moveMean.reduce((a, b) => a + b, 0) / moveMean.length, frames, p95PerRun: moveP95, loaf },
       release: { domLatency: release, nextFrame: releaseFrames },
-      profile: {
-        move: moveRows.slice(0, 18),
-        moveBucket: bucket(moveRows),
-        release: releaseRows.slice(0, 18),
-        releaseBucket: bucket(releaseRows),
-      },
+      profile: PROFILE
+        ? {
+            move: moveRows.slice(0, 18),
+            moveBucket: bucket(moveRows),
+            moveInclusive,
+            release: releaseRows.slice(0, 18),
+            releaseBucket: bucket(releaseRows),
+            releaseInclusive,
+          }
+        : null,
       limits: [
         'latencia hasta actualización de DOM, no presentación confirmada',
-        'build de desarrollo (React dev)',
         'p95 del intervalo entre callbacks de rAF',
+        PROFILE ? 'build de desarrollo (React dev)' : 'build de producción (minificado: sin atribución por función)',
       ],
     };
     writeFileSync(OUT, JSON.stringify(result, null, 2));
@@ -277,6 +337,7 @@ test.describe('traza del preview', () => {
       JSON.stringify(
         {
           out: OUT,
+          target: result.target,
           sheet,
           view: result.view,
           moveP95: result.move.p95,
@@ -284,10 +345,12 @@ test.describe('traza del preview', () => {
           frames: result.move.frames,
           release,
           releaseFrames,
-          moveBucket: result.profile.moveBucket,
-          releaseBucket: result.profile.releaseBucket,
-          topMove: moveRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
-          topRelease: releaseRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
+          moveBucket: PROFILE ? bucket(moveRows) : null,
+          releaseBucket: PROFILE ? bucket(releaseRows) : null,
+          topMoveSelf: moveRows.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
+          topMoveInclusive: moveInclusive.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
+          topReleaseSelf: releaseRows.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
+          topReleaseInclusive: releaseInclusive.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
         },
         null,
         2,

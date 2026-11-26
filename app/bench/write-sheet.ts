@@ -15,4 +15,6 @@ if (!out || !Number.isFinite(target) || target <= 0) {
 
 const sheet = wiredSheetText(target);
 writeFileSync(out, sheet.text, 'latin1');
-console.log(JSON.stringify({ out, ...sheet }, null, 2));
+// El texto completo no va al JSON: lo lee quien necesite abrir el archivo.
+const { text: _text, ...meta } = sheet;
+console.log(JSON.stringify({ out, ...meta }, null, 2));
