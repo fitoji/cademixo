@@ -1,0 +1,61 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": {
+    "out": "/var/folders/yw/6bjyc44d1rgg5163wpzd1cr80000gn/T/preview-trace-9787.cad",
+    "records": 9577,
+    "components": 2736,
+    "cables": 6156,
+    "junctions": 456,
+    "blocks": 228,
+    "traceId": 4790
+  },
+  "view": {
+    "zoom": 2.755794095160401,
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "steps": 12,
+    "stepPx": 4
+  },
+  "move": {
+    "p95": 1266.5999999999913,
+    "mean": 160.94763732554878,
+    "frames": [
+      96,
+      97,
+      98,
+      96,
+      96
+    ],
+    "p95PerRun": [
+      1300,
+      1250,
+      1250,
+      1266.5999999999913,
+      1266.5999999999913
+    ]
+  },
+  "release": {
+    "domLatency": [
+      2505.699999988079,
+      2483.5,
+      2513.4000000059605,
+      2637.5999999940395,
+      2481.0999999940395
+    ],
+    "nextFrame": [
+      2551.399999976158,
+      2531.5999999940395,
+      2560.300000011921,
+      2690.9000000059605,
+      2527
+    ]
+  },
+  "limits": [
+    "latencia hasta actualización de DOM, no presentación confirmada",
+    "p95 del intervalo entre callbacks de rAF",
+    "build de producción (minificado: sin atribución por función)"
+  ],
+  "note": "Resumen compacto: sin texto de hoja ni registros LoAF. Regenerable con PREVIEW_TRACE=1 PREVIEW_TRACE_URL=<prod> PREVIEW_TRACE_PROFILE=0."
+}

@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-25 (revisión 6)
+**Fecha:** 2026-11-26 (revisión 7)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría de solo lectura sobre el editor, más el benchmark, la etapa 1 de deduplicación de red y la traza en navegador.
+**Tipo:** auditoría de solo lectura sobre el editor, más el benchmark, la etapa 1 de deduplicación de red y la traza en navegador (dev y producción).
 
-> **Revisión 6.** Agrega la traza en navegador (mover y soltar por separado) sobre la misma hoja cableada, con el criterio de decisión acordado: el movimiento lo domina la reconstrucción de red, así que el preview por delta queda priorizado; la confirmación necesita su propia optimización. Ver «Historial de correcciones».
+> **Revisión 7.** Agrega la **línea base de producción** (misma hoja, misma trayectoria) y corrige la lectura de la rev. 6: el perfil por tiempo propio subestimaba a `validate` y `circuitFrom`. Se incorpora tiempo inclusivo y el criterio de aceptación del preview por delta. Ver «Historial de correcciones».
 
 ## Resumen ejecutivo
 
@@ -17,7 +17,7 @@
 6. **Segundo costo del movimiento: la cadena del lienzo** (~740 ms a 10k: `buildNetwork` 408, `attachPoints` 148, `snapContext` 150, `wireCornerPaths` 30). En la confirmación, detrás de `applyDrag`: `circuitFrom` 884 ms, `validate` 628 ms, `buildNetwork` 428 ms. Todos comparten el mismo primitivo.
 7. **`hitContext` cuesta 0,4 ms a 10k, pero eso mide construcción de contexto, no consulta.** La consulta de hit-test recorre candidatos por evento. **Se posterga** el índice hasta medirla; no se descarta.
 8. **La premisa de escala sigue sin evidencia de uso real.** No hay conteo de registros por hoja en proyectos reales. El benchmark demuestra cuánto cuesta cada tamaño, no que esos tamaños existan.
-9. **Traza en navegador (9.577 registros cableados).** Al mover, el p95 del intervalo entre frames es **2.833 ms** y la reconstrucción de red explica el **72 %** del perfil de CPU; React, el 13 %. Al soltar, la edición se confirma en el DOM entre **5,4 y 5,8 s**, y el mismo primitivo de red explica el **69 %**. `validate` y `circuitFrom` quedan por debajo del 6 %. **Decisión: priorizar el preview por delta y optimizar la confirmación por separado.**
+9. **Traza en navegador, dev y producción (9.577 registros cableados).** En producción el p95 del intervalo entre frames al mover es **1.266,6 ms** y la edición se confirma en el DOM a los **2,48–2,64 s**; en dev esos valores son 2.833 ms y 5,4–5,8 s. Al mover, `applyDrag` y la red dominan (React, 13 % en dev). Al soltar, **los cuatro consumidores reconstruyen red**: `applyDrag` 1,46 s, `circuitFrom` 1,13 s, `validate` 0,83 s y `buildNetwork` de `App` 0,60 s (inclusivo, dev). **Decisión: preview por delta para el movimiento; red compartida entre consumidores para la confirmación.**
 
 ## 1. Alcance y método
 
@@ -70,36 +70,53 @@ Mismo benchmark, mismo fixture y mismo equipo; el "antes" se obtuvo revirtiendo 
 
 **Equivalencia verificada.** Se capturaron hashes del texto resultante de `move`, `bend`, `segment` y `vertex` sobre el fixture, más longitud del texto, uniones, derivaciones, `past.length` y `dirty`. Las cuatro salidas son idénticas antes y después. Suite completa: 911/911 en serie.
 
-### 2.c Traza en navegador (etapa 0, segunda parte)
+### 2.c Traza en navegador: dev y producción
 
-Herramienta: `app/e2e/preview-trace.spec.ts`, sólo corre con `PREVIEW_TRACE=1`. Usa la misma hoja cableada generada (**9.577 registros · 2.736 componentes · 6.156 cables · 228 bloques**), viewport 1.440×900, zoom fijo 2,76 (acercado con la rueda anclada al componente), trayectoria horizontal de 12 pasos de 4 px y 5 repeticiones después del calentamiento. Verifica que el gesto mueve un componente **conectado**: el generador expone el `traceId` de un bloque central y comprueba por red que tiene cables en sus bornes.
+Herramienta: `app/e2e/preview-trace.spec.ts` (sólo con `PREVIEW_TRACE=1`). Misma hoja cableada (**9.577 registros · 2.736 componentes · 6.156 cables · 228 bloques**), viewport 1.440×900, zoom fijo 2,76, trayectoria de 12 pasos de 4 px y 5 repeticiones después del calentamiento. Verifica que el gesto mueve un componente **conectado** (`traceId` de un bloque central validado por red).
 
-**Qué mide:** p95 del intervalo entre callbacks de rAF durante el gesto; latencia desde `pointerup` hasta que el DOM muestra la edición confirmada (botón «Deshacer» habilitado); atribución de tiempo propio por función con muestreo de CPU (CDP `Profiler`).
-**Qué no mide:** presentación confirmada en pantalla. El build es de desarrollo (React dev), así que el costo de React está inflado respecto de producción.
+**Línea base de producción** (`pnpm build` + `vite preview`; JSON versionado en `app/bench/baselines/preview-prod.json`):
 
-| Medición | Resultado |
-|---|---|
-| p95 del intervalo entre frames al mover (mediana de 5 corridas) | **2.833 ms** |
-| Intervalo medio | 359 ms |
-| Latencia al soltar hasta DOM confirmado (5 corridas) | **5.392 · 5.835 · 5.780 · 5.561 · 5.522 ms** |
-| Cuadro siguiente al DOM | +65 a +85 ms |
-
-Atribución por origen (pasada aparte; el perfilado agrega overhead):
-
-| Origen | Mover | Soltar |
+| Medición | Producción | Desarrollo (referencia) |
 |---|---|---|
-| Red (`buildNetwork` + `attachPoints`, incluye lo que dispara `applyDrag`) | **25,2 s** | **4,3 s** |
-| React | 4,4 s | 0,4 s |
-| Estado propio (`state.ts`, tiempo propio) | 0,1 s | <0,1 s |
-| Simulación (`buildNetlist` + `circuitFrom`) | 0 | 0,4 s |
-| Resto | 5,3 s | 1,2 s |
+| p95 del intervalo entre frames al mover | **1.266,6 ms** | 2.833,3 ms |
+| Intervalo medio | 160,9 ms | 359,0 ms |
+| Latencia al soltar hasta DOM confirmado | **2.481–2.638 ms** | 5.392–5.835 ms |
+| Cuadro siguiente al DOM | +45 a +53 ms | +65 a +85 ms |
 
-`buildNetwork` (12,6 s de tiempo propio) y `attachPoints` (12,5 s) explican el **72 %** del perfil de movimiento y el **69 %** del de soltar. `validate` (0,13 s) y `circuitFrom` (0,13 s) no son el bloqueo en esta hoja.
+La producción es ~2,2× más rápida en ambas fases y sigue lejos de un presupuesto de cuadro: el problema no es el build de desarrollo.
 
-**Decisión (criterio acordado):**
+**Qué mide:** p95 del intervalo entre callbacks de rAF; latencia desde `pointerup` hasta que el DOM muestra la edición confirmada (botón «Deshacer» habilitado); atribución de CPU por muestreo (CDP `Profiler`) en tiempo **propio** y **inclusivo** (función más todo lo que llama, acumulado por ruta de llamada).
+**Qué no mide:** presentación confirmada en pantalla. La atribución por función sólo existe en dev: en producción el bundle está minificado.
 
-- **Movimiento:** siguen dominando la reconstrucción de red y el trabajo que dispara `applyDrag` → **se prioriza el preview por delta**.
-- **Soltar:** el bloqueo es el mismo primitivo de red, no `validate` ni `circuitFrom` → la confirmación merece su propia optimización (compartir una red por versión del documento entre `App`, `validate` y `buildNetlist`), independiente del delta.
+**Mover (ventana perfilada ≈ 35 s, dev):**
+
+| Función | Propio | Inclusivo por ruta |
+|---|---|---|
+| `applyDrag` (podas + sus redes) | — (en `state.ts`) | **16.167 ms** |
+| `buildNetwork` | 12.729 ms (total) | ≈ 6.425 ms por ruta: una desde las podas, otra desde el lienzo |
+| `attachPoints` | 12.805 ms | 2.159 ms (fuera de `buildNetwork`) |
+| `snapContext` | — | 2.166 ms |
+| React | 4.391 ms | — |
+
+**Soltar (ventana perfilada ≈ 5,9 s, dev).** El tiempo propio subestima a los consumidores; mirando inclusivo:
+
+| Consumidor | Propio | Inclusivo |
+|---|---|---|
+| `applyDrag` (commit) | — | **1.461 ms** |
+| `circuitFrom` | 129 ms | **1.129 ms** (vía `buildNetlist`: 1.000 ms) |
+| `validate` | 135 ms | **829 ms** |
+| `buildNetwork` de `App` | 598 ms por llamada | 598 ms |
+
+Los cuatro consumidores reconstruyen la red: uno dentro de `applyDrag`, uno en `App`, uno dentro de `validate` y uno dentro de `buildNetlist` (que además vuelve a pedir `attachPoints`). Por eso compartir la red es el paso correcto **sólo si todos usan la misma versión y el mismo alcance** del documento.
+
+**Decisión:** al mover domina la reconstrucción de red y el trabajo que dispara `applyDrag` (React es 13 % en dev). **Se prioriza el preview por delta.** Soltar va aparte, con la red compartida entre consumidores.
+
+**Criterio de aceptación del delta:**
+
+1. **Cero reconstrucciones completas de red durante `pointermove`** (medido con `networkStats`).
+2. **Una sola edición confirmada al soltar**: una aplicación canónica y un paso de deshacer.
+3. **Mismo resultado** de conectividad y deshacer que hoy (hashes de texto, uniones, derivaciones, `past`).
+4. **Comparación con la misma hoja y trayectoria**: p95 al mover contra **1.266,6 ms** (producción) y latencia de soltar contra **2.481–2.638 ms**.
 
 ## 3. Verificación de las afirmaciones del plan
 
@@ -159,10 +176,10 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 
 ## 7. Orden recomendado
 
-1. **Etapa 0 — hecha.** Benchmark de estado (`pnpm bench`) y traza en navegador (`PREVIEW_TRACE=1 … trace`). Queda como deuda medir sobre build de producción: el React de desarrollo infla el costo de render.
+1. **Etapa 0 — hecha.** Benchmark de estado (`pnpm bench`), traza en dev y **línea base de producción** (`app/bench/baselines/preview-prod.json`).
 2. **Etapa 1 — primer incremento hecho** (ver 2.b). Quedan pendientes los consumidores que todavía reconstruyen red por dentro (`validate`, `buildNetlist`) y el lienzo, que la reconstruye en cada preview.
-3. **Etapa 2 — preview por delta (prioridad).** La traza confirma que al mover domina la reconstrucción de red y el trabajo que dispara `applyDrag`. Delta por ID sin tocar `state.text` ni pasar por `commit()`; al soltar, una sola aplicación canónica.
-4. **Etapa 3 — confirmación por separado.** Al soltar domina el mismo primitivo. Compartir una red por versión del documento entre `App`, `validate` y `buildNetlist`, con el benchmark como vara.
+3. **Etapa 2 — preview por delta (prioridad).** Criterio de aceptación en 2.c: cero reconstrucciones de red en `pointermove`, una sola edición confirmada al soltar, misma conectividad y deshacer, y comparación contra la línea base de producción.
+4. **Etapa 3 — confirmación por separado.** Compartir una red por versión y alcance del documento entre `applyDrag`, `App`, `validate` y `buildNetlist`, con el benchmark como vara.
 5. **Etapa 4 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
 6. **Etapa 5 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
@@ -182,6 +199,9 @@ Para que las próximas mediciones no repitan los errores de las revisiones anter
 4. **GC en mediciones repetidas**: una corrida de `validate` a 10k midió 422 ms y otra 192 ms. Forzar GC y usar mediana.
 5. **Cache de un slot en `projectOf`**: repetir el mismo texto entre iteraciones da 0,00 ms. Cada muestra debe usar un texto distinto.
 6. **Confundir construcción con consulta** (`snapContext`/`hitContext` vs. `snapOf`/búsqueda por evento) y **sumar mediciones aisladas como si fueran un cuadro**.
+7. **Mirar sólo tiempo propio**: `validate` y `circuitFrom` parecían baratos (135 y 129 ms) porque delegan en `buildNetwork`/`attachPoints`; en inclusivo cuestan 829 y 1.129 ms. Todo consumidor del mismo primitivo se mide inclusivo.
+8. **Usar el `transform` del componente como señal de commit**: ya muestra el preview durante el arrastre. La señal correcta es que el gesto entre al historial («Deshacer» habilitado).
+9. **Elegir un componente fuera de pantalla o sin cables**: tras ajustar la hoja, el primer bloque puede quedar fuera de la vista. El generador expone un `traceId` de un bloque central y verifica por red que está conectado.
 
 ## 10. Reproducibilidad
 
@@ -195,6 +215,11 @@ pnpm bench -- --json
 cd app && PREVIEW_TRACE=1 pnpm trace
 # Variantes: PREVIEW_TRACE_RECORDS, PREVIEW_TRACE_RUNS, PREVIEW_TRACE_STEPS, PREVIEW_TRACE_OUT
 
+# Traza contra producción (línea base versionada)
+cd app && pnpm build && pnpm preview --host 127.0.0.1 --port 4173 --strictPort
+PREVIEW_TRACE=1 PREVIEW_TRACE_URL=http://127.0.0.1:4173 PREVIEW_TRACE_PROFILE=0 \
+  PREVIEW_TRACE_OUT=bench/baselines/preview-prod.json pnpm trace
+
 # Suite completa confiable (serie)
 cd app && node --test --test-concurrency=1
 
@@ -204,6 +229,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 7 (2026-11-26).** Línea base de producción y corrección del perfil:
+  - Producción: p95 al mover 1.266,6 ms y soltar 2.481–2.638 ms (dev: 2.833 ms y 5,4–5,8 s). Los números de producción quedan versionados en `app/bench/baselines/preview-prod.json`.
+  - Se agrega tiempo inclusivo al perfil. Corrige la rev. 6: `validate` (829 ms inclusivo) y `circuitFrom` (1.129 ms inclusivo) **sí** son consumidores relevantes; su tiempo propio era bajo porque delegan en `buildNetwork`/`attachPoints`.
+  - La traza acepta `PREVIEW_TRACE_URL` y `PREVIEW_TRACE_PROFILE=0`; el perfil sólo tiene sentido en dev (producción minifica).
+  - Se fija el criterio de aceptación del delta (2.c) y se separa explícitamente la optimización de la confirmación.
 - **Revisión 6 (2026-11-25).** Traza en navegador y decisión:
   - `app/e2e/preview-trace.spec.ts` mide mover (pointerdown→antes de pointerup) y soltar (pointerup→DOM confirmado) sobre 9.577 registros cableados, con zoom, viewport y trayectoria fijos y 5 repeticiones.
   - Resultado: p95 entre frames al mover 2.833 ms; DOM confirmado al soltar 5,4-5,8 s.
