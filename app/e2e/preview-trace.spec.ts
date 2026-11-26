@@ -381,6 +381,75 @@ test.describe('traza del preview', () => {
         };
       }
 
+      // Geometría tras panear: clic sobre símbolo, clic sobre cable y zoom anclado.
+      let geometry: Record<string, unknown> | null = null;
+      if (process.env.PREVIEW_TRACE_GEOMETRY) {
+        const componentPoint = await page.evaluate(() => {
+          const svg = document.querySelector('svg[role="application"]')!.getBoundingClientRect();
+          for (const g of document.querySelectorAll('g[data-id]')) {
+            const r = (g as SVGGraphicsElement).getBoundingClientRect();
+            const cx = r.x + r.width / 2;
+            const cy = r.y + r.height / 2;
+            if (r.width < 20 || r.height < 20) continue;
+            if (cx < svg.left + 40 || cx > svg.right - 40 || cy < svg.top + 40 || cy > svg.bottom - 40) continue;
+            return { id: Number(g.getAttribute('data-id')), x: cx, y: cy };
+          }
+          return null;
+        });
+        let componentSelects = false;
+        if (componentPoint) {
+          await page.mouse.click(componentPoint.x, componentPoint.y);
+          componentSelects = await page.evaluate(
+            (id) => document.querySelector(`g[data-id="${id}"]`)?.hasAttribute('data-sel') ?? false,
+            componentPoint.id,
+          );
+        }
+        const wirePoint = await page.evaluate(() => {
+          const svg = document.querySelector('svg[role="application"]')!.getBoundingClientRect();
+          for (const el of document.querySelectorAll('path[data-wire]')) {
+            const r = (el as SVGGraphicsElement).getBoundingClientRect();
+            const cx = r.x + r.width / 2;
+            const cy = r.y + r.height / 2;
+            if (cx < svg.left + 40 || cx > svg.right - 40 || cy < svg.top + 40 || cy > svg.bottom - 40) continue;
+            if (document.elementFromPoint(cx, cy) !== el) continue;
+            return { id: Number(el.getAttribute('data-wire')), x: cx, y: cy };
+          }
+          return null;
+        });
+        let wireSelects = false;
+        if (wirePoint) {
+          await page.mouse.click(wirePoint.x, wirePoint.y);
+          wireSelects = await page.evaluate(
+            (id) => (document.querySelector(`path[data-wire="${id}"]`)?.getAttribute('class') ?? '').includes('sel'),
+            wirePoint.id,
+          );
+        }
+        // Zoom anclado: el punto del mundo bajo el cursor debe quedar igual.
+        const anchor = { x: 700, y: 480 };
+        const worldAt = async (): Promise<{ x: number; y: number }> =>
+          page.evaluate(({ x, y }) => {
+            const svg = document.querySelector('svg[role="application"]')!.getBoundingClientRect();
+            const g = document.querySelector('svg[role="application"] > g[transform], svg[role="application"] > g[style]');
+            const t = g?.getAttribute('transform') ?? '';
+            const m = /translate\(([-\d.e]+)[ ,]+([-\d.e]+)\)\s*scale\(([-\d.e]+)\)/.exec(t);
+            if (m) return { x: (x - svg.left - Number(m[1])) / Number(m[3]), y: (y - svg.top - Number(m[2])) / Number(m[3]) };
+            const style = g?.getAttribute('style') ?? '';
+            const tm = /translate\(([-\d.e]+)px,\s*([-\d.e]+)px\)\s*scale\(([-\d.e]+)\)/.exec(style);
+            if (!tm) return { x: NaN, y: NaN };
+            return { x: (x - svg.left - Number(tm[1])) / Number(tm[3]), y: (y - svg.top - Number(tm[2])) / Number(tm[3]) };
+          }, { x: anchor.x, y: anchor.y });
+        const before = await worldAt();
+        await page.mouse.move(anchor.x, anchor.y);
+        await page.mouse.wheel(0, -250);
+        await page.waitForTimeout(80);
+        const after = await worldAt();
+        geometry = {
+          componentSelects,
+          wireSelects,
+          zoomAnchorDelta: Math.hypot(before.x - after.x, before.y - after.y),
+        };
+      }
+
       let profileRows: Row[] = [];
       if (PROFILE) {
         const cdp = await context.newCDPSession(page);
@@ -404,6 +473,7 @@ test.describe('traza del preview', () => {
           frames: idleIntervals.length,
         },
         paintTrace,
+        geometry,
         profile: PROFILE ? { rows: profileRows.slice(0, 18), bucket: bucket(profileRows) } : null,
         limits: [
           'p95 del intervalo entre callbacks de rAF',
@@ -412,7 +482,7 @@ test.describe('traza del preview', () => {
         ],
       };
       writeFileSync(OUT, JSON.stringify(result, null, 2));
-      console.log(JSON.stringify({ out: OUT, gesture: 'pan', zoom: view.zoom, sheet: sheet.records, idle: { p50: pct(idleIntervals, 0.5), p95: pct(idleIntervals, 0.95) }, runs: panRuns.map((r) => ({ p95: r.p95, frames: r.frames })), paintTrace, bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
+      console.log(JSON.stringify({ out: OUT, gesture: 'pan', geometry, zoom: view.zoom, sheet: sheet.records, idle: { p50: pct(idleIntervals, 0.5), p95: pct(idleIntervals, 0.95) }, runs: panRuns.map((r) => ({ p95: r.p95, frames: r.frames })), paintTrace, bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
       return;
     }
 
@@ -532,8 +602,9 @@ test.describe('traza del preview', () => {
 
 async function zoomOf(page: import('@playwright/test').Page): Promise<number> {
   return page.evaluate(() => {
-    const g = document.querySelector('svg[role="application"] > g[transform]');
-    const m = /scale\(([-\d.e]+)\)/.exec(g?.getAttribute('transform') ?? '');
+    const g = document.querySelector('svg[role="application"] > g');
+    const raw = `${g?.getAttribute('transform') ?? ''} ${g?.getAttribute('style') ?? ''}`;
+    const m = /scale\(([-\d.e]+)\)/.exec(raw);
     return m ? Number(m[1]) : 0;
   });
 }
@@ -586,5 +657,8 @@ async function pickWireById(page: import('@playwright/test').Page, id: number): 
 }
 
 async function viewTransform(page: import('@playwright/test').Page): Promise<string | null> {
-  return page.evaluate(() => document.querySelector('svg[role="application"] > g[transform]')?.getAttribute('transform') ?? null);
+  return page.evaluate(() => {
+    const g = document.querySelector('svg[role="application"] > g');
+    return g?.getAttribute('transform') ?? g?.getAttribute('style') ?? null;
+  });
 }
