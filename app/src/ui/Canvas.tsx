@@ -6,12 +6,12 @@ import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
 import { componentHitBox } from './hit-box.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
-import { moveDelta, type DragOp, type Rotation } from '../editor/state.ts';
+import { moveDelta, type DragOp, type MoveDelta, type Rotation } from '../editor/state.ts';
 import { bendPreviewLegs, isVertexPlanSafe, legsOf, planSegmentPolyline, planSplitBend, planVertexMove } from '../editor/wiring/preview-geometry.ts';
 import { pathPoints, wirePathsOf, type WirePath } from '../editor/wiring/types.ts';
 import { idle, startMarquee, startMove, startPan, startSegment, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
 import { attachPoints, type Point } from '../editor/pins.ts';
-import { buildNetwork, cableSegments } from '../editor/network.ts';
+import { buildNetwork, cableSegments, type Network } from '../editor/network.ts';
 import { routeOrthogonal } from '../editor/wiring/router.ts';
 import { snapContext, snapTarget, type SnapTarget } from '../editor/wiring/snap.ts';
 import { firstPin, nextPin, pinRefs, samePin, type Direction, type PinRef } from '../editor/wiring/keyboard.ts';
@@ -891,8 +891,6 @@ export function Canvas(props: Props): JSX.Element {
     placing !== null ? 'placing' : gesture.kind === 'panning' ? 'panning' : wireStart !== null ? 'wiring' : null;
   const cursorClass = pointerMode === null ? 'canvas' : `canvas ${pointerMode}`;
 
-  const selectedWires = records.filter((r) => r.kind === 'connection' && selection.has(r.id));
-
   // Una sola redacción para las dos variantes del panel (dock y clásico). Las
   // teclas con glyph propio vienen del registro para no quedar trabadas en Apple.
   const canvasHints = (
@@ -930,145 +928,34 @@ export function Canvas(props: Props): JSX.Element {
         </defs>
 
         <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
-          {showGrid && (
-            <>
-              <rect x={-10000} y={-10000} width={20000} height={20000} fill="url(#grid)" />
-              <rect x={-10000} y={-10000} width={20000} height={20000} fill="url(#grid-major)" />
-            </>
-          )}
-
-          {showTitleBlock && <TitleBlockLayer layout={titleLayout} />}
-
-          {records.map((rec) => {
-            if (wirePreview !== null && wirePreview.ids.has(rec.id)) return null;
-            if (vertexPreview !== null && vertexPreview.hidden.has(rec.id)) return null;
-            if (rec.kind === 'connection')
-              return (
-                <Wire
-                  key={rec.id}
-                  rec={rec}
-                  selected={selection.has(rec.id)}
-                  live={liveWires.has(rec.id)}
-                  reverse={reversedWires?.has(rec.id) ?? false}
-                  tone={conductorToneOf(rec.code)}
-                  path={wirePaths?.get(rec.id)}
-                  points={dragDelta?.wires.get(rec.id)}
-                />
-              );
-            if (rec.kind !== 'component') return null;
-            return (
-              <Component
-                key={rec.id}
-                rec={rec}
-                selected={selection.has(rec.id)}
-                live={live.has(rec.id)}
-                direction={motorDirection?.get(rec.id)}
-                state={states.get(rec.id) ?? 'idle'}
-                closed={closedContacts.has(rec.id)}
-                bad={highlight?.ids.includes(rec.id) ?? false}
-                rotation={rotation[rec.id] ?? 0}
-                pins={pins.get(rec.id) ?? []}
-                cursorIndex={cursorPin?.componentId === rec.id ? cursorPin.pinIndex : null}
-                offset={dragDelta?.positions.has(rec.id) ? { dx: dragDelta.dx, dy: dragDelta.dy } : undefined}
-                zoom={view.k}
-              />
-            );
-          })}
-
-          {/* Vértice en movimiento: los tramos que el commit va a escribir. */}
-          {vertexPreview?.legs.map((leg, i) => (
-            <path
-              key={`vertex-preview-${i}`}
-              className={`wire ${leg.tone}`}
-              d={`M${leg.points.x1} ${leg.points.y1}L${leg.points.x2} ${leg.points.y2}`}
-            />
-          ))}
-
-          {/* Cable doblándose: la polilínea que el commit va a escribir. */}
-          {wirePreview?.legs.map((leg, i) => (
-            <path
-              key={`wire-preview-${i}`}
-              className={`wire ${leg.tone}`}
-              d={`M${leg.points.x1} ${leg.points.y1}L${leg.points.x2} ${leg.points.y2}`}
-            />
-          ))}
-
-          {/* Codos del preview: tramos que el commit insertará como registros. */}
-          {dragDelta?.codos.map((codo) => (
-            <path
-              key={`codo-${codo.wireId}`}
-              className="wire"
-              d={`M${codo.moving.x1} ${codo.moving.y1}L${codo.moving.x2} ${codo.moving.y2}`}
-            />
-          ))}
-
-          {[...network.nodes.values()]
-            .filter((n) => n.junction || n.kind === 'tee')
-            .map((n) => (
-              // El punto de una T: un extremo que cae en el medio de otro tramo
-              // es una conexión real aunque el archivo no traiga un 4001 ahí.
-              <circle key={`j-${n.key}`} className="junction" cx={n.x} cy={n.y} r={1.15} />
-            ))}
-
-          {snapMark && <circle className="snap-mark" cx={snapMark.x} cy={snapMark.y} r={2.4} />}
-
-          {dragDelta === null &&
-            wirePreview === null &&
-            vertexPreview === null &&
-            selectedWires.map((rec) => {
-            const pts = wirePoints(rec);
-            if (!pts) return null;
-            return (
-              <g key={`h-${rec.id}`}>
-                <rect
-                  className="handle"
-                  data-endpoint="0"
-                  data-wire={rec.id}
-                  x={pts.x1 - 1.1}
-                  y={pts.y1 - 1.1}
-                  width={2.2}
-                  height={2.2}
-                />
-                <rect
-                  className="handle"
-                  data-endpoint="1"
-                  data-wire={rec.id}
-                  x={pts.x2 - 1.1}
-                  y={pts.y2 - 1.1}
-                  width={2.2}
-                  height={2.2}
-                />
-              </g>
-            );
-          })}
-
-          {highlight?.at && (
-            <g>
-              <circle className="mark" cx={highlight.at.x} cy={highlight.at.y} r={5} />
-              <path
-                className="mark"
-                d={`M${highlight.at.x - 3} ${highlight.at.y}H${highlight.at.x + 3}M${highlight.at.x} ${highlight.at.y - 3}V${highlight.at.y + 3}`}
-                style={{ animation: 'none', strokeWidth: 0.3 }}
-              />
-            </g>
-          )}
-
-          {wireStart && hover && (
-            <g className="ghost">
-              <path className="wire" d={ghostPath} />
-              <circle className="junction" cx={wireStart.x} cy={wireStart.y} r={1.15} />
-            </g>
-          )}
-
-          {gesture.kind === 'marquee' && (
-            <rect
-              className="marquee"
-              x={Math.min(gesture.start.x, gesture.current.x)}
-              y={Math.min(gesture.start.y, gesture.current.y)}
-              width={Math.abs(gesture.current.x - gesture.start.x)}
-              height={Math.abs(gesture.current.y - gesture.start.y)}
-            />
-          )}
+          <SceneLayer
+            showGrid={showGrid}
+            showTitleBlock={showTitleBlock}
+            titleLayout={titleLayout}
+            records={records}
+            wirePreview={wirePreview}
+            vertexPreview={vertexPreview}
+            selection={selection}
+            liveWires={liveWires}
+            reversedWires={reversedWires}
+            wirePaths={wirePaths}
+            dragDelta={dragDelta}
+            live={live}
+            motorDirection={motorDirection}
+            states={states}
+            closedContacts={closedContacts}
+            highlight={highlight}
+            rotation={rotation}
+            pins={pins}
+            cursorPin={cursorPin}
+            network={network}
+            snapMark={snapMark}
+            wireStart={wireStart}
+            hover={hover}
+            ghostPath={ghostPath}
+            gesture={gesture}
+            zoom={view.k}
+          />
         </g>
       </svg>
 
@@ -1206,6 +1093,218 @@ function DockButton({
     </Tooltip>
   );
 }
+
+interface SceneProps {
+  showGrid: boolean;
+  showTitleBlock: boolean;
+  titleLayout: SheetLayout | null;
+  records: CadeRecordModel[];
+  wirePreview: { ids: Set<number>; legs: { points: WirePoints; tone: ConductorTone }[] } | null;
+  vertexPreview: { hidden: Set<number>; legs: { points: WirePoints; tone: ConductorTone }[] } | null;
+  selection: Set<number>;
+  liveWires: Set<number>;
+  reversedWires?: Set<number>;
+  wirePaths: Map<number, string> | null;
+  dragDelta: MoveDelta | null;
+  live: Set<number>;
+  motorDirection?: Map<number, 1 | -1>;
+  states: Map<number, VisualState>;
+  closedContacts: Set<number>;
+  highlight: { ids: number[]; at: Point | null } | null;
+  rotation: Record<number, Rotation>;
+  pins: Map<number, Point[]>;
+  cursorPin: PinRef | null;
+  network: Network;
+  snapMark: Point | null;
+  wireStart: Point | null;
+  hover: Point | null;
+  ghostPath: string;
+  gesture: Gesture;
+  zoom: number;
+}
+
+/**
+ * Escena (símbolos, cables, uniones, previews y marcas) separada de la cámara.
+ *
+ * La cámara vive en el grupo transformado del padre; esta capa no depende de
+ * ella a escala fija, así que panear no la vuelve a recorrer ni crea elementos.
+ * Con `memo`, un cambio de cámara no ejecuta este componente.
+ */
+function SceneView({
+  showGrid,
+  showTitleBlock,
+  titleLayout,
+  records,
+  wirePreview,
+  vertexPreview,
+  selection,
+  liveWires,
+  reversedWires,
+  wirePaths,
+  dragDelta,
+  live,
+  motorDirection,
+  states,
+  closedContacts,
+  highlight,
+  rotation,
+  pins,
+  cursorPin,
+  network,
+  snapMark,
+  wireStart,
+  hover,
+  ghostPath,
+  gesture,
+  zoom,
+}: SceneProps): JSX.Element {
+  const selectedWires = records.filter((rec) => rec.kind === 'connection' && selection.has(rec.id));
+  return (
+    <>
+{showGrid && (
+            <>
+              <rect x={-10000} y={-10000} width={20000} height={20000} fill="url(#grid)" />
+              <rect x={-10000} y={-10000} width={20000} height={20000} fill="url(#grid-major)" />
+            </>
+          )}
+
+          {showTitleBlock && <TitleBlockLayer layout={titleLayout} />}
+
+          {records.map((rec) => {
+            if (wirePreview !== null && wirePreview.ids.has(rec.id)) return null;
+            if (vertexPreview !== null && vertexPreview.hidden.has(rec.id)) return null;
+            if (rec.kind === 'connection')
+              return (
+                <Wire
+                  key={rec.id}
+                  rec={rec}
+                  selected={selection.has(rec.id)}
+                  live={liveWires.has(rec.id)}
+                  reverse={reversedWires?.has(rec.id) ?? false}
+                  tone={conductorToneOf(rec.code)}
+                  path={wirePaths?.get(rec.id)}
+                  points={dragDelta?.wires.get(rec.id)}
+                />
+              );
+            if (rec.kind !== 'component') return null;
+            return (
+              <Component
+                key={rec.id}
+                rec={rec}
+                selected={selection.has(rec.id)}
+                live={live.has(rec.id)}
+                direction={motorDirection?.get(rec.id)}
+                state={states.get(rec.id) ?? 'idle'}
+                closed={closedContacts.has(rec.id)}
+                bad={highlight?.ids.includes(rec.id) ?? false}
+                rotation={rotation[rec.id] ?? 0}
+                pins={pins.get(rec.id) ?? []}
+                cursorIndex={cursorPin?.componentId === rec.id ? cursorPin.pinIndex : null}
+                offset={dragDelta?.positions.has(rec.id) ? { dx: dragDelta.dx, dy: dragDelta.dy } : undefined}
+                zoom={zoom}
+              />
+            );
+          })}
+
+          {/* Vértice en movimiento: los tramos que el commit va a escribir. */}
+          {vertexPreview?.legs.map((leg, i) => (
+            <path
+              key={`vertex-preview-${i}`}
+              className={`wire ${leg.tone}`}
+              d={`M${leg.points.x1} ${leg.points.y1}L${leg.points.x2} ${leg.points.y2}`}
+            />
+          ))}
+
+          {/* Cable doblándose: la polilínea que el commit va a escribir. */}
+          {wirePreview?.legs.map((leg, i) => (
+            <path
+              key={`wire-preview-${i}`}
+              className={`wire ${leg.tone}`}
+              d={`M${leg.points.x1} ${leg.points.y1}L${leg.points.x2} ${leg.points.y2}`}
+            />
+          ))}
+
+          {/* Codos del preview: tramos que el commit insertará como registros. */}
+          {dragDelta?.codos.map((codo) => (
+            <path
+              key={`codo-${codo.wireId}`}
+              className="wire"
+              d={`M${codo.moving.x1} ${codo.moving.y1}L${codo.moving.x2} ${codo.moving.y2}`}
+            />
+          ))}
+
+          {[...network.nodes.values()]
+            .filter((n) => n.junction || n.kind === 'tee')
+            .map((n) => (
+              // El punto de una T: un extremo que cae en el medio de otro tramo
+              // es una conexión real aunque el archivo no traiga un 4001 ahí.
+              <circle key={`j-${n.key}`} className="junction" cx={n.x} cy={n.y} r={1.15} />
+            ))}
+
+          {snapMark && <circle className="snap-mark" cx={snapMark.x} cy={snapMark.y} r={2.4} />}
+
+          {dragDelta === null &&
+            wirePreview === null &&
+            vertexPreview === null &&
+            selectedWires.map((rec) => {
+            const pts = wirePoints(rec);
+            if (!pts) return null;
+            return (
+              <g key={`h-${rec.id}`}>
+                <rect
+                  className="handle"
+                  data-endpoint="0"
+                  data-wire={rec.id}
+                  x={pts.x1 - 1.1}
+                  y={pts.y1 - 1.1}
+                  width={2.2}
+                  height={2.2}
+                />
+                <rect
+                  className="handle"
+                  data-endpoint="1"
+                  data-wire={rec.id}
+                  x={pts.x2 - 1.1}
+                  y={pts.y2 - 1.1}
+                  width={2.2}
+                  height={2.2}
+                />
+              </g>
+            );
+          })}
+
+          {highlight?.at && (
+            <g>
+              <circle className="mark" cx={highlight.at.x} cy={highlight.at.y} r={5} />
+              <path
+                className="mark"
+                d={`M${highlight.at.x - 3} ${highlight.at.y}H${highlight.at.x + 3}M${highlight.at.x} ${highlight.at.y - 3}V${highlight.at.y + 3}`}
+                style={{ animation: 'none', strokeWidth: 0.3 }}
+              />
+            </g>
+          )}
+
+          {wireStart && hover && (
+            <g className="ghost">
+              <path className="wire" d={ghostPath} />
+              <circle className="junction" cx={wireStart.x} cy={wireStart.y} r={1.15} />
+            </g>
+          )}
+
+          {gesture.kind === 'marquee' && (
+            <rect
+              className="marquee"
+              x={Math.min(gesture.start.x, gesture.current.x)}
+              y={Math.min(gesture.start.y, gesture.current.y)}
+              width={Math.abs(gesture.current.x - gesture.start.x)}
+              height={Math.abs(gesture.current.y - gesture.start.y)}
+            />
+          )}
+    </>
+  );
+}
+
+const SceneLayer = memo(SceneView);
 
 function ComponentView({
   rec,

@@ -339,6 +339,27 @@ test.describe('traza del preview', () => {
         });
       }
 
+      let paintTrace: Record<string, number> | null = null;
+      if (process.env.PREVIEW_TRACE_PAINT) {
+        const cdp = await context.newCDPSession(page);
+        const events: Array<{ name: string; dur?: number }> = [];
+        cdp.on('Tracing.dataCollected', (e: any) => events.push(...(e.value ?? [])));
+        const complete = new Promise<void>((resolve) => cdp.on('Tracing.tracingComplete', () => resolve()));
+        await cdp.send('Tracing.start', { categories: 'devtools.timeline,cc,blink', transferMode: 'ReportEvents' as any });
+        await drag();
+        await cdp.send('Tracing.end');
+        await complete;
+        await page.mouse.up({ button: 'middle' });
+        const sum = (names: string[]): number =>
+          Math.round(events.filter((e) => names.includes(e.name)).reduce((a, e) => a + (e.dur ?? 0), 0) / 1000);
+        paintTrace = {
+          events: events.length,
+          paint: sum(['Paint', 'PaintImage', 'PaintSetup']),
+          composite: sum(['CompositeLayers', 'UpdateLayer', 'UpdateLayerTree']),
+          layout: sum(['Layout', 'UpdateLayoutTree']),
+        };
+      }
+
       let profileRows: Row[] = [];
       if (PROFILE) {
         const cdp = await context.newCDPSession(page);
@@ -356,6 +377,7 @@ test.describe('traza del preview', () => {
         view: { zoom, viewport: { width: 1440, height: 900 }, steps: STEPS, stepPx: STEP_PX },
         target: URL_OVERRIDE ?? 'dev (webServer)',
         runs: panRuns,
+        paintTrace,
         profile: PROFILE ? { rows: profileRows.slice(0, 18), bucket: bucket(profileRows) } : null,
         limits: [
           'p95 del intervalo entre callbacks de rAF',
@@ -364,7 +386,7 @@ test.describe('traza del preview', () => {
         ],
       };
       writeFileSync(OUT, JSON.stringify(result, null, 2));
-      console.log(JSON.stringify({ out: OUT, gesture: 'pan', runs: panRuns.map((r) => ({ p95: r.p95, frames: r.frames, sceneTargets: r.sceneTargets, sceneMutations: r.sceneMutations, cameraMutations: r.cameraMutations })), bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
+      console.log(JSON.stringify({ out: OUT, gesture: 'pan', runs: panRuns.map((r) => ({ p95: r.p95, frames: r.frames })), paintTrace, bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
       return;
     }
 
