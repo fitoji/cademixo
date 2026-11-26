@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const APP = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RECORDS = Number(process.env.PREVIEW_TRACE_RECORDS ?? 9787);
-const GESTURE = (process.env.PREVIEW_TRACE_GESTURE ?? 'move') as 'move' | 'segment' | 'vertex' | 'pan' | 'wire';
+const GESTURE = (process.env.PREVIEW_TRACE_GESTURE ?? 'move') as 'move' | 'segment' | 'vertex' | 'pan' | 'wire' | 'wirediag';
 // Los gestos de cable se arrastran más lejos y en menos pasos: cada evento
 // reconstruye el documento hoy, y el snap devuelve un paso corto a un borne.
 const RUNS = Number(process.env.PREVIEW_TRACE_RUNS ?? 5);
@@ -295,6 +295,89 @@ test.describe('traza del preview', () => {
       }
       throw new Error('no se pudo deshacer con Meta+z ni Control+z');
     };
+
+    if (GESTURE === 'wirediag') {
+      await page.getByRole('button', { name: /líneas y cables/i }).click();
+      await page.getByRole('button', { name: 'Cable fase' }).click();
+      await page.mouse.click(startX, startY); // primer clic: origen del cable
+
+      await page.evaluate(() => {
+        const w = window as any;
+        w.__diag = { phase: 'A', phaseStart: 0, phaseEnd: 0, moves: [], ghosts: [] };
+        const svg = document.querySelector('svg[role="application"]')!;
+        svg.addEventListener(
+          'pointermove',
+          () => w.__diag.moves.push({ t: performance.now(), phase: w.__diag.phase }),
+          true,
+        );
+        new MutationObserver((records) => {
+          for (const r of records) {
+            const el = r.target as Element;
+            if (el.closest?.('.ghost')) {
+              w.__diag.ghosts.push({ t: performance.now(), phase: w.__diag.phase });
+              return;
+            }
+          }
+        }).observe(svg, { subtree: true, attributes: true, attributeFilter: ['d'] });
+      });
+
+      const phase = async (name: 'A' | 'B', from: { x: number; y: number }, stepPx: number): Promise<Record<string, unknown>> => {
+        await page.mouse.move(from.x, from.y);
+        await page.evaluate((n) => {
+          const w = window as any;
+          w.__diag.phase = n;
+          w.__diag.phaseStart = performance.now();
+          w.__routeStats.calls = 0;
+          w.__routeTimes = [];
+          w.__trace.startFrames();
+        }, name);
+        for (let s = 1; s <= STEPS; s++) {
+          await page.mouse.move(from.x + s * stepPx, from.y + s * stepPx * 0.6);
+        }
+        return page.evaluate((n) => {
+          const w = window as any;
+          w.__diag.phaseEnd = performance.now();
+          const stamps = w.__trace.stopFrames() as number[];
+          const intervals = stamps.slice(1).map((s: number, i: number) => s - stamps[i]);
+          const routes = (w.__routeTimes as Array<{ start: number; end: number }>).map((r) => r.end - r.start);
+          const moves = (w.__diag.moves as Array<{ t: number; phase: string }>).filter((m) => m.phase === n);
+          const ghosts = (w.__diag.ghosts as Array<{ t: number; phase: string }>).filter((g) => g.phase === n);
+          const gaps = routes.map((_, i) => {
+            const m = moves[i];
+            const g = ghosts[i];
+            return m && g ? g.t - m.t : null;
+          });
+          return {
+            phase: n,
+            moves: moves.length,
+            routeCalls: w.__routeStats.calls as number,
+            routeMs: routes,
+            frames: intervals.length,
+            frameP95: intervals.length ? intervals.slice().sort((a: number, b: number) => a - b)[Math.floor((intervals.length - 1) * 0.95)] : null,
+            frameMean: intervals.length ? intervals.reduce((a: number, b: number) => a + b, 0) / intervals.length : null,
+            moveToGhostMs: gaps.filter((g: number | null): g is number => g !== null),
+            window: [w.__diag.phaseStart as number, w.__diag.phaseEnd as number],
+          };
+        }, name);
+      };
+
+      // Fase A: el objetivo magnético cambia en cada paso. Fase B: pasos mínimos.
+      const A = await phase('A', { x: startX, y: startY }, STEP_PX);
+      const B = await phase('B', { x: startX + STEPS * STEP_PX, y: startY + STEPS * STEP_PX * 0.6 }, 0.3);
+      // Cancelar el gesto para no dejar cable.
+      await page.keyboard.press('Escape');
+
+      const result = {
+        gesture: 'wirediag',
+        sheet,
+        target: URL_OVERRIDE ?? 'dev (webServer)',
+        phases: [A, B],
+        note: 'A: el objetivo magnetico cambia en cada paso. B: pasos de 0.3 px, el objetivo no deberia cambiar.',
+      };
+      writeFileSync(OUT, JSON.stringify(result, null, 2));
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
 
     if (GESTURE === 'wire') {
       // Trazado de cable con la paleta: "Cable fase" + dos clics.

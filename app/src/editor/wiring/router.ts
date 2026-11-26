@@ -194,6 +194,18 @@ function boxesOnSegment(index: BoxIndex | null, boxes: Box[], a: Point, b: Point
 
 export function routeOrthogonal(request: RouteRequest): RouteResult {
   routeStats.calls += 1;
+  const startedAt = typeof performance !== 'undefined' ? performance.now() : 0;
+  try {
+    return routeCore(request);
+  } finally {
+    if (typeof window !== 'undefined') {
+      const w = window as unknown as { __routeTimes?: Array<{ start: number; end: number }> };
+      (w.__routeTimes ??= []).push({ start: startedAt, end: performance.now() });
+    }
+  }
+}
+
+function routeCore(request: RouteRequest): RouteResult {
   const { from, to } = request;
   const padding = request.padding ?? 1;
   const bendPenalty = request.bendPenalty ?? 20;
