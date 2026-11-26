@@ -188,7 +188,7 @@ function pruneOrphanJunctions(
   beforeNet: Network = buildNetwork(before),
   /** Red de `text`, sólo si un paso anterior devolvió exactamente ese texto. */
   after?: { text: string; net: Network | null },
-): string {
+): { text: string; net: Network | null } {
   const afterProject = buildProject(parse(text));
   const afterNet = after?.text === text && after.net !== null ? after.net : buildNetwork(afterProject.records);
   const dead = new Set<number>();
@@ -208,8 +208,11 @@ function pruneOrphanJunctions(
     }
   }
 
-  if (dead.size === 0) return text;
-  return serializeProject({ ...afterProject, records: afterProject.records.filter((r) => !dead.has(r.id)) });
+  if (dead.size === 0) return { text, net: afterNet };
+  return {
+    text: serializeProject({ ...afterProject, records: afterProject.records.filter((r) => !dead.has(r.id)) }),
+    net: null,
+  };
 }
 
 /**
@@ -224,7 +227,7 @@ function pruneEdits(
   text: string,
   protectPoints: Point[],
   between: (draft: string) => string = (draft) => draft,
-): string {
+): { text: string; net: Network | null } {
   const beforeNet = buildNetwork(before);
   const dead = pruneDeadStubs(before, text, protectPoints, beforeNet);
   const next = between(dead.text);
@@ -398,6 +401,18 @@ export function moveDelta(
 }
 
 /**
+ * Red de la última edición confirmada, para que App la reutilice en lugar de
+ * reconstruirla. Sólo vale si el texto coincide exactamente: la red de una poda
+ * que cambió los registros no representa el documento final (y la red anterior
+ * al gesto tampoco).
+ */
+let committedNetwork: { text: string; network: Network } | null = null;
+
+export function takeCommittedNetwork(state: EditorState): Network | null {
+  return committedNetwork !== null && committedNetwork.text === state.text ? committedNetwork.network : null;
+}
+
+/**
  * Mueve la selección. Los extremos de cable que coinciden exactamente con un
  * borne de un componente movido viajan con él: se acabó la regla provisional de
  * proximidad ±4, que arrastraba cables que sólo pasaban cerca de la caja.
@@ -429,10 +444,10 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
     next++;
   }
 
-  return commit(
-    state,
-    pruneEdits(project.records, serializeWith(project, edits) + appended.join(''), delta.protect),
-  );
+  const pruned = pruneEdits(project.records, serializeWith(project, edits) + appended.join(''), delta.protect);
+  const committed = commit(state, pruned.text);
+  committedNetwork = pruned.net !== null && committed.text === pruned.text ? { text: committed.text, network: pruned.net } : null;
+  return committed;
 }
 
 /**
@@ -523,7 +538,7 @@ export function deleteSelection(state: EditorState): EditorState {
   const text = magic + project.prefix + project.records.filter((r) => !removable.has(r.id)).map((r) => r.raw).join('');
   const rotation = { ...state.rotation };
   for (const id of removable) delete rotation[id];
-  return { ...commit(state, pruneOrphanJunctions(project.records, text), []), rotation };
+  return { ...commit(state, pruneOrphanJunctions(project.records, text).text, []), rotation };
 }
 
 export function copySelection(state: EditorState): EditorState {
@@ -752,7 +767,7 @@ export function moveEndpoint(state: EditorState, id: number, end: 0 | 1, x: numb
     edits.set(index, withWirePoints(rec, next));
     return commit(
       state,
-      pruneEdits(project.records, serializeWith(project, edits), [target]),
+      pruneEdits(project.records, serializeWith(project, edits), [target]).text,
     );
   }
 
@@ -781,7 +796,7 @@ export function moveEndpoint(state: EditorState, id: number, end: 0 | 1, x: numb
     project.prefix +
     project.records.map((r, i) => edits.get(i) ?? r.raw).join('') +
     leg2;
-  return commit(state, pruneEdits(project.records, text, [target]), [
+  return commit(state, pruneEdits(project.records, text, [target]).text, [
     id,
     newId,
   ]);
@@ -917,7 +932,7 @@ export function moveVertex(state: EditorState, from: Point, to: Point, sheet = 0
 
   const firstPass = compose(new Set());
 
-  const finalText = pruneEdits(project.records, firstPass, [from, to], simplifyCollinear);
+  const finalText = pruneEdits(project.records, firstPass, [from, to], simplifyCollinear).text;
   const next = commit(state, finalText);
 
   // La selección tiene que seguir al cable: si no, después de mover un extremo
@@ -1096,7 +1111,7 @@ export function mergeVertex(state: EditorState, x: number, y: number): EditorSta
       .map((r, i) => (i === first.index ? merged : r.raw))
       .filter((_, i) => i !== second.index)
       .join('');
-  return commit(state, pruneOrphanJunctions(project.records, text), [first.rec.id]);
+  return commit(state, pruneOrphanJunctions(project.records, text).text, [first.rec.id]);
 }
 
 /**
@@ -1284,7 +1299,7 @@ export function addWire(
     project.records.map((r) => r.raw).join('') +
     raw +
     junctions;
-  return commit(state, pruneOrphanJunctions(project.records, text), [id]);
+  return commit(state, pruneOrphanJunctions(project.records, text).text, [id]);
 }
 
 /**
@@ -1332,7 +1347,7 @@ export function addRoutedWire(
     project.records.map((r) => r.raw).join('') +
     raws.join('') +
     junctions;
-  return commit(state, pruneOrphanJunctions(project.records, text), addedIds);
+  return commit(state, pruneOrphanJunctions(project.records, text).text, addedIds);
 }
 
 /** Borra el registro 4001 indicado (acción del aviso `orphan-junction`). */

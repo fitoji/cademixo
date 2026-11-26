@@ -59,6 +59,7 @@ import {
   addRoutedWire,
   removeJunction,
   applyDrag,
+  takeCommittedNetwork,
   undo,
   redo,
   markSaved,
@@ -888,7 +889,12 @@ export function App(): JSX.Element {
     [state, rowVisibility],
   );
 
-  const network = useMemo(() => buildNetwork(project?.records ?? []), [project]);
+  // Si la última edición confirmada dejó su red final, se reutiliza: representa
+  // exactamente el texto actual y el mismo alcance (documento completo).
+  const network = useMemo(() => {
+    const shared = state ? takeCommittedNetwork(state) : null;
+    return shared ?? buildNetwork(project?.records ?? []);
+  }, [project, state]);
   const findings = useMemo(() => validate(project?.records ?? [], network), [project, network]);
   // El corte de la última simulación se suma a los avisos del documento con su
   // propia ubicación, para que el lienzo lo marque igual que cualquier aviso.
