@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 27)
+**Fecha:** 2026-11-26 (revisión 28)
 **Rama:** `astra-perfo`
-**Tipo:** A/B de la capa transitoria con la métrica correcta.
+**Tipo:** igualdad de hover con igualdad exacta del punto snapeado.
 
-> **Revisión 27.** Corrige el emparejamiento de la rev. 26: `pointermove` → DOM del fantasma es ~10,6 ms, no 144–200 ms. Con esa métrica, la capa transitoria **sí mejora** (10,6 → 7,3–9,2 ms de mediana) y **se mantiene**. Además, la fase B confirma coordenadas efectivas repetidas. Ver 2.x.
+> **Revisión 28.** Conserva el objeto de `hover` cuando el punto ya snapeado tiene x e y exactos iguales: **cero recálculos** en la fase B tras el cálculo inicial, fase A con los mismos 6 objetivos y rutas efectivas idénticas. La latencia al DOM no baja; el p95 de cuadro de la fase B pasa de 33,3 a **16,7 ms**. Ver 2.y.
 
 ## Resumen ejecutivo
 
@@ -605,6 +605,32 @@ El test de goldens baja de 1.054 a 93 ms con las mismas rutas.
 
 **Nota:** el p95 de cuadro sigue en 50 ms con y sin split; la mejora es de latencia de respuesta, no de cadencia.
 
+### 2.y Igualdad de hover: igualdad exacta del punto snapeado
+
+**Cambio:** en el `pointermove` del trazado, `setHover` conserva el objeto anterior cuando `prev.x === t.point.x && prev.y === t.point.y` (exacto, sobre el punto **ya snapeado**, sin tolerancia nueva ni comparación de rutas). `snapMark` usa la misma regla.
+
+**Por qué recalculaba:** el memo de la ruta depende de `[wireStart, hover, records]`. `setHover(t.point)` creaba un objeto nuevo en cada evento aunque sus valores fueran iguales, así que el memo se invalidaba por identidad.
+
+**A/B intercalado en producción** (misma trayectoria, 2 trazas por lado):
+
+| Fase | Lado | Movimientos | Recálculos | Rutas efectivas únicas | Actualizaciones de `d` | Latencia al DOM (mediana / p95) | p95 de cuadro |
+|---|---|---|---|---|---|---|---|
+| A (10 px) | Antes | 7 | 6 | 6 | 6 | 7,4 / 9,8 y 7,3 / 9,5 ms | 50,0 ms |
+| A (10 px) | **Después** | 7 | 6 | 6 | 6 | 7,2 / 10,5 y 7,3 / 9,8 ms | 50,0 ms |
+| B (0,3 px) | Antes | 6 | **6** | 1 | 0 | — | 33,3 / 33,2 ms |
+| B (0,3 px) | **Después** | 6 | **0** | — | 0 | — | **16,8 / 16,7 ms** |
+
+**Verificación de identidad:** las rutas efectivas (`from,to`) de la fase A son **idénticas** antes y después, y entre corridas (`45648,87->45648,90 … 45648,87->45669,99`).
+
+**Garantía de recálculo:** el memo depende también de `wireStart` y de `records`, así que cambiar el origen o la geometría de la hoja recalcula aunque la punta no se mueva.
+
+**Resultado, con las dos métricas separadas:**
+
+- **Latencia al DOM:** no baja (fase A: 7,3–7,4 → 7,2–7,3 ms de mediana, dentro del ruido). La fase A muta el fantasma en cada paso por definición, así que no había latencia redundante que quitar.
+- **p95 de cuadro:** en la fase B baja de **33,3 a 16,7 ms** (mitad), porque sin recálculo no hay trabajo de ruta ni re-render que empuje el cuadro. En la fase A queda en 50 ms.
+
+**Conclusión:** el criterio de salida se cumple (cero recálculos adicionales en B, mismos objetivos y ruta idéntica en A). Se mantiene. Baseline en `preview-prod-hover-equality.json`.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -681,7 +707,7 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 16. **Capa transitoria: probada y revertida** (ver 2.v). Cero recorridos de escena, misma ruta, pero el p95 no mejora (50 → 50 ms).
 17. **Marcas de punta a punta** (ver 2.w): con el emparejamiento corregido, `pointermove` → DOM del fantasma es ~10,6 ms (la rev. 26 había emparejado por índice). El memo del fantasma se invalida por identidad del `hover`.
 18. **Capa transitoria: mantenida con la métrica correcta** (ver 2.x). Mediana 10,6 → 7,3–9,2 ms; p95 13,5 → 10,6–12,1; p95 de cuadro sin cambios.
-19. **Igualdad de hover:** fase B confirma coordenadas efectivas repetidas (6 llamadas, 1 ruta única). Próximo cambio separado, con criterio de cero recálculos para el mismo objetivo.
+19. **Igualdad de hover implementada** (ver 2.y): igualdad exacta del punto snapeado. Fase B: 6 → **0 recálculos** y p95 de cuadro 33,3 → **16,7 ms**. Fase A: mismos 6 objetivos y rutas efectivas idénticas; latencia al DOM sin cambio. Se mantiene.
 
 ## 8. Los gates de performance existentes
 
@@ -730,6 +756,10 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 28 (2026-11-26).** Igualdad de hover con igualdad exacta del punto snapeado:
+  - Fase B: 6 → 0 recálculos tras el cálculo inicial y p95 de cuadro 33,3 → 16,7 ms.
+  - Fase A: 6 objetivos, rutas efectivas idénticas antes/después; latencia al DOM sin cambio (7,3 → 7,2–7,3 ms de mediana).
+  - Guarida de recálculo: el memo depende de `wireStart` y `records`. Baseline en `preview-prod-hover-equality.json`.
 - **Revisión 27 (2026-11-26).** A/B de la capa transitoria con la métrica correcta:
   - Se corrige el emparejamiento de la rev. 26: `pointermove` → DOM del fantasma ~10,6 ms (los 144–200 ms eran el intervalo entre movimientos por emparejar por índice).
   - Con split: mediana 7,3–9,2 ms y p95 10,6–12,1 vs 10,6 y 13,3–13,6; p95 de cuadro igual (50) → se mantiene.
