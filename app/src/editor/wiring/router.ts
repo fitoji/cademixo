@@ -199,8 +199,15 @@ export function routeOrthogonal(request: RouteRequest): RouteResult {
     return routeCore(request);
   } finally {
     if (typeof window !== 'undefined') {
-      const w = window as unknown as { __routeTimes?: Array<{ start: number; end: number }> };
-      (w.__routeTimes ??= []).push({ start: startedAt, end: performance.now() });
+      const w = window as unknown as {
+        __routeTimes?: Array<{ start: number; end: number; from: { x: number; y: number }; to: { x: number; y: number } }>;
+      };
+      (w.__routeTimes ??= []).push({
+        start: startedAt,
+        end: performance.now(),
+        from: { ...request.from },
+        to: { ...request.to },
+      });
     }
   }
 }

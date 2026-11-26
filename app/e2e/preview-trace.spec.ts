@@ -307,14 +307,15 @@ test.describe('traza del preview', () => {
         const svg = document.querySelector('svg[role="application"]')!;
         svg.addEventListener(
           'pointermove',
-          () => w.__diag.moves.push({ t: performance.now(), phase: w.__diag.phase }),
+          (e: PointerEvent) =>
+            w.__diag.moves.push({ t: performance.now(), x: e.clientX, y: e.clientY, phase: w.__diag.phase }),
           true,
         );
         new MutationObserver((records) => {
           for (const r of records) {
             const el = r.target as Element;
             if (el.closest?.('.ghost')) {
-              w.__diag.ghosts.push({ t: performance.now(), phase: w.__diag.phase });
+              w.__diag.ghosts.push({ t: performance.now(), d: el.getAttribute('d'), phase: w.__diag.phase });
               return;
             }
           }
@@ -339,23 +340,50 @@ test.describe('traza del preview', () => {
           w.__diag.phaseEnd = performance.now();
           const stamps = w.__trace.stopFrames() as number[];
           const intervals = stamps.slice(1).map((s: number, i: number) => s - stamps[i]);
-          const routes = (w.__routeTimes as Array<{ start: number; end: number }>).map((r) => r.end - r.start);
-          const moves = (w.__diag.moves as Array<{ t: number; phase: string }>).filter((m) => m.phase === n);
-          const ghosts = (w.__diag.ghosts as Array<{ t: number; phase: string }>).filter((g) => g.phase === n);
-          const gaps = routes.map((_, i) => {
-            const m = moves[i];
-            const g = ghosts[i];
-            return m && g ? g.t - m.t : null;
-          });
+          const routeEntries = w.__routeTimes as Array<{
+            start: number;
+            end: number;
+            from: { x: number; y: number };
+            to: { x: number; y: number };
+          }>;
+          const routes = routeEntries.map((r) => r.end - r.start);
+          const moves = (w.__diag.moves as Array<{ t: number; x: number; y: number; phase: string }>).filter(
+            (m) => m.phase === n,
+          );
+          const ghosts = (w.__diag.ghosts as Array<{ t: number; d: string; phase: string }>).filter(
+            (g) => g.phase === n,
+          );
+          const pairs = ghosts.map((g) => {
+            const move = [...moves].reverse().find((m) => m.t <= g.t);
+            return move ? { move, latency: g.t - move.t } : null;
+          }).filter((p): p is { move: { t: number }; latency: number } => p !== null);
+          const updated = new Set(pairs.map((p) => p.move.t));
+          const latencies = pairs.map((p) => p.latency);
+          const median = latencies.length
+            ? latencies.slice().sort((a, b) => a - b)[Math.floor((latencies.length - 1) / 2)]
+            : null;
+          const p95 = latencies.length
+            ? latencies.slice().sort((a, b) => a - b)[Math.floor((latencies.length - 1) * 0.95)]
+            : null;
+          const effective = routeEntries.map((r) => `${r.from.x},${r.from.y}->${r.to.x},${r.to.y}`);
+          const uniqueEffective = new Set(effective).size;
           return {
             phase: n,
             moves: moves.length,
+            moveCoords: moves.map((m) => `${m.x},${m.y}`),
             routeCalls: w.__routeStats.calls as number,
             routeMs: routes,
+            routeEffective: effective,
+            uniqueEffectiveRoutes: uniqueEffective,
+            ghostUpdates: ghosts.length,
+            updatesWithoutPair: ghosts.length - pairs.length,
+            movesWithoutUpdate: moves.length - updated.size,
+            moveToGhostMs: latencies,
+            moveToGhostMedian: median,
+            moveToGhostP95: p95,
             frames: intervals.length,
             frameP95: intervals.length ? intervals.slice().sort((a: number, b: number) => a - b)[Math.floor((intervals.length - 1) * 0.95)] : null,
             frameMean: intervals.length ? intervals.reduce((a: number, b: number) => a + b, 0) / intervals.length : null,
-            moveToGhostMs: gaps.filter((g: number | null): g is number => g !== null),
             window: [w.__diag.phaseStart as number, w.__diag.phaseEnd as number],
           };
         }, name);

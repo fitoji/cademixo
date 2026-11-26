@@ -893,6 +893,8 @@ export function Canvas(props: Props): JSX.Element {
 
   // Una sola redacción para las dos variantes del panel (dock y clásico). Las
   // teclas con glyph propio vienen del registro para no quedar trabadas en Apple.
+  const marquee = gesture.kind === 'marquee' ? gesture : null;
+
   const canvasHints = (
     <>
       arrastrá componentes · <b>arrastrá un cable</b> para doblarlo · <b>tab</b> + <b>flechas</b> cablean ·{' '}
@@ -949,13 +951,18 @@ export function Canvas(props: Props): JSX.Element {
             pins={pins}
             cursorPin={cursorPin}
             network={network}
-            snapMark={snapMark}
-            wireStart={wireStart}
-            hover={hover}
-            ghostPath={ghostPath}
-            gesture={gesture}
             zoom={view.k}
           />
+          <SnapLayer snapMark={snapMark} />
+          <TopLayer
+            records={records}
+            selection={selection}
+            highlight={highlight}
+            dragDelta={dragDelta}
+            wirePreview={wirePreview}
+            vertexPreview={vertexPreview}
+          />
+          <TransientLayer wireStart={wireStart} hover={hover} ghostPath={ghostPath} marquee={marquee} />
         </g>
       </svg>
 
@@ -1115,11 +1122,6 @@ interface SceneProps {
   pins: Map<number, Point[]>;
   cursorPin: PinRef | null;
   network: Network;
-  snapMark: Point | null;
-  wireStart: Point | null;
-  hover: Point | null;
-  ghostPath: string;
-  gesture: Gesture;
   zoom: number;
 }
 
@@ -1151,14 +1153,8 @@ function SceneView({
   pins,
   cursorPin,
   network,
-  snapMark,
-  wireStart,
-  hover,
-  ghostPath,
-  gesture,
   zoom,
 }: SceneProps): JSX.Element {
-  const selectedWires = records.filter((rec) => rec.kind === 'connection' && selection.has(rec.id));
   return (
     <>
 {showGrid && (
@@ -1241,70 +1237,92 @@ function SceneView({
               <circle key={`j-${n.key}`} className="junction" cx={n.x} cy={n.y} r={1.15} />
             ))}
 
-          {snapMark && <circle className="snap-mark" cx={snapMark.x} cy={snapMark.y} r={2.4} />}
-
-          {dragDelta === null &&
-            wirePreview === null &&
-            vertexPreview === null &&
-            selectedWires.map((rec) => {
-            const pts = wirePoints(rec);
-            if (!pts) return null;
-            return (
-              <g key={`h-${rec.id}`}>
-                <rect
-                  className="handle"
-                  data-endpoint="0"
-                  data-wire={rec.id}
-                  x={pts.x1 - 1.1}
-                  y={pts.y1 - 1.1}
-                  width={2.2}
-                  height={2.2}
-                />
-                <rect
-                  className="handle"
-                  data-endpoint="1"
-                  data-wire={rec.id}
-                  x={pts.x2 - 1.1}
-                  y={pts.y2 - 1.1}
-                  width={2.2}
-                  height={2.2}
-                />
-              </g>
-            );
-          })}
-
-          {highlight?.at && (
-            <g>
-              <circle className="mark" cx={highlight.at.x} cy={highlight.at.y} r={5} />
-              <path
-                className="mark"
-                d={`M${highlight.at.x - 3} ${highlight.at.y}H${highlight.at.x + 3}M${highlight.at.x} ${highlight.at.y - 3}V${highlight.at.y + 3}`}
-                style={{ animation: 'none', strokeWidth: 0.3 }}
-              />
-            </g>
-          )}
-
-          {wireStart && hover && (
-            <g className="ghost">
-              <path className="wire" d={ghostPath} />
-              <circle className="junction" cx={wireStart.x} cy={wireStart.y} r={1.15} />
-            </g>
-          )}
-
-          {gesture.kind === 'marquee' && (
-            <rect
-              className="marquee"
-              x={Math.min(gesture.start.x, gesture.current.x)}
-              y={Math.min(gesture.start.y, gesture.current.y)}
-              width={Math.abs(gesture.current.x - gesture.start.x)}
-              height={Math.abs(gesture.current.y - gesture.start.y)}
-            />
-          )}
     </>
   );
 }
 
 const SceneLayer = memo(SceneView);
+
+type WirePreviewState = { ids: Set<number>; legs: { points: WirePoints; tone: ConductorTone }[] };
+type VertexPreviewState = { hidden: Set<number>; legs: { points: WirePoints; tone: ConductorTone }[] };
+
+function SnapView({ snapMark }: { snapMark: Point | null }): JSX.Element {
+  return <>{snapMark && <circle className="snap-mark" cx={snapMark.x} cy={snapMark.y} r={2.4} />}</>;
+}
+const SnapLayer = memo(SnapView);
+
+interface TopProps {
+  records: CadeRecordModel[];
+  selection: Set<number>;
+  highlight: { ids: number[]; at: Point | null } | null;
+  dragDelta: MoveDelta | null;
+  wirePreview: WirePreviewState | null;
+  vertexPreview: VertexPreviewState | null;
+}
+
+function TopView({ records, selection, highlight, dragDelta, wirePreview, vertexPreview }: TopProps): JSX.Element {
+  const selectedWires = records.filter((rec) => rec.kind === 'connection' && selection.has(rec.id));
+  return (
+    <>
+      {dragDelta === null &&
+        wirePreview === null &&
+        vertexPreview === null &&
+        selectedWires.map((rec) => {
+          const pts = wirePoints(rec);
+          if (!pts) return null;
+          return (
+            <g key={`h-${rec.id}`}>
+              <rect className="handle" data-endpoint="0" data-wire={rec.id} x={pts.x1 - 1.1} y={pts.y1 - 1.1} width={2.2} height={2.2} />
+              <rect className="handle" data-endpoint="1" data-wire={rec.id} x={pts.x2 - 1.1} y={pts.y2 - 1.1} width={2.2} height={2.2} />
+            </g>
+          );
+        })}
+
+      {highlight?.at && (
+        <g>
+          <circle className="mark" cx={highlight.at.x} cy={highlight.at.y} r={5} />
+          <path
+            className="mark"
+            d={`M${highlight.at.x - 3} ${highlight.at.y}H${highlight.at.x + 3}M${highlight.at.x} ${highlight.at.y - 3}V${highlight.at.y + 3}`}
+            style={{ animation: 'none', strokeWidth: 0.3 }}
+          />
+        </g>
+      )}
+    </>
+  );
+}
+const TopLayer = memo(TopView);
+
+interface TransientProps {
+  wireStart: Point | null;
+  hover: Point | null;
+  ghostPath: string;
+  marquee: { start: Point; current: Point } | null;
+}
+
+function TransientView({ wireStart, hover, ghostPath, marquee }: TransientProps): JSX.Element {
+  return (
+    <>
+      {wireStart && hover && (
+        <g className="ghost">
+          <path className="wire" d={ghostPath} />
+          <circle className="junction" cx={wireStart.x} cy={wireStart.y} r={1.15} />
+        </g>
+      )}
+      {marquee && (
+        <rect
+          className="marquee"
+          x={Math.min(marquee.start.x, marquee.current.x)}
+          y={Math.min(marquee.start.y, marquee.current.y)}
+          width={Math.abs(marquee.current.x - marquee.start.x)}
+          height={Math.abs(marquee.current.y - marquee.start.y)}
+        />
+      )}
+    </>
+  );
+}
+const TransientLayer = memo(TransientView);
+
 
 function ComponentView({
   rec,
