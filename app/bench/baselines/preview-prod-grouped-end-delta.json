@@ -1,0 +1,33 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "gesture": "segment sobre el tramo extremo de un cable agrupado",
+  "note": "La cobertura depende de la direccion: hacia el lado libre el plan es seguro; hacia el vecino colineal se solapa y cae al fallback. 6 pasos de 10 px, 5 corridas, 2 corridas por lado.",
+  "safeDirection": {
+    "dir": -1,
+    "before": {
+      "p95": [4399.8, 4599.8],
+      "startBuilds": 1,
+      "duringMoveBuilds": 54,
+      "release": [5473.6, 5566.1, 5475.5, 5391.2, 5526.9, 5199.8, 5287.4, 5181.2, 5182.6, 5212.7],
+      "releaseBuilds": 10
+    },
+    "after": {
+      "p95": [50, 50],
+      "startBuilds": 1,
+      "duringMoveBuilds": 0,
+      "release": [4144.3, 4128.6, 4048.6, 3942.4, 5018.7, 5726.2, 5719.5, 5555.7, 5617.8, 5134.0],
+      "releaseBuilds": 10
+    }
+  },
+  "unsafeDirection": {
+    "dir": 1,
+    "p95": 3083.3,
+    "duringMoveBuilds": 51,
+    "steps": [8, 8, 8, 9, 9, 9],
+    "releaseBuilds": 10,
+    "note": "Fallback consistente en todo el gesto; no hay mejora esperada porque el plan se solapa con el tramo vecino."
+  },
+  "conclusion": "En la direccion cubierta: p95 4500 -> 50 ms y 54 -> 0 reconstrucciones durante pointermove. En la direccion con solapamiento se conserva el fallback (51 redes, sin mejora). El soltar mantiene 10 redes en ambos lados y se mide aparte."
+}
