@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 18)
+**Fecha:** 2026-11-26 (revisión 19)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + deltas + paneo + capa estable.
+**Tipo:** auditoría + benchmark + deltas + paneo + explicación del piso.
 
-> **Revisión 18.** Extrae la **capa de escena** memoizada, con la cámara fuera: panear ya no recorre ni crea elementos de la escena. El p95 por corrida baja de 33,4–49,9 a 33,3–33,4 ms (desaparece la cola), pero el piso de 33,4 ms no baja y no es React. Ver 2.o.
+> **Revisión 19.** Explica el piso de 33,4 ms del paneo: cadencia real de pantalla 60 Hz, hoja chica a 16,7 ms y hoja grande a 33,4 ms; la traza apunta a **style/layout**, no a pintura. No se cambia el renderer. Ver 2.p.
 
 ## Resumen ejecutivo
 
@@ -399,6 +399,25 @@ Todas las muestras "después" quedan por debajo de todas las "antes": separació
 
 **Verificación funcional:** selección, foco de borne (`cursorPin`) y estado de simulación son props de `SceneLayer`; cuando cambian, la capa se re-renderiza. Las pruebas e2e no agregan fallos nuevos (los 3 fallos son los pre-existentes de `canvas-hover` y `editor-smoke`). Unidad 923/923.
 
+### 2.p Piso del paneo: qué cuesta realmente
+
+**Método:** misma trayectoria (6 pasos de 10 px) y misma cadencia de entrada; se registra la frecuencia real de pantalla en reposo y se comparan hoja grande y hoja chica. Traza CDP (`devtools.timeline,cc,viz,blink,benchmark`) agregada **por nombre de evento**, sin hardcodear categorías.
+
+| Caso | Registros | Zoom | p95 | Frecuencia en reposo |
+|---|---|---|---|---|
+| Hoja grande | 9.577 | 2,756 | **33,4 ms** | 16,7 ms (60 Hz) |
+| Hoja chica | 211 | 2,567 | **16,7 ms** | 16,7 ms (60 Hz) |
+
+**Lectura:** el entorno corre a 60 Hz. La hoja chica sostiene 60 fps; la grande pierde **un cuadro de cada dos**. Es costo real proporcional al contenido, no cadencia del benchmark.
+
+**Ranking de la traza (hoja grande):** `Document::UpdateStyleAndLayout` ≈ **1.974 ms** agregados, `Blink.ForcedStyleAndLayout.UpdateTime` ≈ 1.194 ms, `LocalFrameView::UpdateStyleAndLayout` ≈ 519 ms; por debajo `ProxyMain::BeginMainFrame` 79 ms, `Paint` 77 ms y `RunPaintLifecyclePhase` 54 ms. **Domina style/layout, no pintura.**
+
+**Advertencias:** los conteos de eventos están inflados por el overhead de tracing (7,4 M eventos): el ranking es indicativo, no un costo total. El zoom final difiere entre hojas (2,756 vs 2,567), así que la comparación es de orden de magnitud. `visitNode` sigue sin URL: **no** se atribuye a composición; el ranking apunta a style/layout. Los 77 ms de `Paint` no se toman como costo total del renderizado. Composición y presentación no quedan aisladas con estas categorías.
+
+**Costo concreto a atacar (sin cambiar nada todavía):** el cambio de cámara invalida style/layout de la escena completa. Un candidato es mover la cámara con una transformación compuesta (CSS/`will-change`) en lugar del atributo `transform` del SVG, para que el cambio no recorra el árbol. Requiere su propio cambio y medición.
+
+El índice de hit-test sigue fuera: necesita su propia medición de la consulta.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -465,7 +484,7 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 6. **Soltar del vértice: cerrado sin regresión demostrada.** A/B alternado de 15 muestras por lado: mediana +3,7 %, rangos solapados; el criterio pre-fijado no se cumple (ver 2.k). Queda documentado, sin perfilar.
 7. **Tramo extremo agrupado: delta hecho en la dirección cubierta** (ver 2.m). Queda el fallback para direcciones con solapamiento colineal, y también corrige el gesto congelado tras un fallback.
 8. **Paneo: medido, memoizado y con capa estable** (ver 2.n y 2.o). La escena ya no se recorre al panear y la cola de 50 ms desapareció; el piso de 33,4 ms no es React.
-9. **Antes de tocar el renderer:** medir composición con categorías correctas (la traza actual no la capturó) y explicar el piso de 33,4 ms.
+9. **Piso del paneo explicado** (ver 2.p): 60 Hz reales; la hoja chica va a 16,7 ms y la grande a 33,4 ms; la traza apunta a style/layout, no a pintura. Candidato: cámara con transformación compuesta, como cambio separado.
 10. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta real por evento.
 
 ## 8. Los gates de performance existentes
@@ -515,6 +534,10 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 19 (2026-11-26).** Explicación del piso del paneo:
+  - Frecuencia real 60 Hz (idle 16,7 ms). Hoja chica (211 registros) 16,7 ms; grande (9.577) 33,4 ms → cuadros perdidos reales, proporcionales al contenido.
+  - Traza por nombre de evento: style/layout domina (~1,97 s agregados), `Paint` 77 ms. Conteos inflados por overhead de tracing; ranking indicativo.
+  - `visitNode` no se atribuye a composición; el ranking apunta a layout. Candidato: cámara con transformación compuesta. Baseline en `preview-prod-pan-floor.json`.
 - **Revisión 18 (2026-11-26).** Capa de escena estable:
   - `SceneLayer` memoizado sin la cámara: panear no recorre `records` ni crea elementos.
   - A/B: la cola de ~50 ms desaparece (p95 por corrida 49,9 → 33,4), pero el piso de 33,4 ms no baja.
