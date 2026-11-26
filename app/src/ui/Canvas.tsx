@@ -6,6 +6,7 @@ import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
 import { componentHitBox } from './hit-box.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
+import { idsInRect } from '../editor/selection-rect.ts';
 import { moveDelta, type DragOp, type MoveDelta, type Rotation } from '../editor/state.ts';
 import { bendPreviewLegs, isVertexPlanSafe, legsOf, planSegmentPolyline, planSplitBend, planVertexMove } from '../editor/wiring/preview-geometry.ts';
 import { pathPoints, wirePathsOf, type WirePath } from '../editor/wiring/types.ts';
@@ -584,14 +585,9 @@ export function Canvas(props: Props): JSX.Element {
           onDragPreview(null);
           setSnapMark(null);
         } else if (e.type === 'select') {
-          const { x1, y1, x2, y2 } = e.rect;
-          const ids: number[] = [];
-          for (const rec of records) {
-            if (rec.kind !== 'component') continue;
-            const b = boundsOf(rec);
-            if (!b) continue;
-            if (b.x < x2 && b.x + b.w > x1 && b.y < y2 && b.y + b.h > y1) ids.push(rec.id);
-          }
+          // El área también selecciona cables y uniones: el criterio vive en
+          // `idsInRect` para poder probarlo sin React.
+          const ids = idsInRect(records, e.rect);
           if (ids.length > 0) onSelect(ids, e.additive);
         }
       }

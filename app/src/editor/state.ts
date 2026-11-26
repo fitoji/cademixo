@@ -369,8 +369,11 @@ export function moveDelta(
     const pts = wirePoints(rec);
     if (!pts) continue;
 
-    const moveA = anchored(pts.x1, pts.y1);
-    const moveB = anchored(pts.x2, pts.y2);
+    // Un cable seleccionado por área se traslada entero: lo seleccionado se
+    // mueve. Un cable no seleccionado conserva su extremo de afuera y se estira.
+    const chosen = selection.has(rec.id);
+    const moveA = chosen || anchored(pts.x1, pts.y1);
+    const moveB = chosen || anchored(pts.x2, pts.y2);
     if (!moveA && !moveB) continue;
     const ax = moveA ? pts.x1 + dx : pts.x1;
     const ay = moveA ? pts.y1 + dy : pts.y1;
