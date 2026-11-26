@@ -1,0 +1,20 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "gesture": "pan con boton central, escala fija, 6 pasos de 10 px",
+  "note": "A/B acotado de la representacion de camara: atributo transform SVG vs transform CSS (transform-box view-box, origin 0 0). Tiempos con la traza pesada apagada; diagnostico en pasada separada. will-change NO se probo.",
+  "svgCamera": {
+    "p95": [33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4],
+    "styleLayoutMs": 1961,
+    "paintMs": 68,
+    "geometry": { "componentSelects": true, "wireSelects": true, "zoomAnchorDelta": 0 }
+  },
+  "cssCamera": {
+    "p95": [33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4],
+    "styleLayoutMs": 2025,
+    "paintMs": 71,
+    "geometry": { "componentSelects": true, "wireSelects": true, "zoomAnchorDelta": 0.133 }
+  },
+  "conclusion": "La camara CSS no mejora el p95 ni el trabajo de estilo/layout. Se revierte el cambio: no se mantiene solo porque un contador baje. Geometria verificada en ambas variantes (clic sobre simbolo y cable, zoom anclado). El piso de 33,4 ms sigue sin explicacion directa; los conteos de la traza pesada estan inflados por su propio overhead."
+}
