@@ -215,11 +215,27 @@ test.describe('traza del preview', () => {
     }, { id });
 
     const drag = async (): Promise<void> => {
+      const dirtyBefore = await page.evaluate(() =>
+        (document.querySelector('footer span.rounded-full[aria-hidden="true"]')?.className ?? '').includes('bg-warn'),
+      );
       await page.mouse.move(startX, startY);
       await page.mouse.down();
       for (let s = 1; s <= STEPS; s++) await page.mouse.move(startX + s * STEP_PX, startY);
       const previewTransform = await transformOf(page, id);
       expect(previewTransform, 'el gesto debe mover el componente conectado').not.toBe(original);
+      // Invariantes del preview: no escribe historial (Deshacer sigue apagado)
+      // ni cambia el estado sucio. Toda escritura pasa por commit(), que empuja
+      // historial: si el historial no se movió, el documento tampoco.
+      const during = await page.evaluate(() => {
+        const undo = document.querySelector('button[aria-label="Deshacer"]') as HTMLButtonElement | null;
+        const dot = document.querySelector('footer span.rounded-full[aria-hidden="true"]');
+        return {
+          historyClean: undo === null || undo.disabled,
+          dirty: (dot?.className ?? '').includes('bg-warn'),
+        };
+      });
+      expect(during.historyClean, 'el preview no debe escribir historial').toBe(true);
+      expect(during.dirty, 'el preview no debe cambiar el estado sucio').toBe(dirtyBefore);
     };
 
     const undo = async (): Promise<void> => {
