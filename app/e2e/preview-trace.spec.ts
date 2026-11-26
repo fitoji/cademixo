@@ -297,6 +297,22 @@ test.describe('traza del preview', () => {
     };
 
     if (GESTURE === 'pan') {
+      // Frecuencia real de pantalla en reposo (sin gesto).
+      const idle = await page.evaluate(
+        () =>
+          new Promise<number[]>((resolve) => {
+            const stamps: number[] = [];
+            const start = performance.now();
+            const tick = (t: number): void => {
+              stamps.push(t);
+              if (performance.now() - start < 1200) requestAnimationFrame(tick);
+              else resolve(stamps);
+            };
+            requestAnimationFrame(tick);
+          }),
+      );
+      const idleIntervals = idle.slice(1).map((s, i) => s - idle[i]!);
+
       await page.evaluate(() => (window as any).__trace.startFrames());
       await drag();
       await page.mouse.up({ button: 'middle' });
@@ -345,18 +361,23 @@ test.describe('traza del preview', () => {
         const events: Array<{ name: string; dur?: number }> = [];
         cdp.on('Tracing.dataCollected', (e: any) => events.push(...(e.value ?? [])));
         const complete = new Promise<void>((resolve) => cdp.on('Tracing.tracingComplete', () => resolve()));
-        await cdp.send('Tracing.start', { categories: 'devtools.timeline,cc,blink', transferMode: 'ReportEvents' as any });
+        await cdp.send('Tracing.start', { categories: 'devtools.timeline,cc,viz,blink,benchmark', transferMode: 'ReportEvents' as any });
         await drag();
         await cdp.send('Tracing.end');
         await complete;
         await page.mouse.up({ button: 'middle' });
-        const sum = (names: string[]): number =>
-          Math.round(events.filter((e) => names.includes(e.name)).reduce((a, e) => a + (e.dur ?? 0), 0) / 1000);
+        const byName = new Map<string, { ms: number; n: number }>();
+        for (const e of events) {
+          if (!e.dur) continue;
+          const prev = byName.get(e.name) ?? { ms: 0, n: 0 };
+          byName.set(e.name, { ms: prev.ms + e.dur / 1000, n: prev.n + 1 });
+        }
         paintTrace = {
           events: events.length,
-          paint: sum(['Paint', 'PaintImage', 'PaintSetup']),
-          composite: sum(['CompositeLayers', 'UpdateLayer', 'UpdateLayerTree']),
-          layout: sum(['Layout', 'UpdateLayoutTree']),
+          top: [...byName.entries()]
+            .sort((a, b) => b[1].ms - a[1].ms)
+            .slice(0, 20)
+            .map(([name, v]) => ({ name, ms: Math.round(v.ms), n: v.n })),
         };
       }
 
@@ -377,6 +398,11 @@ test.describe('traza del preview', () => {
         view: { zoom, viewport: { width: 1440, height: 900 }, steps: STEPS, stepPx: STEP_PX },
         target: URL_OVERRIDE ?? 'dev (webServer)',
         runs: panRuns,
+        idle: {
+          p50: pct(idleIntervals, 0.5),
+          p95: pct(idleIntervals, 0.95),
+          frames: idleIntervals.length,
+        },
         paintTrace,
         profile: PROFILE ? { rows: profileRows.slice(0, 18), bucket: bucket(profileRows) } : null,
         limits: [
@@ -386,7 +412,7 @@ test.describe('traza del preview', () => {
         ],
       };
       writeFileSync(OUT, JSON.stringify(result, null, 2));
-      console.log(JSON.stringify({ out: OUT, gesture: 'pan', runs: panRuns.map((r) => ({ p95: r.p95, frames: r.frames })), paintTrace, bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
+      console.log(JSON.stringify({ out: OUT, gesture: 'pan', zoom: view.zoom, sheet: sheet.records, idle: { p50: pct(idleIntervals, 0.5), p95: pct(idleIntervals, 0.95) }, runs: panRuns.map((r) => ({ p95: r.p95, frames: r.frames })), paintTrace, bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
       return;
     }
 
