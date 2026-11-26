@@ -679,7 +679,7 @@ test.describe('traza del preview', () => {
         ],
       };
       writeFileSync(OUT, JSON.stringify(result, null, 2));
-      console.log(JSON.stringify({ out: OUT, gesture: 'pan', geometry, zoom: view.zoom, sheet: sheet.records, idle: { p50: pct(idleIntervals, 0.5), p95: pct(idleIntervals, 0.95) }, runs: panRuns.map((r) => ({ p95: r.p95, frames: r.frames })), paintTrace, bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
+      console.log(JSON.stringify({ out: OUT, gesture: 'pan', geometry, zoom, sheet: sheet.records, idle: { p50: pct(idleIntervals, 0.5), p95: pct(idleIntervals, 0.95) }, runs: panRuns.map((r) => ({ p95: r.p95, frames: r.frames })), paintTrace, bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
       return;
     }
 
