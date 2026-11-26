@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 12)
+**Fecha:** 2026-11-26 (revisión 13)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + etapas 1-6 (delta de mover, tramo y vértice; confirmación).
+**Tipo:** auditoría + benchmark + deltas de mover, tramo y vértice + medición de cables agrupados.
 
-> **Revisión 12.** Extiende el delta al **vértice** con el plan geométrico compartido entre preview y commit, incluyendo uniones T. Movimiento 1.666 → 50–67 ms, 25 → 0 reconstrucciones durante `pointermove` (la del inicio se cuenta aparte). Ver 2.h.
+> **Revisión 13.** Mide el arrastre de **cables agrupados** (polilínea real de 3 tramos) sin implementar su delta: 12 reconstrucciones por gesto y p95 0,87–1,25 s. La red vuelve a dominar, así que el delta de agrupados queda justificado como cambio separado. Ver 2.i.
 
 ## Resumen ejecutivo
 
@@ -262,6 +262,21 @@ A/B con el mismo fixture y en la misma sesión:
 
 **Límites:** sólo el gesto de vértice. Los cables con varios tramos agrupados siguen usando el preview por documento para el doblez, y los planes con solapamiento colineal caen al documento.
 
+### 2.i Cables agrupados: medición sin delta
+
+**Fixture:** el generador expone `traceGroupedWireId`, el tramo interior de una **polilínea real de 3 tramos** del bloque central (número de cable único). En Node se verifica que arrastrar ese tramo cambia el texto (la polilínea se reescribe; `lenDelta` 0 pero texto distinto).
+
+**Traza:** `PREVIEW_TRACE_GROUPED=1` usa ese cable. Sin delta: el lienzo cae al preview por documento porque el cable agrupa varios tramos.
+
+| Corrida | p95 al mover | Redes al iniciar | Redes durante `pointermove` | Soltar | Redes al soltar |
+|---|---|---|---|---|---|
+| 1 | 1.249,9 ms | 1 | **12** | 2.031–2.156 ms | 3 |
+| 2 | 866,7 ms | 1 | **12** | 1.481–1.525 ms | 3 |
+
+**Conclusión:** la reconstrucción de red vuelve a dominar el movimiento (12 reconstrucciones por gesto, p95 0,87–1,25 s frente a 50 ms del cable de un tramo). **Vale la pena extender el delta a los agrupados, en un cambio separado.** No se implementó en esta revisión.
+
+**Nota sobre el soltar:** el camino es distinto al del cable simple (3 reconstrucciones en vez de 6) y la latencia varía entre corridas. Con esta muestra no se confirma ni se descarta una regresión del soltar del vértice: queda pendiente medirlo con más repeticiones.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -324,9 +339,10 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 2. **Etapa 1 — primer incremento hecho** (ver 2.b). Quedan pendientes los consumidores que todavía reconstruyen red por dentro (`validate`, `buildNetlist`) y el lienzo, que la reconstruye en cada preview.
 3. **Etapa 2 — preview por delta: hecho para mover** (ver 2.d). Siguiente: extender el mismo delta a vértice, tramo y doblez, cada gesto con su propia línea base.
 4. **Etapa 3 — confirmación: dos incrementos hechos** (ver 2.e y 2.f). La red final compartida bajó el soltar 26 %; reutilizar la red de la poda llevó las reconstrucciones a 3 pero **sin mejora de latencia consistente**. Se detiene acá: no se justifica más complejidad en confirmación.
-5. **Etapa 4 — gestos de cable: medición y deltas hechos.** Tramo (ver 2.g) y vértice (ver 2.h) ya no reconstruyen red durante `pointermove`. Quedan los cables con varios tramos agrupados.
-6. **Etapa 5 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
-7. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
+5. **Etapa 4 — gestos de cable: medidos y con delta en tramo y vértice.** Los **cables agrupados** vuelven a dominar por red (12 reconstrucciones, p95 0,87–1,25 s): el delta de agrupados queda como próximo cambio separado (ver 2.i).
+6. **Pendiente de medición:** el soltar del vértice subió de rango en la muestra del A/B; no se confirma ni descarta regresión. Medir con más repeticiones antes de darlo por cerrado.
+7. **Etapa 5 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
+8. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
 ## 8. Los gates de performance existentes
 
@@ -375,6 +391,10 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 13 (2026-11-26).** Medición de cables agrupados, sin delta:
+  - Fixture con polilínea real de 3 tramos (`traceGroupedWireId`) y verificación en Node de que el arrastre cambia la geometría.
+  - Producción: 12 reconstrucciones por gesto, p95 866,7–1.249,9 ms, 1 al iniciar y 3 al soltar.
+  - La red domina otra vez: el delta de agrupados queda justificado como cambio separado. El soltar del vértice queda como medición pendiente con más muestras.
 - **Revisión 12 (2026-11-26).** Delta del vértice:
   - `planVertexMove` compartido por preview y commit (incluye uniones T); `moveVertex` refactorizado sobre el plan.
   - Guarda `isVertexPlanSafe`: si hay solapamiento colineal con tramos ajenos, el preview cae al documento (el commit recorta distinto, comportamiento previo).
