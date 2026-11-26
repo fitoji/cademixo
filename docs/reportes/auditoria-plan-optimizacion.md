@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 7)
+**Fecha:** 2026-11-26 (revisión 8)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría de solo lectura sobre el editor, más el benchmark, la etapa 1 de deduplicación de red y la traza en navegador (dev y producción).
+**Tipo:** auditoría + benchmark + etapa 1 + traza dev/producción + preview por delta.
 
-> **Revisión 7.** Agrega la **línea base de producción** (misma hoja, misma trayectoria) y corrige la lectura de la rev. 6: el perfil por tiempo propio subestimaba a `validate` y `circuitFrom`. Se incorpora tiempo inclusivo y el criterio de aceptación del preview por delta. Ver «Historial de correcciones».
+> **Revisión 8.** Implementa el preview por delta para el gesto de mover, con los criterios de aceptación de la rev. 7: cero redes en `pointermove`, una sola edición al soltar, misma conectividad y deshacer, y comparación contra la línea base de producción. p95 al mover: 1.266,6 → 50,0 ms. Ver «Historial de correcciones».
 
 ## Resumen ejecutivo
 
@@ -18,6 +18,7 @@
 7. **`hitContext` cuesta 0,4 ms a 10k, pero eso mide construcción de contexto, no consulta.** La consulta de hit-test recorre candidatos por evento. **Se posterga** el índice hasta medirla; no se descarta.
 8. **La premisa de escala sigue sin evidencia de uso real.** No hay conteo de registros por hoja en proyectos reales. El benchmark demuestra cuánto cuesta cada tamaño, no que esos tamaños existan.
 9. **Traza en navegador, dev y producción (9.577 registros cableados).** En producción el p95 del intervalo entre frames al mover es **1.266,6 ms** y la edición se confirma en el DOM a los **2,48–2,64 s**; en dev esos valores son 2.833 ms y 5,4–5,8 s. Al mover, `applyDrag` y la red dominan (React, 13 % en dev). Al soltar, **los cuatro consumidores reconstruyen red**: `applyDrag` 1,46 s, `circuitFrom` 1,13 s, `validate` 0,83 s y `buildNetwork` de `App` 0,60 s (inclusivo, dev). **Decisión: preview por delta para el movimiento; red compartida entre consumidores para la confirmación.**
+10. **Preview por delta implementado para mover.** `moveDelta` comparte la regla del commit como cálculo puro; el lienzo dibuja el delta sin tocar documento ni historial. En producción el p95 al mover baja de **1.266,6 a 50,0 ms** (−96 %) y soltar no regresa (2.446,7–2.528,8 ms). Ver 2.d.
 
 ## 1. Alcance y método
 
@@ -118,6 +119,31 @@ Los cuatro consumidores reconstruyen la red: uno dentro de `applyDrag`, uno en `
 3. **Mismo resultado** de conectividad y deshacer que hoy (hashes de texto, uniones, derivaciones, `past`).
 4. **Comparación con la misma hoja y trayectoria**: p95 al mover contra **1.266,6 ms** (producción) y latencia de soltar contra **2.481–2.638 ms**.
 
+### 2.d Preview por delta: resultado
+
+Implementado para el gesto de **mover**, el que tiene línea base:
+
+- `moveDelta` (`state.ts`) es la regla del commit extraída como cálculo puro: posiciones de componentes, extremos de cables y codos. No serializa, no parsea y no construye red.
+- `moveSelection` usa el mismo delta para escribir: preview y commit no pueden divergir.
+- El lienzo dibuja el delta (componentes desplazados, cables con extremos nuevos, codos) y **no** llama a App durante `pointermove`; App aplica la operación canónica una sola vez al soltar.
+- `Escape`/`pointercancel` descartan el delta sin escribir.
+
+| Criterio de aceptación | Resultado |
+|---|---|
+| Cero reconstrucciones completas de red en `pointermove` | Cumplido: perfil dev con `red` = 1,8 ms (antes 25,2 s) y sin `buildNetwork` en el top; prueba unitaria verifica que `moveDelta` no incrementa `networkStats` |
+| Cero escrituras al documento/historial durante el gesto | Cumplido: «Deshacer» sigue apagado y el estado sucio no cambia (verificado en la traza) |
+| Una sola edición confirmada al soltar | Cumplido: un `commit` por gesto (prueba del controlador) |
+| Mismo texto, conectividad y deshacer | Cumplido: hashes idénticos al estado previo para `move`, `bend`, `segment` y `vertex`; 915/915 pruebas |
+| Cancelación sin cambios ni historial | Cumplido: prueba de `Escape` durante el arrastre de componentes |
+| p95 al mover (producción, misma hoja y trayectoria) | **1.266,6 → 50,0 ms** (−96 %); media 160,9 → 21,2 ms |
+| Soltar (producción) | **2.446,7–2.528,8 ms** vs línea base 2.481,1–2.637,6 → sin regresión |
+
+**Límites de este incremento:**
+
+- Sólo el gesto de mover. Arrastrar vértice, tramo o doblez sigue usando el preview por documento completo.
+- El preview usa los bornes de la hoja visible; en documentos de varias hojas, un cable de otra hoja con las mismas coordenadas no se previsualiza (el commit conserva el comportamiento actual).
+- Durante el gesto, los cables afectados se dibujan sin esquinas redondeadas: usan los extremos del delta.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -178,8 +204,8 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 
 1. **Etapa 0 — hecha.** Benchmark de estado (`pnpm bench`), traza en dev y **línea base de producción** (`app/bench/baselines/preview-prod.json`).
 2. **Etapa 1 — primer incremento hecho** (ver 2.b). Quedan pendientes los consumidores que todavía reconstruyen red por dentro (`validate`, `buildNetlist`) y el lienzo, que la reconstruye en cada preview.
-3. **Etapa 2 — preview por delta (prioridad).** Criterio de aceptación en 2.c: cero reconstrucciones de red en `pointermove`, una sola edición confirmada al soltar, misma conectividad y deshacer, y comparación contra la línea base de producción.
-4. **Etapa 3 — confirmación por separado.** Compartir una red por versión y alcance del documento entre `applyDrag`, `App`, `validate` y `buildNetlist`, con el benchmark como vara.
+3. **Etapa 2 — preview por delta: hecho para mover** (ver 2.d). Siguiente: extender el mismo delta a vértice, tramo y doblez, midiendo cada gesto por separado.
+4. **Etapa 3 — confirmación por separado.** Compartir una red por versión y alcance del documento entre `applyDrag`, `App`, `validate` y `buildNetlist`, con el benchmark como vara. Es lo que queda para bajar el soltar (2,45–2,53 s en producción).
 5. **Etapa 4 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
 6. **Etapa 5 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
@@ -229,6 +255,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 8 (2026-11-26).** Preview por delta para mover:
+  - `moveDelta` compartido por preview y commit; el lienzo no toca App durante `pointermove`.
+  - Cero redes en el gesto (`red` 1,8 ms en el perfil dev), cero historial y cero escrituras.
+  - Producción: p95 1.266,6 → 50,0 ms; soltar 2.446,7–2.528,8 ms sin regresión. Baseline posterior en `app/bench/baselines/preview-prod-delta.json`.
+  - Pruebas: equivalencia delta/commit con cuatro desplazamientos, pureza del delta, cancelación de mover y unicidad de commit. 915/915.
 - **Revisión 7 (2026-11-26).** Línea base de producción y corrección del perfil:
   - Producción: p95 al mover 1.266,6 ms y soltar 2.481–2.638 ms (dev: 2.833 ms y 5,4–5,8 s). Los números de producción quedan versionados en `app/bench/baselines/preview-prod.json`.
   - Se agrega tiempo inclusivo al perfil. Corrige la rev. 6: `validate` (829 ms inclusivo) y `circuitFrom` (1.129 ms inclusivo) **sí** son consumidores relevantes; su tiempo propio era bajo porque delegan en `buildNetwork`/`attachPoints`.
