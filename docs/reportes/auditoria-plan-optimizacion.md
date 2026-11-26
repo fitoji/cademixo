@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 28)
+**Fecha:** 2026-11-26 (revisión 29)
 **Rama:** `astra-perfo`
-**Tipo:** igualdad de hover con igualdad exacta del punto snapeado.
+**Tipo:** cierre del trazado y límite del índice de obstáculos.
 
-> **Revisión 28.** Conserva el objeto de `hover` cuando el punto ya snapeado tiene x e y exactos iguales: **cero recálculos** en la fase B tras el cálculo inicial, fase A con los mismos 6 objetivos y rutas efectivas idénticas. La latencia al DOM no baja; el p95 de cuadro de la fase B pasa de 33,3 a **16,7 ms**. Ver 2.y.
+> **Revisión 29.** Cierra el trabajo del trazado: router indexado, split transitorio e igualdad de hover, los tres medidos y mantenidos. Deja documentado que el índice **no** se puede cachear por documento (se construye sobre `blockers`, que excluye las cajas que tocan origen o destino) y qué evidencia haría falta para retomar los ~50 ms. Sin cambios de código. Ver 2.z.
 
 ## Resumen ejecutivo
 
@@ -631,6 +631,18 @@ El test de goldens baja de 1.054 a 93 ms con las mismas rutas.
 
 **Conclusión:** el criterio de salida se cumple (cero recálculos adicionales en B, mismos objetivos y ruta idéntica en A). Se mantiene. Baseline en `preview-prod-hover-equality.json`.
 
+### 2.z Cierre del trazado y límite del índice
+
+**Estado:** el trazado se cierra con tres cambios de producción medidos y mantenidos (router indexado, split transitorio, igualdad de hover). Lo que queda es el p95 de cuadro de ~50 ms cuando el objetivo cambia.
+
+**Límite verificado del índice** (`router.ts:219–230`): `routeCore` infla las cajas, filtra `blockers = inflated.filter((b) => !touchesEndpoint(b, from) && !touchesEndpoint(b, to))` y construye el índice **sobre `blockers`**. Consecuencia: el conjunto indexado depende de la punta, así que **no se puede cachear por documento** — un índice guardado devolvería las exclusiones de otra llamada.
+
+**Los 18 ms de `buildBoxIndex`** del perfil dev son self time **acumulado del gesto**, no por cuadro; no justifican por sí solos una intervención.
+
+**Si una traza de producción justifica retomarlo:** indexar las cajas **infladas** (sin exclusiones) y aplicar las exclusiones **en cada consulta**, con las rutas exactas como control. Es un diseño distinto del actual, no un cache.
+
+**Para atacar los ~50 ms restantes:** primero medir qué trabajo ocupa esos cuadros cuando el objetivo sí cambia; no asumir que es el índice.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -708,6 +720,7 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 17. **Marcas de punta a punta** (ver 2.w): con el emparejamiento corregido, `pointermove` → DOM del fantasma es ~10,6 ms (la rev. 26 había emparejado por índice). El memo del fantasma se invalida por identidad del `hover`.
 18. **Capa transitoria: mantenida con la métrica correcta** (ver 2.x). Mediana 10,6 → 7,3–9,2 ms; p95 13,5 → 10,6–12,1; p95 de cuadro sin cambios.
 19. **Igualdad de hover implementada** (ver 2.y): igualdad exacta del punto snapeado. Fase B: 6 → **0 recálculos** y p95 de cuadro 33,3 → **16,7 ms**. Fase A: mismos 6 objetivos y rutas efectivas idénticas; latencia al DOM sin cambio. Se mantiene.
+20. **Trazado cerrado** (ver 2.z). El índice no se puede cachear por documento: se construye sobre `blockers`, que excluye las cajas que tocan origen o destino. Los ~50 ms restantes requieren medir el trabajo de esos cuadros antes de suponer una causa.
 
 ## 8. Los gates de performance existentes
 
@@ -756,6 +769,10 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 29 (2026-11-26).** Cierre del trazado y límite del índice:
+  - El índice se construye sobre `blockers` (excluye cajas que tocan origen o destino) → no cacheable por documento.
+  - Los 18 ms de `buildBoxIndex` son acumulados por gesto en dev, no por cuadro.
+  - Si se retoma: indexar cajas infladas y excluir por consulta, con rutas exactas como control. Los ~50 ms requieren medir el trabajo de los cuadros. Sin cambios de código.
 - **Revisión 28 (2026-11-26).** Igualdad de hover con igualdad exacta del punto snapeado:
   - Fase B: 6 → 0 recálculos tras el cálculo inicial y p95 de cuadro 33,3 → 16,7 ms.
   - Fase A: 6 objetivos, rutas efectivas idénticas antes/después; latencia al DOM sin cambio (7,3 → 7,2–7,3 ms de mediana).
