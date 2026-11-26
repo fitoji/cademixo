@@ -21,7 +21,7 @@ import type { CadeRecordModel } from '../model/project.ts';
 import { apparatusKey } from '../model/project.ts';
 import { specOf } from '../model/component-spec.ts';
 import { attachPoints } from '../editor/pins.ts';
-import { buildNetwork, netKey, type NetNode, type NetSegment } from '../editor/network.ts';
+import { buildNetwork, netKey, type NetNode, type NetSegment, type Network } from '../editor/network.ts';
 
 export type DeviceKind =
   | 'coil'
@@ -175,8 +175,7 @@ class UnionFind {
   }
 }
 
-export function buildNetlist(records: CadeRecordModel[]): Netlist {
-  const network = buildNetwork(records);
+export function buildNetlist(records: CadeRecordModel[], network: Network = buildNetwork(records)): Netlist {
   const pins = attachPoints(records);
   const uf = new UnionFind();
 

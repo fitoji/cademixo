@@ -269,6 +269,8 @@ test.describe('traza del preview', () => {
     const loaf: any[] = [];
     const release: (number | null)[] = [];
     const releaseFrames: (number | null)[] = [];
+    const moveBuilds: number[] = [];
+    const releaseBuilds: number[] = [];
     for (let run = 0; run < RUNS; run++) {
       await page.evaluate(() => {
         const t = (window as any).__trace;
@@ -276,6 +278,7 @@ test.describe('traza del preview', () => {
         t.downAt = 0;
         t.releaseFrame = null;
         t.startFrames();
+        (window as any).__networkStats.builds = 0;
       });
       await drag();
       const endAt = await page.evaluate(() => performance.now());
@@ -283,13 +286,16 @@ test.describe('traza del preview', () => {
         const t = (window as any).__trace;
         return { stamps: t.stopFrames() as number[], downAt: t.downAt as number, loaf: t.loaf as any[] };
       });
+      const buildsDuringMove = await page.evaluate(() => (window as any).__networkStats.builds as number);
       const windowStamps = raw.stamps.filter((s) => s >= raw.downAt && s <= endAt);
       const intervals = windowStamps.slice(1).map((s, i) => s - windowStamps[i]!);
+      await page.evaluate(() => { (window as any).__networkStats.builds = 0; });
       await page.mouse.up();
       await page.waitForFunction(() => (window as any).__trace.release !== null, null, { timeout: 180_000 });
       const signals = await page.evaluate(() => ({
         release: (window as any).__trace.release as number,
         releaseFrame: (window as any).__trace.releaseFrame as number | null,
+        builds: (window as any).__networkStats.builds as number,
       }));
       if (signals.release < 0) throw new Error('el gesto no produjo una edición confirmada');
 
@@ -299,6 +305,8 @@ test.describe('traza del preview', () => {
       loaf.push(...raw.loaf.filter((e) => e.start >= raw.downAt && e.start <= endAt));
       release.push(signals.release);
       releaseFrames.push(signals.releaseFrame);
+      moveBuilds.push(buildsDuringMove);
+      releaseBuilds.push(signals.builds);
       await undo();
     }
 
@@ -330,8 +338,8 @@ test.describe('traza del preview', () => {
       sheet,
       view: { zoom, viewport: { width: 1440, height: 900 }, steps: STEPS, stepPx: STEP_PX },
       target: URL_OVERRIDE ?? 'dev (webServer)',
-      move: { p95: pct(moveP95, 0.5), mean: moveMean.reduce((a, b) => a + b, 0) / moveMean.length, frames, p95PerRun: moveP95, loaf },
-      release: { domLatency: release, nextFrame: releaseFrames },
+      move: { p95: pct(moveP95, 0.5), mean: moveMean.reduce((a, b) => a + b, 0) / moveMean.length, frames, p95PerRun: moveP95, builds: moveBuilds, loaf },
+      release: { domLatency: release, nextFrame: releaseFrames, builds: releaseBuilds },
       profile: PROFILE
         ? {
             move: moveRows.slice(0, 18),
@@ -361,6 +369,8 @@ test.describe('traza del preview', () => {
           frames: result.move.frames,
           release,
           releaseFrames,
+          moveBuilds,
+          releaseBuilds,
           moveBucket: PROFILE ? bucket(moveRows) : null,
           releaseBucket: PROFILE ? bucket(releaseRows) : null,
           topMoveSelf: moveRows.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),

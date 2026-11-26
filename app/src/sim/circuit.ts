@@ -28,6 +28,7 @@
  */
 
 import type { CadeRecordModel } from '../model/project.ts';
+import type { Network } from '../editor/network.ts';
 import { specOf } from '../model/component-spec.ts';
 import { buildNetlist, isTwoThrow, type Device, type Netlist } from './netlist.ts';
 import type { Circuit, DeviceKind, SimDevice } from './solver.ts';
@@ -112,6 +113,8 @@ export function simKindsOf(device: Device): (SimDevice['kind'] | null)[] {
 }
 
 export interface CircuitOptions {
+  /** red ya construida para los mismos registros: evita reconstruirla */
+  network?: Network;
   /** código de cable que representa la fase en el dibujo */
   liveCode?: number;
   /** código de cable que representa el neutro en el dibujo */
@@ -141,7 +144,7 @@ export interface BuiltCircuit {
 export function circuitFrom(records: CadeRecordModel[], options: CircuitOptions = {}): BuiltCircuit | null {
   const liveCode = options.liveCode ?? 4000;
   const returnCode = options.returnCode ?? 4010;
-  const netlist = buildNetlist(records);
+  const netlist = buildNetlist(records, options.network);
 
   // Como en CADe_SIMU, la alimentación sale de los símbolos de alimentación del
   // dibujo. Cada símbolo declara sus bornes en orden: L, N, L1L2L3, etc. Los

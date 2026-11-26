@@ -889,7 +889,7 @@ export function App(): JSX.Element {
   );
 
   const network = useMemo(() => buildNetwork(project?.records ?? []), [project]);
-  const findings = useMemo(() => validate(project?.records ?? []), [project]);
+  const findings = useMemo(() => validate(project?.records ?? [], network), [project, network]);
   // El corte de la última simulación se suma a los avisos del documento con su
   // propia ubicación, para que el lienzo lo marque igual que cualquier aviso.
   const faultAviso = useMemo(
@@ -914,8 +914,8 @@ export function App(): JSX.Element {
       if (!isProtectionCode(rec.code)) continue;
       if (protectionStateOf(rec.code, protectionStates[apparatusKey(rec)]) === 'open') open.add(rec.id);
     }
-    return circuitFrom(project.records, { openRecords: open });
-  }, [project, protectionStates]);
+    return circuitFrom(project.records, { openRecords: open, network });
+  }, [project, protectionStates, network]);
 
   /**
    * Posición de cada conmutador. Un conmutador que comparte designador con una
