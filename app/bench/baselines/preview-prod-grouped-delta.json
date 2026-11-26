@@ -1,0 +1,22 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "gesture": "segment sobre cable agrupado (polilínea de 3 tramos, tramo interior)",
+  "note": "A/B intercalado en la misma sesión y fixture. 6 pasos de 10 px, 5 corridas por lado, 2 corridas. Redes al iniciar y durante pointermove medidas aparte.",
+  "before": {
+    "p95": [916.7, 933.3],
+    "startBuilds": 1,
+    "duringMoveBuilds": 12,
+    "release": [1587.4, 1576.5, 1521.8, 1507.8, 1557.8, 1605.4, 1579.8, 1535.0, 1546.7, 1546.8],
+    "releaseBuilds": 3
+  },
+  "after": {
+    "p95": [50, 50],
+    "startBuilds": 1,
+    "duringMoveBuilds": 0,
+    "release": [1549.3, 1558.7, 1637.1, 1642.2, 1650.3],
+    "releaseBuilds": 3
+  },
+  "conclusion": "Movimiento 933 -> 50 ms y 12 -> 0 reconstrucciones durante pointermove (1 al iniciar). El soltar conserva 3 redes; la latencia queda dentro del ruido. Cobertura: tramo interior de un cable agrupado; el tramo extremo sigue usando bendCable y el preview por documento."
+}
