@@ -253,7 +253,7 @@ A/B con el mismo fixture y en la misma sesión:
 | Antes | 1.666,6 / 1.683,3 ms | 1 | **25** | 2.245–2.439 ms | 6 |
 | Después | **50 / 66,6 ms** | 1 | **0** | 2.290–2.849 ms | 6 |
 
-- **Cero reconstrucciones completas durante `pointermove`**; la única del gesto ocurre al iniciar (pointerdown), como se pedía contar.
+- **Cero reconstrucciones completas durante `pointermove` en los planes seguros**; la única del gesto ocurre al iniciar (pointerdown), como se pedía contar. Con solapamiento colineal entra el fallback y la reconstrucción vuelve a ocurrir, así que el cero no es universal.
 - p95 −97 %.
 - **Soltar**: mismo camino de commit y las mismas 6 reconstrucciones. La diferencia de latencia (una corrida con 2.849 ms) está dentro de la varianza entre corridas documentada.
 - Un solo paso de deshacer (mismo commit). `Escape` y `pointercancel` ya descartan el preview sin tocar el documento (pruebas del controlador) y el estado del preview es local del lienzo.
