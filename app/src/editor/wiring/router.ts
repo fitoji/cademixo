@@ -194,21 +194,25 @@ function boxesOnSegment(index: BoxIndex | null, boxes: Box[], a: Point, b: Point
 
 export function routeOrthogonal(request: RouteRequest): RouteResult {
   routeStats.calls += 1;
-  const startedAt = typeof performance !== 'undefined' ? performance.now() : 0;
+  // La traza de diagnóstico instala `__routeTimes` en la ventana. En producción
+  // no existe, así que no se registra nada: sin asignaciones ni crecimiento.
+  const times =
+    typeof window === 'undefined'
+      ? undefined
+      : (window as unknown as {
+          __routeTimes?: Array<{ start: number; end: number; from: { x: number; y: number }; to: { x: number; y: number } }>;
+        }).__routeTimes;
+  if (!times) return routeCore(request);
+  const startedAt = performance.now();
   try {
     return routeCore(request);
   } finally {
-    if (typeof window !== 'undefined') {
-      const w = window as unknown as {
-        __routeTimes?: Array<{ start: number; end: number; from: { x: number; y: number }; to: { x: number; y: number } }>;
-      };
-      (w.__routeTimes ??= []).push({
-        start: startedAt,
-        end: performance.now(),
-        from: { ...request.from },
-        to: { ...request.to },
-      });
-    }
+    times.push({
+      start: startedAt,
+      end: performance.now(),
+      from: { ...request.from },
+      to: { ...request.to },
+    });
   }
 }
 
