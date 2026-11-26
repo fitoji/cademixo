@@ -14,7 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { createEditor, projectOf } from '../src/editor/state.ts';
 import { attachPoints } from '../src/editor/pins.ts';
 import { CABLE_NUMBER_INDEX, buildNetwork, netKey } from '../src/editor/network.ts';
-import { GEOMETRY, withId, withPosition, withWirePoints } from '../src/model/project.ts';
+import { wirePathsOf } from '../src/editor/wiring/types.ts';
+import { GEOMETRY, wirePoints, withId, withPosition, withWirePoints } from '../src/model/project.ts';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'test', 'fixtures');
 const REFERENCE = readFileSync(join(FIXTURES, 'arranque-paro-motor-3f.cad'), 'latin1');
@@ -31,6 +32,8 @@ export interface WiredSheet {
   blocks: number;
   /** Componente conectado de un bloque central, para trazas en navegador. */
   traceId: number;
+  /** Tramo interior de una polilínea agrupada real del bloque central. */
+  traceGroupedWireId: number;
 }
 
 export function wiredSheetText(targetRecords: number): WiredSheet {
@@ -101,6 +104,25 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
     throw new Error('la hoja generada no tiene un componente conectado para trazar');
   }
 
+  // Polilínea agrupada real (varios registros con el mismo número de cable) en
+  // el bloque central: es el caso que el preview por documento todavía cubre.
+  const midX = Math.floor(blocks / 2) * BLOCK_GAP;
+  let traceGroupedWireId = 0;
+  for (const path of wirePathsOf(network)) {
+    if (path.segmentIds.length < 2) continue;
+    const middle = path.segmentIds[Math.floor(path.segmentIds.length / 2)]!;
+    const rec = check.records.find((r) => r.id === middle);
+    const pts = rec ? wirePoints(rec) : null;
+    if (!pts) continue;
+    const cx = (pts.x1 + pts.x2) / 2;
+    if (cx < midX || cx > midX + BLOCK_GAP) continue;
+    traceGroupedWireId = middle;
+    break;
+  }
+  if (traceGroupedWireId === 0) {
+    throw new Error('la hoja generada no tiene una polilínea agrupada en el bloque central');
+  }
+
   // Guardas: un benchmark sobre un documento que no re-parsea o que perdió la
   // conectividad mediría otra cosa.
   if (check.records.length !== raws.length) {
@@ -110,5 +132,5 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
     throw new Error(`la hoja generada no tiene cableado: ${cables} cables, ${junctions} uniones`);
   }
 
-  return { text, records: check.records.length, components, cables, junctions, blocks, traceId };
+  return { text, records: check.records.length, components, cables, junctions, blocks, traceId, traceGroupedWireId };
 }

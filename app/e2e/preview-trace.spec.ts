@@ -29,6 +29,7 @@ const GESTURE = (process.env.PREVIEW_TRACE_GESTURE ?? 'move') as 'move' | 'segme
 const RUNS = Number(process.env.PREVIEW_TRACE_RUNS ?? 5);
 const STEPS = Number(process.env.PREVIEW_TRACE_STEPS ?? (GESTURE === 'move' ? 12 : 6));
 const STEP_PX = Number(process.env.PREVIEW_TRACE_STEP_PX ?? (GESTURE === 'move' ? 4 : 10));
+const WIRE_ID = Number(process.env.PREVIEW_TRACE_WIRE_ID ?? 0);
 const TARGET_ZOOM = 2;
 const OUT = process.env.PREVIEW_TRACE_OUT ?? join(tmpdir(), `preview-trace-${GESTURE}.json`);
 const URL_OVERRIDE = process.env.PREVIEW_TRACE_URL;
@@ -86,6 +87,7 @@ test.describe('traza del preview', () => {
       junctions: parsed.junctions,
       blocks: parsed.blocks,
       traceId: parsed.traceId,
+      traceGroupedWireId: parsed.traceGroupedWireId,
     };
     const text = readFileSync(sheetPath, 'latin1');
 
@@ -127,7 +129,8 @@ test.describe('traza del preview', () => {
     if (GESTURE === 'move') {
       read = () => transformOf(page, sheet.traceId);
     } else {
-      const wire = await pickStraightWire(page);
+      const wireTarget = WIRE_ID > 0 ? WIRE_ID : process.env.PREVIEW_TRACE_GROUPED ? sheet.traceGroupedWireId : 0;
+      const wire = wireTarget > 0 ? await pickWireById(page, wireTarget) : await pickStraightWire(page);
       expect(wire, 'debe haber un cable recto visible').not.toBeNull();
       wireId = wire!.id;
       startX = wire!.cx;
@@ -409,4 +412,17 @@ async function pickStraightWire(page: import('@playwright/test').Page): Promise<
     }
     return best ? { id: best.id, cx: best.cx, cy: best.cy, horizontal: best.horizontal } : null;
   });
+}
+
+/** Cable concreto (por id): su mitad debe estar bajo el cursor. */
+async function pickWireById(page: import('@playwright/test').Page, id: number): Promise<{ id: number; cx: number; cy: number; horizontal: boolean } | null> {
+  return page.evaluate((id) => {
+    const el = document.querySelector(`path[data-wire="${id}"]`);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    const cx = r.x + r.width / 2;
+    const cy = r.y + r.height / 2;
+    if (document.elementFromPoint(cx, cy) !== el) return null;
+    return { id, cx, cy, horizontal: r.width >= r.height };
+  }, id);
 }
