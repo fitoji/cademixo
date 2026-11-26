@@ -311,9 +311,14 @@ test.describe('traza del preview', () => {
         });
         const t0 = await page.evaluate(() => performance.now());
         await page.mouse.click(startX, startY);
+        await page.evaluate(() => {
+          const stats = (window as any).__sceneStats;
+          if (stats) stats.renders = 0;
+        });
         for (let s = 1; s <= STEPS; s++) {
           await page.mouse.move(startX + s * STEP_PX, startY + s * STEP_PX * 0.6);
         }
+        const sceneRenders = await page.evaluate(() => ((window as any).__sceneStats?.renders ?? -1) as number);
         await page.mouse.click(startX + STEPS * STEP_PX, startY + STEPS * STEP_PX * 0.6);
         const t1 = await page.evaluate(() => performance.now());
         const raw = await page.evaluate(() => {
@@ -331,6 +336,7 @@ test.describe('traza del preview', () => {
             mean: intervals.reduce((a, b) => a + b, 0) / Math.max(1, intervals.length),
             frames: intervals.length,
             routeCalls: raw.calls,
+            sceneRenders,
             wallMs: t1 - t0,
           });
         }
