@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 24)
+**Fecha:** 2026-11-26 (revisión 25)
 **Rama:** `astra-perfo`
-**Tipo:** cierre del plan + router del fantasma indexado + re-perfil.
+**Tipo:** experimento de capa transitoria, revertido.
 
-> **Revisión 24.** Re-perfila el trazado ya optimizado: `routeOrthogonal` bajó de 1.719 a **62 ms** propios y dejó de ser el cuello. Queda React/nativo; el hover vuelve a recorrer la escena porque el fantasma y el marcador viven en `SceneLayer`. Sin cambios de código (ver 2.t y 2.u).
+> **Revisión 25.** Separa la capa transitoria (fantasma, snap, marquee) de `SceneLayer`: **cero recorridos de escena** al mover la punta, misma ruta, pero el **p95 no mejora** (50 → 50 ms). Se revierte según el criterio acordado. Ver 2.v.
 
 ## Resumen ejecutivo
 
@@ -541,6 +541,25 @@ El test de goldens baja de 1.054 a 93 ms con las mismas rutas.
 
 **Conclusión:** el cambio del router se cierra acá; el siguiente cuello está identificado y medido, no se toca sin su propio A/B.
 
+### 2.v Capa transitoria: experimento revertido
+
+**Hipótesis:** `SceneLayer` recibe `hover`, `wireStart`, `ghostPath` y `snapMark`, así que el movimiento del fantasma invalida la escena. Separar la capa transitoria debería eliminar ese recorrido y bajar el p95.
+
+**Implementación probada:** cuatro capas memoizadas dentro de la misma transformación de cámara y en el mismo orden visual (escena → marcador → tiradores/marcas → fantasma/marquee), con `buildBoxIndex` intacto (fuera del cambio, como se pidió).
+
+**A/B intercalado en producción** (gesto de trazado, 12 movimientos, 3 corridas por traza, 2 trazas por lado):
+
+| Lado | p95 | Recálculos | Recorridos de escena |
+|---|---|---|---|
+| Antes (`SceneLayer` con hover) | 50,0 ms (todas) | 8 | no medible |
+| Después (capas separadas) | **50,0–50,1 ms** | 8 | **0** |
+
+**Resultado:** el objetivo de **cero recorridos de la escena estable** se cumple y la ruta visible/confirmada es la misma, pero **el p95 no mejora**: queda en 50 ms. Según el criterio acordado, no se mantiene el cambio sólo porque un contador baje. Se revierte; no queda cambio de producción.
+
+**Lectura:** recorrer la escena al mover la punta **no es el camino crítico** de este gesto. Los 50 ms restantes están en otro lado; el análisis de pintura/estilo del paneo (piso 33,4 ms) no se traslada automáticamente al trazado, que tiene su propia mezcla.
+
+**Próximo paso medible:** perfilar pintura/estilo del **gesto de trazado** (no reutilizar el del paneo) antes de tocar el renderer. La reutilización de `buildBoxIndex` sigue pendiente y separada.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -613,7 +632,9 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 12. **Cierre del plan original:** todos los gestos medidos y optimizados donde la medición lo justificó; la cámara CSS se revirtió y el índice de hit-test quedó descartado con datos.
 13. **Trabajo separado abierto:** router del cable fantasma (ver 2.s). `routeOrthogonal` dominaba el trazado (1.719 ms propios vs React 363 ms).
 14. **Router indexado** (ver 2.t): rutas idénticas y costo por ruta 195,5/762,6 → 9,7/10,0 ms; p95 del gesto 150–167 → 50–67 ms con los mismos 8 recálculos.
-15. **Re-perfil del trazado** (ver 2.u): el router ya no es el cuello (62 ms propios). Queda React/nativo; el hover vuelve a recorrer la escena porque el fantasma y el marcador viven en `SceneLayer`. Siguiente candidato: separar la capa transitoria, con su propio A/B.
+15. **Re-perfil del trazado** (ver 2.u): el router ya no es el cuello (62 ms propios). Queda React/nativo.
+16. **Capa transitoria: probada y revertida** (ver 2.v). Cero recorridos de escena, misma ruta, pero el p95 no mejora (50 → 50 ms). Recorrer la escena no es el camino crítico del trazado.
+17. **Próximo paso medible:** pintura/estilo del gesto de trazado, antes de tocar el renderer. `buildBoxIndex` pendiente y separado.
 
 ## 8. Los gates de performance existentes
 
@@ -662,6 +683,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 25 (2026-11-26).** Capa transitoria probada y revertida:
+  - Cuatro capas memoizadas (escena, marcador, tiradores/marcas, fantasma/marquee) con el mismo orden visual.
+  - A/B: p95 50,0 vs 50,0–50,1 ms; 0 recorridos de escena y misma ruta.
+  - Sin mejora de p95 → revertido; no queda cambio de producción.
+  - Próximo paso: pintura/estilo del gesto de trazado; `buildBoxIndex` pendiente y separado.
 - **Revisión 24 (2026-11-26).** Re-perfil del trazado optimizado:
   - `routeOrthogonal` 1.719 → 62 ms propios; `buildBoxIndex` 18 ms; React 310 y nativo 822.
   - El hover vuelve a recorrer la escena porque `hover`/`ghostPath`/`snapMark` son props de `SceneLayer`.
