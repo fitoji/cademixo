@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 11)
+**Fecha:** 2026-11-26 (revisión 12)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + etapas 1-4 (delta de mover, confirmación y delta de tramo).
+**Tipo:** auditoría + benchmark + etapas 1-6 (delta de mover, tramo y vértice; confirmación).
 
-> **Revisión 11.** Mide vértice, tramo y doblez por separado en producción y extiende el delta al gesto con peor latencia atribuible a la red: **tramo**. Movimiento 3.883 → 50 ms y 49 → 1 reconstrucción; el soltar no cambia. Ver 2.g.
+> **Revisión 12.** Extiende el delta al **vértice** con el plan geométrico compartido entre preview y commit, incluyendo uniones T. Movimiento 1.666 → 50–67 ms, 25 → 0 reconstrucciones durante `pointermove` (la del inicio se cuenta aparte). Ver 2.h.
 
 ## Resumen ejecutivo
 
@@ -240,6 +240,28 @@ A/B con el mismo fixture y en la misma sesión:
 
 **Límites de este incremento:** sólo el gesto de tramo y sólo cables de un tramo (número de cable propio). Cables con varios tramos agrupados y el gesto de vértice siguen con el preview por documento.
 
+### 2.h Vértice: plan compartido entre preview y commit
+
+**Implementación:** `planVertexMove(records, from, to)` calcula, sin escribir, qué tramo reemplaza a cada registro afectado y qué codos se agregan (incluye vértices compartidos por varios tramos, como una unión T). `moveVertex` usa **el mismo plan** para confirmar, así que preview y commit no pueden divergir. El lienzo intercepta los previews `vertex` y dibuja los tramos del plan ocultando los registros afectados.
+
+**Guarda de seguridad:** si algún tramo ajeno se superpone en colineal con los del plan, el commit recorta distinto (comportamiento previo, verificado contra el código anterior) y el preview mentiría. En ese caso `isVertexPlanSafe` devuelve falso y el lienzo cae al preview por documento.
+
+**A/B intercalado en producción** (misma hoja, misma vista, 6 pasos de 10 px, 5 corridas por lado; redes al iniciar el gesto y durante `pointermove` contadas aparte):
+
+| Lado | p95 al mover | Redes al iniciar | Redes durante `pointermove` | Soltar | Redes al soltar |
+|---|---|---|---|---|---|
+| Antes | 1.666,6 / 1.683,3 ms | 1 | **25** | 2.245–2.439 ms | 6 |
+| Después | **50 / 66,6 ms** | 1 | **0** | 2.290–2.849 ms | 6 |
+
+- **Cero reconstrucciones completas durante `pointermove`**; la única del gesto ocurre al iniciar (pointerdown), como se pedía contar.
+- p95 −97 %.
+- **Soltar**: mismo camino de commit y las mismas 6 reconstrucciones. La diferencia de latencia (una corrida con 2.849 ms) está dentro de la varianza entre corridas documentada.
+- Un solo paso de deshacer (mismo commit). `Escape` y `pointercancel` ya descartan el preview sin tocar el documento (pruebas del controlador) y el estado del preview es local del lienzo.
+
+**Equivalencia:** prueba que verifica que los tramos del preview están cubiertos por la geometría que escribe el commit, incluyendo un vértice compartido por varios tramos; los hashes de las cuatro operaciones (`move`, `bend`, `segment`, `vertex`) son idénticos tras el refactor. 921/921 pruebas.
+
+**Límites:** sólo el gesto de vértice. Los cables con varios tramos agrupados siguen usando el preview por documento para el doblez, y los planes con solapamiento colineal caen al documento.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -302,7 +324,7 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 2. **Etapa 1 — primer incremento hecho** (ver 2.b). Quedan pendientes los consumidores que todavía reconstruyen red por dentro (`validate`, `buildNetlist`) y el lienzo, que la reconstruye en cada preview.
 3. **Etapa 2 — preview por delta: hecho para mover** (ver 2.d). Siguiente: extender el mismo delta a vértice, tramo y doblez, cada gesto con su propia línea base.
 4. **Etapa 3 — confirmación: dos incrementos hechos** (ver 2.e y 2.f). La red final compartida bajó el soltar 26 %; reutilizar la red de la poda llevó las reconstrucciones a 3 pero **sin mejora de latencia consistente**. Se detiene acá: no se justifica más complejidad en confirmación.
-5. **Etapa 4 — gestos de cable: medición hecha; delta del tramo hecho** (ver 2.g). Movimiento 3.883 → 50 ms con 49 → 1 red. Queda el gesto de vértice (26 redes) y los cables con varios tramos agrupados.
+5. **Etapa 4 — gestos de cable: medición y deltas hechos.** Tramo (ver 2.g) y vértice (ver 2.h) ya no reconstruyen red durante `pointermove`. Quedan los cables con varios tramos agrupados.
 6. **Etapa 5 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
 7. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
@@ -353,6 +375,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 12 (2026-11-26).** Delta del vértice:
+  - `planVertexMove` compartido por preview y commit (incluye uniones T); `moveVertex` refactorizado sobre el plan.
+  - Guarda `isVertexPlanSafe`: si hay solapamiento colineal con tramos ajenos, el preview cae al documento (el commit recorta distinto, comportamiento previo).
+  - A/B intercalado: p95 1.666 → 50–67 ms; 25 → 0 redes durante `pointermove`, 1 al iniciar; soltar con las mismas 6 redes.
+  - Equivalencia preview/commit con cobertura de tramos; hashes idénticos; 921/921. Baseline en `app/bench/baselines/preview-prod-vertex.json`.
 - **Revisión 11 (2026-11-26).** Gestos de cable y delta del tramo:
   - Medición en producción de mover (50 ms, 1 red), tramo (2.966 ms, 49 redes) y vértice (2.633 ms, 26 redes), con verificación de que cada gesto modifica el dibujo.
   - `startBend` no se usa fuera de tests: el doblez de la UI es el arrastre del cuerpo del cable (gesto tramo).
