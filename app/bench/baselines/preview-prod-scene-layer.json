@@ -1,0 +1,15 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "gesture": "pan con boton central, escala fija",
+  "note": "A/B intercalado en la misma sesion. 5 corridas por traza, 2 trazas por lado. 'Antes' = memo de hojas (rev. 17); 'despues' = capa de escena memoizada (camara fuera).",
+  "before": { "p95": [33.4, 49.9, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4, 33.4], "sceneTraversals": "el padre recorre y crea elementos de la escena en cada render" },
+  "after": { "p95": [33.4, 33.4, 33.4, 33.4, 33.4, 33.3, 33.4, 33.4, 33.3, 33.4], "sceneTraversals": 0 },
+  "devProfile": {
+    "leafMemo": { "react": 368, "visitNode": 1091, "jsxDEVImpl": 89 },
+    "sceneLayer": { "react": 86, "visitNode": 1128, "jsxDEVImpl": 66 }
+  },
+  "paintTrace": { "events": 7428467, "paint": 70, "layout": 40, "composite": 0, "note": "composicion no capturada con las categorias usadas" },
+  "conclusion": "La capa estable elimina el recorrido de la escena y la cola de ~50 ms (p95 por corrida 49.9 -> 33.4), pero el piso de 33.4 ms no baja: no es React (86 ms) y la pintura medida (70 ms) no lo explica sola. Antes de tocar el renderer falta medir composicion con categorias correctas."
+}

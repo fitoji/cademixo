@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 17)
+**Fecha:** 2026-11-26 (revisión 18)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + deltas + paneo.
+**Tipo:** auditoría + benchmark + deltas + paneo + capa estable.
 
-> **Revisión 17.** Mide el **paneo** a escala fija y memoiza símbolos y cables: React re-renderizaba la escena en cada cambio de cámara. p95 83–100 → 33–50 ms con separación total; `shapesBounds` desaparece del perfil. Ver 2.n.
+> **Revisión 18.** Extrae la **capa de escena** memoizada, con la cámara fuera: panear ya no recorre ni crea elementos de la escena. El p95 por corrida baja de 33,4–49,9 a 33,3–33,4 ms (desaparece la cola), pero el piso de 33,4 ms no baja y no es React. Ver 2.o.
 
 ## Resumen ejecutivo
 
@@ -378,6 +378,27 @@ Todas las muestras "después" quedan por debajo de todas las "antes": separació
 
 **Nota de pruebas:** `canvas-hover.spec.ts` y dos de `editor-smoke.spec.ts` fallan también en HEAD sin el memo (pre-existentes). `settings-drawer` falló una vez y pasó en la corrida de HEAD (flaky).
 
+### 2.o Capa de escena estable (cámara fuera del memo)
+
+**Implementación:** la escena (rejilla, cajetín, símbolos, cables, uniones, previews, tiradores y marcas) se extrajo a `SceneLayer`, un componente `memo` cuyas props **no incluyen la cámara**. El grupo transformado del padre sólo cambia `translate/scale`; a escala fija, panear no ejecuta `SceneLayer` y por lo tanto no recorre `records` ni crea elementos.
+
+**A/B intercalado en producción** (5 corridas por traza, 2 trazas por lado; "antes" = memo de hojas de la rev. 17):
+
+| Lado | p95 por corrida (10 muestras) | Recorridos de escena |
+|---|---|---|
+| Antes | 33,4 · 49,9 · 33,4 · 33,4 · 33,4 · 33,4 · 33,4 · 33,4 · 33,4 · 33,4 | el padre recorre y crea elementos |
+| Después | **33,3–33,4** (todas) | **0** |
+
+**Lectura:** desaparece la cola de ~50 ms (una corrida con p95 49,9 pasa a 33,4), pero **el piso de 33,4 ms no baja**. No alcanza para declarar una mejora grande: es una mejora acotada de la cola.
+
+**Perfil dev:** React 368 → **86 ms** tras la capa estable. `visitNode` (~1.128 ms) no es React (el bucket de React es chico y la función no tiene URL): es trabajo nativo, coherente con pintura/composición.
+
+**Perfil de pintura directo (CDP `Tracing`):** 7,4 M eventos; `Paint` **70 ms**, `Layout` 40 ms, composición **no capturada** con las categorías usadas. La pintura medida no explica sola el piso de 33,4 ms por cuadro.
+
+**Conclusión y criterio:** la capa estable cumple "cero recorridos de la escena al panear" y quita la cola, pero no hay una mejora grande y consistente del p95. Según lo acordado, **no se toca el renderer**: primero hay que medir composición con las categorías correctas. El índice de hit-test sigue esperando la medición de la consulta real.
+
+**Verificación funcional:** selección, foco de borne (`cursorPin`) y estado de simulación son props de `SceneLayer`; cuando cambian, la capa se re-renderiza. Las pruebas e2e no agregan fallos nuevos (los 3 fallos son los pre-existentes de `canvas-hover` y `editor-smoke`). Unidad 923/923.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -443,8 +464,9 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 5. **Etapa 4 — gestos de cable: deltas hechos.** Tramo, vértice y tramo interior de cables agrupados ya no reconstruyen red durante `pointermove`. Queda el tramo **extremo** de un cable agrupado, que sigue en `bendCable` con preview por documento.
 6. **Soltar del vértice: cerrado sin regresión demostrada.** A/B alternado de 15 muestras por lado: mediana +3,7 %, rangos solapados; el criterio pre-fijado no se cumple (ver 2.k). Queda documentado, sin perfilar.
 7. **Tramo extremo agrupado: delta hecho en la dirección cubierta** (ver 2.m). Queda el fallback para direcciones con solapamiento colineal, y también corrige el gesto congelado tras un fallback.
-8. **Paneo: medido y con memoización de hojas** (ver 2.n). p95 83–100 → 33–50 ms; React −81 % y sin renders de símbolos/cables. Queda la creación de elementos del padre (`visitNode`) y la pintura/composición.
-9. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta real por evento.
+8. **Paneo: medido, memoizado y con capa estable** (ver 2.n y 2.o). La escena ya no se recorre al panear y la cola de 50 ms desapareció; el piso de 33,4 ms no es React.
+9. **Antes de tocar el renderer:** medir composición con categorías correctas (la traza actual no la capturó) y explicar el piso de 33,4 ms.
+10. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta real por evento.
 
 ## 8. Los gates de performance existentes
 
@@ -493,6 +515,12 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 18 (2026-11-26).** Capa de escena estable:
+  - `SceneLayer` memoizado sin la cámara: panear no recorre `records` ni crea elementos.
+  - A/B: la cola de ~50 ms desaparece (p95 por corrida 49,9 → 33,4), pero el piso de 33,4 ms no baja.
+  - Dev: React 368 → 86 ms; `visitNode` (~1.128 ms) no es React.
+  - Pintura CDP: `Paint` 70 ms, `Layout` 40 ms; composición no capturada. No se toca el renderer todavía.
+  - Baseline en `preview-prod-scene-layer.json`.
 - **Revisión 17 (2026-11-26).** Paneo medido y memoizado:
   - Producción: p95 83,3–100 ms; 0 mutaciones de escena y 6 de cámara; LoAF 2.065 ms de scripts, 98 de estilo/layout y ≈1.668 de pintura/composición.
   - Dev: React dominaba (1.972 ms; `visitNode`, `jsxDEV`, `shapesBounds`); con `memo` en `Component`/`Wire` baja a 368 ms (−81 %) y `shapesBounds` desaparece.
