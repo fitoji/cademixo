@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 23)
+**Fecha:** 2026-11-26 (revisión 24)
 **Rama:** `astra-perfo`
-**Tipo:** cierre del plan + primer cambio del router del fantasma.
+**Tipo:** cierre del plan + router del fantasma indexado + re-perfil.
 
-> **Revisión 23.** Indexa los obstáculos dentro de `routeOrthogonal`: mismo grafo, mismas tolerancias y desempates, rutas **idénticas**. Costo por ruta 195,5/762,6 → **9,7/10,0 ms**; p95 del gesto 150–167 → **50–67 ms** con los mismos 8 recálculos. Ver 2.t.
+> **Revisión 24.** Re-perfila el trazado ya optimizado: `routeOrthogonal` bajó de 1.719 a **62 ms** propios y dejó de ser el cuello. Queda React/nativo; el hover vuelve a recorrer la escena porque el fantasma y el marcador viven en `SceneLayer`. Sin cambios de código (ver 2.t y 2.u).
 
 ## Resumen ejecutivo
 
@@ -515,6 +515,32 @@ El test de goldens baja de 1.054 a 93 ms con las mismas rutas.
 
 **Los 8 recálculos se mantienen** (son cambios de objetivo magnético, no trabajo redundante) y aun así el trazado responde mejor: p95 −67 %, duración −25 %. El objetivo del cambio se cumple sin alterar la ruta que ve el usuario.
 
+### 2.u Re-perfil del trazado ya optimizado
+
+**Pregunta:** el perfil de la rev. 22 explicaba el cuello que acabamos de sacar; este perfil busca el que queda.
+
+**Dev (misma trayectoria, 2 corridas perfiladas):**
+
+| Función | Propio |
+|---|---|
+| `routeOrthogonal` | **62 ms** (antes 1.719 ms) |
+| `buildBoxIndex` | 18 ms |
+| React (bucket) | 310 ms |
+| `visitNode` | 467 ms |
+| `(program)` (nativo) | 822 ms |
+| `jsxDEVImpl` + `exports.jsxDEV` | 250 ms |
+
+**Producción:** p95 50–66,6 ms por corrida (rev. 23); en dev, 83–117 ms por el costo del React de desarrollo.
+
+**Lectura:** el router dejó de ser el cuello. Lo que queda es **render de React + trabajo nativo**, y hay una causa estructural concreta: `SceneLayer` recibe `hover`, `wireStart`, `ghostPath` y `snapMark` como props, así que **cada cambio de hover al dibujar vuelve a recorrer la escena completa** (símbolos y cables). Es el mismo costo que se eliminó para el paneo, pero sigue vivo en el trazado porque el fantasma y el marcador viven dentro de la capa estable.
+
+**Candidatos medidos para el próximo cambio (no implementados):**
+
+1. Sacar la capa transitoria (fantasma, marcador de snap y marquee) de `SceneLayer`, para que el hover no recorra la escena.
+2. Reutilizar el índice de obstáculos entre llamadas con el mismo documento (`buildBoxIndex` se rearma en cada ruta: 18 ms por gesto).
+
+**Conclusión:** el cambio del router se cierra acá; el siguiente cuello está identificado y medido, no se toca sin su propio A/B.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -587,6 +613,7 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 12. **Cierre del plan original:** todos los gestos medidos y optimizados donde la medición lo justificó; la cámara CSS se revirtió y el índice de hit-test quedó descartado con datos.
 13. **Trabajo separado abierto:** router del cable fantasma (ver 2.s). `routeOrthogonal` dominaba el trazado (1.719 ms propios vs React 363 ms).
 14. **Router indexado** (ver 2.t): rutas idénticas y costo por ruta 195,5/762,6 → 9,7/10,0 ms; p95 del gesto 150–167 → 50–67 ms con los mismos 8 recálculos.
+15. **Re-perfil del trazado** (ver 2.u): el router ya no es el cuello (62 ms propios). Queda React/nativo; el hover vuelve a recorrer la escena porque el fantasma y el marcador viven en `SceneLayer`. Siguiente candidato: separar la capa transitoria, con su propio A/B.
 
 ## 8. Los gates de performance existentes
 
@@ -635,6 +662,10 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 24 (2026-11-26).** Re-perfil del trazado optimizado:
+  - `routeOrthogonal` 1.719 → 62 ms propios; `buildBoxIndex` 18 ms; React 310 y nativo 822.
+  - El hover vuelve a recorrer la escena porque `hover`/`ghostPath`/`snapMark` son props de `SceneLayer`.
+  - Próximo candidato medido: separar la capa transitoria; no implementado. Sin cambios de código.
 - **Revisión 23 (2026-11-26).** Router del fantasma con índice de obstáculos:
   - Goldens de 5 escenarios capturados antes del cambio; secuencias idénticas después.
   - Costo por ruta 195,5/762,6 → 9,7/10,0 ms; test de goldens 1.054 → 93 ms.
