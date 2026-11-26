@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 9)
+**Fecha:** 2026-11-26 (revisión 10)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + etapas 1-3 (delta y confirmación).
+**Tipo:** auditoría + benchmark + etapas 1-3 (delta y confirmación) + reutilización de la red de poda.
 
-> **Revisión 9.** Comparte la red final del documento entre `App`, `validate` y `buildNetlist` (y por lo tanto `circuitFrom`), sin tocar las redes intermedias de `applyDrag`. Reconstrucciones por soltar: 6 → 4. A/B intercalado en producción: 3,34–3,61 s → 2,45–2,61 s. Ver «Historial de correcciones».
+> **Revisión 10.** Reutiliza la red posterior de la poda como red final confirmada, sólo si representa exactamente el texto. Reconstrucciones al soltar: 4 → 3. La latencia **no** mejora de forma consistente (mediana −2 %, rangos solapados): se detiene esta línea y se pasa a medir los otros gestos. Ver 2.f.
 
 ## Resumen ejecutivo
 
@@ -182,6 +182,29 @@ Medición aislada en Node, misma sesión, mediana de 5: **2.684 → 2.020 ms** (
 - Un solo paso de deshacer: el commit sigue siendo único (prueba del controlador y traza).
 - 917/917 pruebas.
 
+### 2.f Reutilizar la red posterior de la poda
+
+Cambio:
+
+- `pruneDeadStubs` / `pruneOrphanJunctions` / `pruneEdits` devuelven `{ text, net }`. La red sólo es válida si el texto devuelto es el que se construyó.
+- `moveSelection` publica esa red como **red confirmada** (`takeCommittedNetwork`) únicamente si coincide con el texto final.
+- `App` la usa cuando el texto actual es exactamente ese; si la última poda cambió los registros, no hay red y se reconstruye. La red anterior al gesto nunca se usa como red final.
+
+Reconstrucciones al soltar: **4 → 3** cuando la red es reutilizable.
+
+A/B intercalado en producción (misma sesión, 2 corridas por lado, 5 muestras cada una):
+
+| Lado | Muestras (ms) | Mediana | Redes |
+|---|---|---|---|
+| Antes | 1.932–2.068 | 1.984 | 4 |
+| Después | 1.628–2.222 | 1.950 | 3 |
+
+La mediana baja ~2 %, pero los rangos se solapan y una corrida "después" fue más lenta que las dos "antes". **La mejora de latencia no es consistente**: el ahorro de una reconstrucción queda por debajo del ruido entre corridas (±300 ms).
+
+Caso negativo probado: mover el componente 21 a (−24, 12) elimina una unión 4001 en la poda final. En ese caso la red **no** se reutiliza (prueba dedicada con el registro eliminado verificado).
+
+**Conclusión:** se cumple el criterio funcional (4→3 redes, mismo texto, avisos, conectividad y un solo paso de deshacer; 919/919 pruebas), pero no hay mejora de latencia demostrable. **No se suma más complejidad en esta línea**: el siguiente paso es medir los otros gestos con su propia línea base.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -243,9 +266,10 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 1. **Etapa 0 — hecha.** Benchmark de estado (`pnpm bench`), traza en dev y **línea base de producción** (`app/bench/baselines/preview-prod.json`).
 2. **Etapa 1 — primer incremento hecho** (ver 2.b). Quedan pendientes los consumidores que todavía reconstruyen red por dentro (`validate`, `buildNetlist`) y el lienzo, que la reconstruye en cada preview.
 3. **Etapa 2 — preview por delta: hecho para mover** (ver 2.d). Siguiente: extender el mismo delta a vértice, tramo y doblez, cada gesto con su propia línea base.
-4. **Etapa 3 — confirmación: primer incremento hecho** (ver 2.e). Compartir la red final bajó el soltar 26 %. Quedan las redes de `applyDrag` (podas) y la del lienzo: la próxima vara es decidir si conviene reutilizar la red de la poda cuando el texto no cambió, sin compartir las intermedias cuando sí cambió.
-5. **Etapa 4 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
-6. **Etapa 5 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
+4. **Etapa 3 — confirmación: dos incrementos hechos** (ver 2.e y 2.f). La red final compartida bajó el soltar 26 %; reutilizar la red de la poda llevó las reconstrucciones a 3 pero **sin mejora de latencia consistente**. Se detiene acá: no se justifica más complejidad en confirmación.
+5. **Etapa 4 — medir los otros gestos.** Vértice, tramo y doblez siguen usando el preview por documento completo y no tienen línea base propia: es el próximo trabajo, un gesto por cambio.
+6. **Etapa 5 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
+7. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
 ## 8. Los gates de performance existentes
 
@@ -294,6 +318,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 10 (2026-11-26).** Reutilización de la red de la poda:
+  - Las podas devuelven `{ text, net }`; `moveSelection` publica la red final sólo si el texto coincide; `App` la usa si el texto actual es ese.
+  - Reconstrucciones 4 → 3 con red reutilizable. Caso negativo probado (unión huérfana eliminada: sin reutilización).
+  - A/B intercalado: medianas 1.984 vs 1.950 ms, rangos solapados → **sin mejora consistente**. Se detiene esta línea.
+  - 919/919 pruebas. Baseline en `app/bench/baselines/preview-prod-reuse.json`.
 - **Revisión 9 (2026-11-26).** Red final compartida en la confirmación:
   - `validate` y `buildNetlist` aceptan la red construida; `circuitFrom` la propaga; `App` pasa la suya. Las redes intermedias de `applyDrag` quedan fuera a propósito.
   - Reconstrucciones por soltar 6 → 4; Node 2.684 → 2.020 ms; A/B intercalado en producción 3,34–3,61 s → 2,45–2,61 s.
