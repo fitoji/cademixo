@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 25)
+**Fecha:** 2026-11-26 (revisión 26)
 **Rama:** `astra-perfo`
-**Tipo:** experimento de capa transitoria, revertido.
+**Tipo:** pasada diagnóstica del gesto de trazado (marcas de punta a punta).
 
-> **Revisión 25.** Separa la capa transitoria (fantasma, snap, marquee) de `SceneLayer`: **cero recorridos de escena** al mover la punta, misma ruta, pero el **p95 no mejora** (50 → 50 ms). Se revierte según el criterio acordado. Ver 2.v.
+> **Revisión 26.** Marca entrada, `routeOrthogonal` y actualización del fantasma en el DOM: la espera está **antes** de actualizar el SVG (ruta ~7 ms, `pointermove` → DOM 144–200 ms). Además, movimientos que no cambian la ruta igual la recalculan por identidad del hover. Sin cambios de renderer. Ver 2.w.
 
 ## Resumen ejecutivo
 
@@ -560,6 +560,34 @@ El test de goldens baja de 1.054 a 93 ms con las mismas rutas.
 
 **Próximo paso medible:** perfilar pintura/estilo del **gesto de trazado** (no reutilizar el del paneo) antes de tocar el renderer. La reutilización de `buildBoxIndex` sigue pendiente y separada.
 
+### 2.w Marcas de punta a punta: dónde se pierde el tiempo
+
+**Instrumentación (pasada aparte, producción):**
+- Entrada: listener de `pointermove` en el SVG.
+- `routeOrthogonal`: cada llamada registra `start`/`end`.
+- Actualización del fantasma: `MutationObserver` sobre el atributo `d` de los elementos dentro de `.ghost`.
+
+**Fases comparadas:** A = pasos de 10 px (el objetivo magnético cambia). B = pasos de 0,3 px (el resultado de la ruta es idéntico, sin actualización del DOM).
+
+| Fase | Movimientos | Recálculos de ruta | Ruta (ms) | `pointermove` → DOM del fantasma | p95 de cuadro | Media |
+|---|---|---|---|---|---|---|
+| A (objetivo cambia) | 7 | 6 | 6,1–10,3 | **144–200 ms** | 50,1 ms | 31,5 ms |
+| B (pasos de 0,3 px) | 6 | **6** | 6,7–7,6 | **sin actualización de DOM** | 33,3 ms | 19,7 ms |
+
+**Hallazgos:**
+
+1. **La espera está antes de actualizar el SVG.** La ruta tarda ~7 ms; entre el `pointermove` y el cambio de `d` del fantasma hay 144–200 ms. Ese intervalo es render/commit de React, no pintura posterior a la actualización.
+2. **Hay recálculos redundantes.** En la fase B la ruta se recalcula 6 veces aunque el resultado es idéntico (no hay mutación de `d`). El memo del fantasma depende de la **identidad** del objeto `hover`, no de sus valores: movimientos mínimos lo invalidan. Esto corrige la suposición de que los 8 recálculos eran todos cambios de objetivo.
+3. Cuando el fantasma cambia, el cuadro pesa más (p95 50,1) que cuando sólo se re-renderiza sin cambiar el `d` (33,3).
+
+**Conclusión:** el cuello restante del trazado es el **render de React al mover el hover**, no el router ni la pintura posterior. La separación de la capa transitoria apuntaba justo a eso; su A/B se midió con el p95 de cuadro, que no lo mostró. La métrica correcta para re-evaluarla es **`pointermove` → DOM del fantasma**.
+
+**Próximos pasos medibles (no implementados):**
+1. Repetir el A/B de la capa transitoria midiendo `pointermove` → DOM (no sólo p95).
+2. Evitar el recálculo redundante cuando el `hover` no cambia de valor (comparación por valores), con su propio A/B.
+
+`buildBoxIndex` sigue afuera. El renderer no se tocó.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -633,8 +661,9 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 13. **Trabajo separado abierto:** router del cable fantasma (ver 2.s). `routeOrthogonal` dominaba el trazado (1.719 ms propios vs React 363 ms).
 14. **Router indexado** (ver 2.t): rutas idénticas y costo por ruta 195,5/762,6 → 9,7/10,0 ms; p95 del gesto 150–167 → 50–67 ms con los mismos 8 recálculos.
 15. **Re-perfil del trazado** (ver 2.u): el router ya no es el cuello (62 ms propios). Queda React/nativo.
-16. **Capa transitoria: probada y revertida** (ver 2.v). Cero recorridos de escena, misma ruta, pero el p95 no mejora (50 → 50 ms). Recorrer la escena no es el camino crítico del trazado.
-17. **Próximo paso medible:** pintura/estilo del gesto de trazado, antes de tocar el renderer. `buildBoxIndex` pendiente y separado.
+16. **Capa transitoria: probada y revertida** (ver 2.v). Cero recorridos de escena, misma ruta, pero el p95 no mejora (50 → 50 ms).
+17. **Marcas de punta a punta** (ver 2.w): la espera está **antes** del SVG (ruta ~7 ms vs 144–200 ms hasta el DOM). El memo del fantasma se invalida por identidad del `hover` y produce recálculos redundantes.
+18. **Próximos pasos medibles:** repetir el A/B de la capa transitoria con `pointermove` → DOM; y evitar el recálculo por valor. `buildBoxIndex` y el renderer siguen afuera.
 
 ## 8. Los gates de performance existentes
 
