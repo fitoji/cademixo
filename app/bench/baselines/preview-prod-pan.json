@@ -1,0 +1,21 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "gesture": "pan con boton central, escala fija",
+  "note": "5 corridas por traza. Mutaciones del DOM separadas en camara (grupo de vista) y escena (elementos data-id/data-wire). LoAF separa scripts de estilo/layout; pintura/composicion queda en el resto.",
+  "before": {
+    "p95": [83.3, 83.4, 83.4, 100, 100, 100, 83.4, 83.4, 83.3, 83.3],
+    "sceneMutations": 0,
+    "cameraMutations": 6,
+    "loaf": { "entries": 38, "duration": 3830, "scripts": 2065, "styleLayout": 98, "rest": 1668 },
+    "devProfile": { "react": 1972, "resto": 3162, "visitNode": 1195, "jsxDEVImpl": 576, "shapesBounds": 152, "estado": 0, "red": 0 }
+  },
+  "after": {
+    "p95": [50, 50, 50, 33.4, 50, 33.4, 50, 50, 33.4, 50],
+    "sceneMutations": 0,
+    "cameraMutations": 6,
+    "devProfile": { "react": 368, "resto": 2414, "visitNode": 1091, "jsxDEVImpl": 89, "shapesBounds": 0, "estado": 0, "red": 0 }
+  },
+  "conclusion": "React re-renderizaba la escena al panear (DOM intacto, perfil dev dominado por React). Memoizar simbolos y cables elimina esos renders (shapesBounds desaparece, React -81%) y baja el p95 de 83-100 a 33-50 ms con separacion total. Queda la creacion de elementos del padre (visitNode) y la pintura/composicion (~1.7 s del LoAF)."
+}

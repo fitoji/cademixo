@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 16)
+**Fecha:** 2026-11-26 (revisión 17)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + deltas + cierre del tramo extremo agrupado.
+**Tipo:** auditoría + benchmark + deltas + paneo.
 
-> **Revisión 16.** Delta del **tramo extremo** de un cable agrupado con la geometría de `bendCable` compartida entre preview y commit. En la dirección cubierta: p95 4.500 → 50 ms y 54 → 0 reconstrucciones durante `pointermove`; en la dirección con solapamiento se conserva el fallback. Ver 2.m.
+> **Revisión 17.** Mide el **paneo** a escala fija y memoiza símbolos y cables: React re-renderizaba la escena en cada cambio de cámara. p95 83–100 → 33–50 ms con separación total; `shapesBounds` desaparece del perfil. Ver 2.n.
 
 ## Resumen ejecutivo
 
@@ -348,6 +348,36 @@ Es el próximo bloqueo medido: 51 reconstrucciones por gesto, p95 ≈ 4 s y 10 r
 
 **Límite:** la cobertura depende de la dirección del arrastre y de los vecinos: si el tramo móvil se solapa en colineal con otro, se conserva el fallback.
 
+### 2.n Paneo a escala fija: medición y memoización
+
+**Medición en producción** (botón central, misma hoja, zoom fijo, 5 corridas):
+
+| Métrica | Valor |
+|---|---|
+| p95 del intervalo entre frames | 83,3–100 ms |
+| Mutaciones del DOM en la escena | **0** |
+| Mutaciones del grupo de cámara | 6 (una por paso) |
+| LoAF (38 cuadros largos) | 3.830 ms: scripts 2.065, estilo/layout 98, resto (pintura/composición) ≈ 1.668 |
+
+**Perfil en dev:** React domina el trabajo (`visitNode` 1.195 ms, `jsxDEVImpl` 576, `exports.jsxDEV` 449, `shapesBounds` 152, GC 375); estado y red en 0. **La escena se re-renderizaba aunque sólo cambiara la cámara**: el DOM no se toca porque las props no cambian, pero React vuelve a ejecutar símbolos y cables.
+
+**Implementación:** `memo` en `Component` y `Wire` (hojas). Sus props son estables al panear (el zoom no cambia a escala fija), así que no se re-renderizan.
+
+**A/B intercalado en producción** (5 corridas por traza, 2 trazas por lado):
+
+| Lado | p95 | Mutaciones de escena |
+|---|---|---|
+| Antes | 83,3–100 ms | 0 |
+| Después | **33,4–50 ms** | 0 |
+
+Todas las muestras "después" quedan por debajo de todas las "antes": separación total, mediana ≈ 83 → 50 ms (−40 %).
+
+**Perfil dev después:** React 1.972 → **368 ms** (−81 %); `jsxDEVImpl` 576 → 89; `shapesBounds` **desaparece** (los símbolos no se renderizan). Queda `visitNode` (~1.091 ms): es la **creación de elementos del padre**, que el memo de hojas no evita; una capa estable completa lo eliminaría.
+
+**Criterio cumplido:** cero renders innecesarios de símbolos y cables al panear, y mejora del p95 en el A/B. La pintura/composición (~1,7 s del LoAF) sigue ahí y no la resuelve memoizar React.
+
+**Nota de pruebas:** `canvas-hover.spec.ts` y dos de `editor-smoke.spec.ts` fallan también en HEAD sin el memo (pre-existentes). `settings-drawer` falló una vez y pasó en la corrida de HEAD (flaky).
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -413,8 +443,8 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 5. **Etapa 4 — gestos de cable: deltas hechos.** Tramo, vértice y tramo interior de cables agrupados ya no reconstruyen red durante `pointermove`. Queda el tramo **extremo** de un cable agrupado, que sigue en `bendCable` con preview por documento.
 6. **Soltar del vértice: cerrado sin regresión demostrada.** A/B alternado de 15 muestras por lado: mediana +3,7 %, rangos solapados; el criterio pre-fijado no se cumple (ver 2.k). Queda documentado, sin perfilar.
 7. **Tramo extremo agrupado: delta hecho en la dirección cubierta** (ver 2.m). Queda el fallback para direcciones con solapamiento colineal, y también corrige el gesto congelado tras un fallback.
-8. **Etapa 5 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
-9. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
+8. **Paneo: medido y con memoización de hojas** (ver 2.n). p95 83–100 → 33–50 ms; React −81 % y sin renders de símbolos/cables. Queda la creación de elementos del padre (`visitNode`) y la pintura/composición.
+9. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta real por evento.
 
 ## 8. Los gates de performance existentes
 
@@ -463,6 +493,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 17 (2026-11-26).** Paneo medido y memoizado:
+  - Producción: p95 83,3–100 ms; 0 mutaciones de escena y 6 de cámara; LoAF 2.065 ms de scripts, 98 de estilo/layout y ≈1.668 de pintura/composición.
+  - Dev: React dominaba (1.972 ms; `visitNode`, `jsxDEV`, `shapesBounds`); con `memo` en `Component`/`Wire` baja a 368 ms (−81 %) y `shapesBounds` desaparece.
+  - A/B intercalado: 83,3–100 → 33,4–50 ms, con separación total.
+  - Queda la creación de elementos del padre y la pintura/composición. Baseline en `preview-prod-pan.json`.
 - **Revisión 16 (2026-11-26).** Delta del tramo extremo agrupado:
   - `planSplitBend` (split + `planVertexMove` compartido) y preview del cable completo con vecinos; fallback si hay solapamiento colineal.
   - `gestureFallback`: si un paso cae al documento, el gesto entero sigue por documento (corrige el gesto congelado).
