@@ -106,7 +106,16 @@ const onSegmentInterior = (seg: NetSegment, x: number, y: number): boolean => {
   return false;
 };
 
+/** Contador de reconstrucciones de red. Lo lee el benchmark; no altera el resultado. */
+export const networkStats = { builds: 0 };
+
+// Handle de sólo lectura para las trazas en navegador (dev y producción).
+if (typeof window !== 'undefined') {
+  (window as unknown as { __networkStats?: typeof networkStats }).__networkStats = networkStats;
+}
+
 export function buildNetwork(records: CadeRecordModel[]): Network {
+  networkStats.builds += 1;
   const segments = new Map<number, NetSegment>();
   const cables = new Map<string, number[]>();
   const junctionPoints: (Point & { sheet: number; recordId: number })[] = [];
@@ -220,8 +229,7 @@ export function cableLength(network: Network, ids: number[]): number {
 
 // --- validaciones (T3.6) -----------------------------------------------------
 
-export function validate(records: CadeRecordModel[]): Finding[] {
-  const network = buildNetwork(records);
+export function validate(records: CadeRecordModel[], network: Network = buildNetwork(records)): Finding[] {
   const findings: Finding[] = [];
 
   for (const node of network.nodes.values()) {

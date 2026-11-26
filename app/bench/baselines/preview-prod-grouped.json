@@ -1,0 +1,25 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "gesture": "segment sobre cable agrupado",
+  "fixture": "polilínea real de 3 tramos en el bloque central (traceGroupedWireId); se verifica en Node que el arrastre cambia el texto",
+  "note": "Sin delta: el lienzo cae al preview por documento porque el cable agrupa varios tramos. 6 pasos de 10 px, 5 corridas por lado, 2 corridas. Redes medidas aparte al iniciar y durante pointermove.",
+  "runs": [
+    {
+      "p95": 1249.9,
+      "startBuilds": 1,
+      "duringMoveBuilds": 12,
+      "release": [2155.8, 2101.7, 2056.7, 2030.9, 2040.6],
+      "releaseBuilds": 3
+    },
+    {
+      "p95": 866.7,
+      "startBuilds": 1,
+      "duringMoveBuilds": 12,
+      "release": [1525.4, 1516.3, 1488.5, 1481.1, 1487.8],
+      "releaseBuilds": 3
+    }
+  ],
+  "conclusion": "La reconstrucción de red vuelve a dominar el movimiento (12 redes por gesto, p95 0.87-1.25 s frente a 50 ms del cable de un tramo). Justifica extender el delta en un cambio separado, no en este."
+}

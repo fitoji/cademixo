@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 export default defineConfig({
   testDir: './e2e',
-  outputDir: join(tmpdir(), 'rea-ing-inversa-playwright-results'),
+  outputDir: join(tmpdir(), 'cademixo-playwright-results'),
   fullyParallel: false,
   reporter: 'list',
   use: {
@@ -20,7 +20,7 @@ export default defineConfig({
   webServer: {
     command: 'pnpm dev --host 127.0.0.1 --port 5173 --strictPort',
     // En Windows el prefijo `VAR=valor` del command no es un comando válido.
-    env: { ...process.env, VITE_CACHE_DIR: join(tmpdir(), 'rea-ing-inversa-vite-cache') },
+    env: { ...process.env, VITE_CACHE_DIR: join(tmpdir(), 'cademixo-vite-cache') },
     url: 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

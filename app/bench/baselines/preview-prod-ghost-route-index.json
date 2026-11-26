@@ -1,0 +1,28 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "blocks": 228 },
+  "gesture": "trazado de cable con la paleta (Cable fase, dos clics) y 12 movimientos",
+  "routeCostNode": {
+    "obstacles": 2736,
+    "before": { "p50": 195.5, "p95": 762.6 },
+    "after": { "p50": 9.7, "p95": 10.0 },
+    "goldens": "5 escenarios (corredor, desvio, borde, empate, gesto) con rutas exactas identicas",
+    "goldenTestMs": { "before": 1054, "after": 93 }
+  },
+  "production": {
+    "before": [
+      { "p95": 150, "mean": 103.5, "routeCalls": 8, "wallMs": 5258 },
+      { "p95": 166.7, "mean": 105.7, "routeCalls": 8, "wallMs": 5454 },
+      { "p95": 166.7, "mean": 103.5, "routeCalls": 8, "wallMs": 6062 }
+    ],
+    "after": [
+      { "p95": 50, "mean": 91, "routeCalls": 8, "wallMs": 4038 },
+      { "p95": 50.1, "mean": 96, "routeCalls": 8, "wallMs": 4091 },
+      { "p95": 50.1, "mean": 99, "routeCalls": 8, "wallMs": 4269 },
+      { "p95": 50, "mean": 94, "routeCalls": 8, "wallMs": 4025 },
+      { "p95": 66.6, "mean": 97, "routeCalls": 8, "wallMs": 4119 },
+      { "p95": 50, "mean": 95, "routeCalls": 8, "wallMs": 4320 }
+    ]
+  },
+  "conclusion": "Indexar los obstaculos dentro del router baja el costo por ruta de 195.5/762.6 a 9.7/10.0 ms y el p95 del gesto de 150-167 a 50-67 ms, manteniendo los mismos 8 recalculos y rutas identicas. Cumple el objetivo: el trazado responde mejor sin cambiar lo que ve el usuario."
+}

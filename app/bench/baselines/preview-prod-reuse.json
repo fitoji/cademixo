@@ -1,0 +1,27 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": {
+    "records": 9577,
+    "components": 2736,
+    "cables": 6156,
+    "blocks": 228
+  },
+  "view": { "zoom": 2.755794095160401, "steps": 12, "stepPx": 4 },
+  "move": { "p95": 50 },
+  "ab": {
+    "before": {
+      "release": [2049.9, 1954.0, 2014.2, 1942.5, 1932.3, 2030.2, 2068.2, 2041.4, 1935.0, 1945.2],
+      "builds": 4,
+      "runs": 2,
+      "median": 1984.1
+    },
+    "after": {
+      "release": [2222.2, 2177.4, 2070.9, 2021.5, 2006.2, 1837.4, 1706.0, 1895.0, 1637.9, 1628.3],
+      "builds": 3,
+      "runs": 2,
+      "median": 1950.6
+    }
+  },
+  "conclusion": "Reconstrucciones 4 -> 3, pero sin mejora de latencia consistente: medianas 1984 vs 1951 ms con rangos solapados. Se detiene esta linea y se pasa a medir los otros gestos.",
+  "note": "A/B intercalado en la misma sesion. El mismo codigo varia hasta 40% entre invocaciones; no comparar contra otra sesion."
+}

@@ -1,0 +1,24 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "gesture": "trazado de cable con la paleta (Cable fase, dos clics) y 12 movimientos",
+  "production": {
+    "runs": [
+      { "p95": 150, "mean": 103.5, "frames": 52, "routeCalls": 8, "wallMs": 5258 },
+      { "p95": 166.7, "mean": 105.7, "frames": 53, "routeCalls": 8, "wallMs": 5454 },
+      { "p95": 166.7, "mean": 103.5, "frames": 51, "routeCalls": 8, "wallMs": 6062 }
+    ],
+    "note": "8 recalculados de ruta por gesto: el hover se queda en el mismo punto snapeado en varios pasos."
+  },
+  "devProfile": {
+    "routeOrthogonalSelfMs": 1719,
+    "reactMs": 363,
+    "visitNodeMs": 450,
+    "insideMs": 225,
+    "bucketRedMs": 2266,
+    "wallMs": 10068,
+    "note": "Pase perfilado valido (el primero quedo invalidado porque reclicar la paleta deseleccionaba la herramienta)."
+  },
+  "algorithmBench": { "obstacles": 2736, "p50": 195.5, "p95": 762.6 },
+  "conclusion": "El trazado del fantasma esta dominado por el algoritmo del router, no por el render. Trabajo separado: optimizar routeOrthogonal sin cambiar la ruta visible y confirmar despues con la misma traza."
+}

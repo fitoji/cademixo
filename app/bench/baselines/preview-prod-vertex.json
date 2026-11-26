@@ -1,0 +1,22 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "gesture": "vertex",
+  "note": "A/B intercalado en la misma sesión y mismo fixture. 6 pasos de 10 px. 5 corridas por lado. Redes medidas aparte al iniciar el gesto (pointerdown) y durante pointermove.",
+  "before": {
+    "p95": [1666.6, 1683.3],
+    "startBuilds": 1,
+    "duringMoveBuilds": 25,
+    "release": [2439.4, 2291.6, 2316.2, 2264.7, 2245.3],
+    "releaseBuilds": 6
+  },
+  "after": {
+    "p95": [50, 66.6],
+    "startBuilds": 1,
+    "duringMoveBuilds": 0,
+    "release": [2290.2, 2334.6, 2345.1, 2394, 2402.1],
+    "releaseBuilds": 6
+  },
+  "conclusion": "Cero reconstrucciones durante pointermove (la del inicio se cuenta aparte), p95 1666 -> 50-67 ms. El soltar conserva 6 redes y el mismo camino; la diferencia de latencia es ruido."
+}

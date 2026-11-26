@@ -1,0 +1,32 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "gesture": "vertex, pointerup -> DOM confirmado",
+  "method": "Alternado en la misma sesión: d972fa4 (antes del delta de vértice) y 6dd8929 (delta). Misma hoja, vértice, zoom y trayectoria. 6 pasos de 10 px, 5 muestras por corrida, 3 corridas por lado (15 muestras por lado).",
+  "criterion": "Pre-fijado: aumento relevante si la mediana nueva >= 1,10 x la anterior Y el minimo del lado nuevo supera la mediana del anterior.",
+  "before": {
+    "runs": [
+      [3510.2, 3430.9, 3404.8, 3402.1, 3434.0],
+      [3517.6, 3425.4, 3403.0, 3398.6, 3420.6],
+      [2350.4, 2257.8, 2280.9, 2265.5, 2282.8]
+    ],
+    "releaseBuilds": 6
+  },
+  "after": {
+    "runs": [
+      [2486.7, 2470.7, 2442.5, 2371.0, 2377.2],
+      [3624.9, 3630.3, 3547.3, 3527.0, 3545.7],
+      [3635.2, 3628.9, 3575.3, 3529.1, 3530.4]
+    ],
+    "releaseBuilds": 6
+  },
+  "result": {
+    "medianBefore": 3403.0,
+    "medianAfter": 3530.4,
+    "deltaPct": 3.7,
+    "ranges": { "before": [2257.8, 3517.6], "after": [2371.0, 3635.2] },
+    "criterionMet": false,
+    "note": "Ambos lados muestran dos estados de rendimiento (~2.3-2.5 s y ~3.4-3.6 s) sin correlacion con el build. El criterio pre-fijado no se cumple: no hay aumento consistente. Confusor: el movimiento difiere entre builds (2633 ms vs 50 ms), por lo que la carga previa al soltar no es igual."
+  }
+}

@@ -53,6 +53,22 @@ test('Escape durante un arrastre de vértice cancela sin commit', () => {
   assert.equal(esc.effects.filter((e) => e.type === 'commit').length, 0);
 });
 
+test('Escape durante el arrastre de componentes cancela sin commit', () => {
+  const preview = step(startMove(pt(10, 10)), { type: 'move', world: pt(16, 16), client: pt(16, 16) }, ctx);
+  assert.equal(preview.effects[0]?.type, 'preview');
+  const esc = step(preview.next, { type: 'cancel' }, ctx);
+  assert.equal(esc.next.kind, 'idle');
+  assert.deepEqual(esc.effects, [{ type: 'cancel' }]);
+  assert.equal(esc.effects.filter((e) => e.type === 'commit').length, 0);
+});
+
+test('soltar tras mover confirma un único commit', () => {
+  const moved = step(startMove(pt(10, 10)), { type: 'move', world: pt(16, 16), client: pt(16, 16) }, ctx).next;
+  const up = step(moved, { type: 'up', world: pt(16, 16), client: pt(16, 16) }, ctx);
+  assert.equal(up.effects.length, 1);
+  assert.equal(up.effects[0]!.type, 'commit');
+});
+
 test('el arrastre de tramo confirma un único commit de tipo segment', () => {
   let g = startSegment(9, pt(30, 60), pt(30, 60), 0);
   g = step(g, { type: 'move', world: pt(41, 74), client: pt(41, 74) }, ctx).next;

@@ -51,11 +51,12 @@ import {
   nextSlot,
 } from '../model/orientation.ts';
 import type { Rotation } from '../model/transform.ts';
-import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY } from './network.ts';
+import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY, type Network } from './network.ts';
 import { attachPoints, type Point } from './pins.ts';
 import { routeOrthogonal, type Box } from './wiring/router.ts';
-import { normalizeOrthogonal, projectOnSegment } from './wiring/geometry.ts';
+import { projectOnSegment } from './wiring/geometry.ts';
 import { pathPoints, wirePathsOf } from './wiring/types.ts';
+import { planSegmentPolyline, planVertexMove } from './wiring/preview-geometry.ts';
 
 export type { Rotation };
 
@@ -138,10 +139,14 @@ function commit(state: EditorState, text: string, selection = state.selection): 
  * puntos protegidos son los que el usuario está arrastrando: ahí una punta
  * suelta es parte del gesto, no un descuido.
  */
-function pruneDeadStubs(before: CadeRecordModel[], text: string, protectPoints: Point[]): string {
+function pruneDeadStubs(
+  before: CadeRecordModel[],
+  text: string,
+  protectPoints: Point[],
+  beforeNet: Network = buildNetwork(before),
+): { text: string; net: Network | null } {
   const afterProject = buildProject(parse(text));
   const afterNet = buildNetwork(afterProject.records);
-  const beforeNet = buildNetwork(before);
   // Las claves llevan la hoja adelante (`0|42,486`); acá se comparan por
   // coordenada, que es lo que el usuario mueve.
   const protect = new Set(protectPoints.map((p) => `${p.x},${p.y}`));
@@ -165,8 +170,11 @@ function pruneDeadStubs(before: CadeRecordModel[], text: string, protectPoints: 
     if (otherDegree < 2 && !other?.pin && !other?.junction) continue;
     deadIds.add(segId);
   }
-  if (deadIds.size === 0) return text;
-  return serializeProject({ ...afterProject, records: afterProject.records.filter((r) => !deadIds.has(r.id)) });
+  if (deadIds.size === 0) return { text, net: afterNet };
+  return {
+    text: serializeProject({ ...afterProject, records: afterProject.records.filter((r) => !deadIds.has(r.id)) }),
+    net: null,
+  };
 }
 
 /**
@@ -175,10 +183,15 @@ function pruneDeadStubs(before: CadeRecordModel[], text: string, protectPoints: 
  * porque un punto suelto puede ser una derivación puesta a propósito y el snap
  * la usa como imán. Se devuelve texto nuevo para entrar en el MISMO commit.
  */
-function pruneOrphanJunctions(before: CadeRecordModel[], text: string): string {
-  const after = buildProject(parse(text));
-  const beforeNet = buildNetwork(before);
-  const afterNet = buildNetwork(after.records);
+function pruneOrphanJunctions(
+  before: CadeRecordModel[],
+  text: string,
+  beforeNet: Network = buildNetwork(before),
+  /** Red de `text`, sólo si un paso anterior devolvió exactamente ese texto. */
+  after?: { text: string; net: Network | null },
+): { text: string; net: Network | null } {
+  const afterProject = buildProject(parse(text));
+  const afterNet = after?.text === text && after.net !== null ? after.net : buildNetwork(afterProject.records);
   const dead = new Set<number>();
 
   for (const j of afterNet.junctionPoints) {
@@ -189,15 +202,37 @@ function pruneOrphanJunctions(before: CadeRecordModel[], text: string): string {
     if (!now || !was || now.pin) continue;
     if (was.ends.length + was.through.length < 2) continue;
     if (now.ends.length + now.through.length >= 2) continue;
-    for (const rec of after.records) {
+    for (const rec of afterProject.records) {
       if (rec.code !== JUNCTION_CODE || rec.sheet !== j.sheet) continue;
       if (rec.geometry[8] !== j.x || rec.geometry[9] !== j.y) continue;
       dead.add(rec.id);
     }
   }
 
-  if (dead.size === 0) return text;
-  return serializeProject({ ...after, records: after.records.filter((r) => !dead.has(r.id)) });
+  if (dead.size === 0) return { text, net: afterNet };
+  return {
+    text: serializeProject({ ...afterProject, records: afterProject.records.filter((r) => !dead.has(r.id)) }),
+    net: null,
+  };
+}
+
+/**
+ * Corre las dos podas de una edición compartiendo las redes que no cambiaron.
+ *
+ * La red anterior es la misma para las dos podas: mismos registros, mismo
+ * alcance. La red posterior sólo se reutiliza si la primera poda devolvió el
+ * texto intacto; si eliminó un tramo, la red de después es otra y se reconstruye.
+ */
+function pruneEdits(
+  before: CadeRecordModel[],
+  text: string,
+  protectPoints: Point[],
+  between: (draft: string) => string = (draft) => draft,
+): { text: string; net: Network | null } {
+  const beforeNet = buildNetwork(before);
+  const dead = pruneDeadStubs(before, text, protectPoints, beforeNet);
+  const next = between(dead.text);
+  return pruneOrphanJunctions(before, next, beforeNet, dead.net !== null && dead.text === next ? dead : undefined);
 }
 
 /**
@@ -285,31 +320,49 @@ function indexed(project: Project): IndexedRecord[] {
 }
 
 /**
- * Mueve la selección. Los extremos de cable que coinciden exactamente con un
- * borne de un componente movido viajan con él: se acabó la regla provisional de
- * proximidad ±4, que arrastraba cables que sólo pasaban cerca de la caja.
+ * Delta geométrico de un movimiento de selección, sin tocar el documento.
+ *
+ * Es la misma regla que aplica `moveSelection` al confirmar, extraída como
+ * cálculo puro: el preview dibuja desde acá y el commit la usa para escribir.
+ * No serializa, no parsea y no construye red.
  */
-export function moveSelection(state: EditorState, dx: number, dy: number): EditorState {
-  if (state.selection.length === 0 || (dx === 0 && dy === 0)) return state;
-  const project = projectOf(state);
-  const selected = new Set(state.selection);
-  const pins = attachPoints(project.records);
+export interface MoveDelta {
+  /** Posición nueva de cada componente seleccionado, por id. */
+  positions: Map<number, { x: number; y: number }>;
+  /** Puntos nuevos de cada cable afectado, por id. */
+  wires: Map<number, WirePoints>;
+  /** Codos que el preview dibuja como tramo móvil, por cable. */
+  codos: { wireId: number; moving: WirePoints }[];
+  /** Desplazamiento del gesto, para dibujar componentes movidos. */
+  dx: number;
+  dy: number;
+  /** Puntos que la poda no debe tocar: los que el gesto está moviendo. */
+  protect: Point[];
+}
+
+export function moveDelta(
+  records: readonly CadeRecordModel[],
+  pins: ReadonlyMap<number, Point[]>,
+  selection: ReadonlySet<number>,
+  dx: number,
+  dy: number,
+): MoveDelta {
   const movedPins = new Set<string>();
-  for (const rec of project.records) {
-    if (!selected.has(rec.id) || rec.kind !== 'component') continue;
+  for (const rec of records) {
+    if (!selection.has(rec.id) || rec.kind !== 'component') continue;
     for (const p of pins.get(rec.id) ?? []) movedPins.add(`${p.x},${p.y}`);
   }
   const anchored = (x: number, y: number): boolean => movedPins.has(`${x},${y}`);
+  const out: MoveDelta = { positions: new Map(), wires: new Map(), codos: [], protect: [], dx, dy };
 
-  const edits = new Map<number, string>();
-  const appended: string[] = [];
-  const protect: Point[] = [];
-  let next = nextId(project);
-  for (const { index, rec } of indexed(project)) {
-    if (selected.has(rec.id) && rec.kind === 'component') {
+  for (const rec of records) {
+    if (selection.has(rec.id) && rec.kind === 'component') {
       // El ancla del registro es su `x,y`: con orientación, el origen de la caja
       // dibujada no coincide con ella, así que mover toma la posición guardada.
-      edits.set(index, withPosition(rec, rec.geometry[GEOMETRY.x]! + dx, rec.geometry[GEOMETRY.y]! + dy));
+      out.positions.set(rec.id, {
+        x: rec.geometry[GEOMETRY.x]! + dx,
+        y: rec.geometry[GEOMETRY.y]! + dy,
+      });
       continue;
     }
     if (rec.kind !== 'connection') continue;
@@ -323,17 +376,17 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
     const ay = moveA ? pts.y1 + dy : pts.y1;
     const bx = moveB ? pts.x2 + dx : pts.x2;
     const by = moveB ? pts.y2 + dy : pts.y2;
-    if (moveA) protect.push({ x: ax, y: ay });
-    if (moveB) protect.push({ x: bx, y: by });
+    if (moveA) out.protect.push({ x: ax, y: ay });
+    if (moveB) out.protect.push({ x: bx, y: by });
 
     const orthogonal = Math.abs(ax - bx) < AXIS_TOL || Math.abs(ay - by) < AXIS_TOL;
     if (orthogonal) {
-      edits.set(index, withWirePoints(rec, { x1: ax, y1: ay, x2: bx, y2: by }));
+      out.wires.set(rec.id, { x1: ax, y1: ay, x2: bx, y2: by });
       continue;
     }
 
-    // El extremo que se movió quedó fuera de eje: se inserta un codo junto al
-    // extremo QUIETO, conservando la orientación original de ese lado.
+    // El extremo que se movió quedó fuera de eje: el preview muestra un codo y
+    // el commit inserta el tramo con la misma geometría.
     const wasVertical = Math.abs(pts.x1 - pts.x2) < AXIS_TOL;
     const corner = moveB
       ? wasVertical
@@ -342,22 +395,60 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
       : wasVertical
         ? { x: pts.x2, y: ay }
         : { x: ax, y: pts.y2 };
-    const fixedLeg = { x1: ax, y1: ay, x2: corner.x, y2: corner.y };
-    const movingLeg = { x1: corner.x, y1: corner.y, x2: bx, y2: by };
-    edits.set(index, withWirePoints(rec, fixedLeg));
+    out.wires.set(rec.id, { x1: ax, y1: ay, x2: corner.x, y2: corner.y });
+    out.codos.push({ wireId: rec.id, moving: { x1: corner.x, y1: corner.y, x2: bx, y2: by } });
+  }
+  return out;
+}
+
+/**
+ * Red de la última edición confirmada, para que App la reutilice en lugar de
+ * reconstruirla. Sólo vale si el texto coincide exactamente: la red de una poda
+ * que cambió los registros no representa el documento final (y la red anterior
+ * al gesto tampoco).
+ */
+let committedNetwork: { text: string; network: Network } | null = null;
+
+export function takeCommittedNetwork(state: EditorState): Network | null {
+  return committedNetwork !== null && committedNetwork.text === state.text ? committedNetwork.network : null;
+}
+
+/**
+ * Mueve la selección. Los extremos de cable que coinciden exactamente con un
+ * borne de un componente movido viajan con él: se acabó la regla provisional de
+ * proximidad ±4, que arrastraba cables que sólo pasaban cerca de la caja.
+ */
+export function moveSelection(state: EditorState, dx: number, dy: number): EditorState {
+  if (state.selection.length === 0 || (dx === 0 && dy === 0)) return state;
+  const project = projectOf(state);
+  const selected = new Set(state.selection);
+  const pins = attachPoints(project.records);
+  const delta = moveDelta(project.records, pins, selected, dx, dy);
+
+  const byId = new Map(project.records.map((rec) => [rec.id, rec]));
+  const indexById = new Map(project.records.map((rec, index) => [rec.id, index]));
+  const edits = new Map<number, string>();
+  for (const [id, pos] of delta.positions) {
+    const rec = byId.get(id)!;
+    edits.set(indexById.get(id)!, withPosition(rec, pos.x, pos.y));
+  }
+  for (const [id, pts] of delta.wires) {
+    edits.set(indexById.get(id)!, withWirePoints(byId.get(id)!, pts));
+  }
+  const appended: string[] = [];
+  let next = nextId(project);
+  for (const codo of delta.codos) {
+    const rec = byId.get(codo.wireId)!;
     appended.push(
-      withWirePoints({ ...rec, id: next, raw: withId(rec, next), geometry: [...rec.geometry] }, movingLeg),
+      withWirePoints({ ...rec, id: next, raw: withId(rec, next), geometry: [...rec.geometry] }, codo.moving),
     );
     next++;
   }
 
-  return commit(
-    state,
-    pruneOrphanJunctions(
-      project.records,
-      pruneDeadStubs(project.records, serializeWith(project, edits) + appended.join(''), protect),
-    ),
-  );
+  const pruned = pruneEdits(project.records, serializeWith(project, edits) + appended.join(''), delta.protect);
+  const committed = commit(state, pruned.text);
+  committedNetwork = pruned.net !== null && committed.text === pruned.text ? { text: committed.text, network: pruned.net } : null;
+  return committed;
 }
 
 /**
@@ -448,7 +539,7 @@ export function deleteSelection(state: EditorState): EditorState {
   const text = magic + project.prefix + project.records.filter((r) => !removable.has(r.id)).map((r) => r.raw).join('');
   const rotation = { ...state.rotation };
   for (const id of removable) delete rotation[id];
-  return { ...commit(state, pruneOrphanJunctions(project.records, text), []), rotation };
+  return { ...commit(state, pruneOrphanJunctions(project.records, text).text, []), rotation };
 }
 
 export function copySelection(state: EditorState): EditorState {
@@ -677,10 +768,7 @@ export function moveEndpoint(state: EditorState, id: number, end: 0 | 1, x: numb
     edits.set(index, withWirePoints(rec, next));
     return commit(
       state,
-      pruneOrphanJunctions(
-        project.records,
-        pruneDeadStubs(project.records, serializeWith(project, edits), [target]),
-      ),
+      pruneEdits(project.records, serializeWith(project, edits), [target]).text,
     );
   }
 
@@ -709,7 +797,7 @@ export function moveEndpoint(state: EditorState, id: number, end: 0 | 1, x: numb
     project.prefix +
     project.records.map((r, i) => edits.get(i) ?? r.raw).join('') +
     leg2;
-  return commit(state, pruneOrphanJunctions(project.records, pruneDeadStubs(project.records, text, [target])), [
+  return commit(state, pruneEdits(project.records, text, [target]).text, [
     id,
     newId,
   ]);
@@ -744,65 +832,27 @@ export function moveVertex(state: EditorState, from: Point, to: Point, sheet = 0
     sig: string;
   }
   const built: Built[] = [];
-  const used = new Set<string>();
+  const byId = new Map(project.records.map((rec, index) => [rec.id, { rec, index }]));
 
-  project.records.forEach((rec, index) => {
-    const pts = wirePoints(rec);
-    if (!pts) return;
-
-    const atA = Math.abs(pts.x1 - from.x) < AXIS_TOL && Math.abs(pts.y1 - from.y) < AXIS_TOL;
-    const atB = Math.abs(pts.x2 - from.x) < AXIS_TOL && Math.abs(pts.y2 - from.y) < AXIS_TOL;
-    if (!atA && !atB) return;
-
-    const fixed = atA ? point(pts.x2, pts.y2) : point(pts.x1, pts.y1);
-    if (Math.abs(fixed.x - to.x) < AXIS_TOL && Math.abs(fixed.y - to.y) < AXIS_TOL) return;
-
-    const wasVertical = Math.abs(pts.x1 - pts.x2) < AXIS_TOL;
-      const pushLeg = (leg: WirePoints, isExtra: boolean): void => {
-      const sig = signature(point(leg.x1, leg.y1), point(leg.x2, leg.y2));
-      if (isExtra && used.has(sig)) return;
-      used.add(sig);
-      if (!isExtra) {
-        built.push({ index, newId: null, raw: withWirePoints(rec, leg), sig });
-        return;
-      }
-      const clone: CadeRecordModel = { ...rec, id, raw: withId(rec, id), geometry: [...rec.geometry] };
-      built.push({
-        index: null,
-        newId: id,
-        raw: withWirePoints({ ...clone, raw: withCableNumber(clone, cableNumberOf(rec)) }, leg),
-        sig,
-      });
-      id += 1;
-    };
-
-    if (isOrthogonal(fixed, to)) {
-      pushLeg({ x1: fixed.x, y1: fixed.y, x2: to.x, y2: to.y }, false);
-      return;
-    }
-
-    // Dos codos posibles. Se prefiere el que deja el codo junto al extremo
-    // quieto, así el tramo que se arrastra mantiene su orientación y el cable
-    // se ve moverse en vez de sólo aparecer una línea.
-    //
-    // Con el codo del otro lado, arrastrar hacia la derecha el extremo inferior
-    // de un cable vertical dejaba la vertical intacta y agregaba un tramo
-    // horizontal abajo: parecía que no había pasado nada.
-    const preferred = wasVertical ? point(to.x, fixed.y) : point(fixed.x, to.y);
-    const alternate = wasVertical ? point(fixed.x, to.y) : point(to.x, fixed.y);
-    let corner: Point | null = null;
-    for (const candidate of [preferred, alternate]) {
-      if (!isOrthogonal(fixed, candidate) || !isOrthogonal(candidate, to)) continue;
-      if (Math.abs(candidate.x - to.x) < AXIS_TOL && Math.abs(candidate.y - to.y) < AXIS_TOL) continue;
-      if (!used.has(signature(candidate, to))) {
-        corner = candidate;
-        break;
-      }
-    }
-    corner ??= preferred;
-    pushLeg({ x1: fixed.x, y1: fixed.y, x2: corner.x, y2: corner.y }, false);
-    pushLeg({ x1: corner.x, y1: corner.y, x2: to.x, y2: to.y }, true);
-  });
+  // Mismo plan que usa el preview: preview y commit no pueden divergir.
+  const plan = planVertexMove(project.records, from, to);
+  for (const [recId, leg] of plan.edits) {
+    const entry = byId.get(recId);
+    if (!entry) continue;
+    built.push({ index: entry.index, newId: null, raw: withWirePoints(entry.rec, leg), sig: signature(point(leg.x1, leg.y1), point(leg.x2, leg.y2)) });
+  }
+  for (const extra of plan.extras) {
+    const entry = byId.get(extra.sourceId);
+    if (!entry) continue;
+    const clone: CadeRecordModel = { ...entry.rec, id, raw: withId(entry.rec, id), geometry: [...entry.rec.geometry] };
+    built.push({
+      index: null,
+      newId: id,
+      raw: withWirePoints({ ...clone, raw: withCableNumber(clone, cableNumberOf(entry.rec)) }, extra.points),
+      sig: signature(point(extra.points.x1, extra.points.y1), point(extra.points.x2, extra.points.y2)),
+    });
+    id += 1;
+  }
 
   if (built.length === 0) return state;
 
@@ -845,10 +895,7 @@ export function moveVertex(state: EditorState, from: Point, to: Point, sheet = 0
 
   const firstPass = compose(new Set());
 
-  const finalText = pruneOrphanJunctions(
-    project.records,
-    simplifyCollinear(pruneDeadStubs(project.records, firstPass, [from, to])),
-  );
+  const finalText = pruneEdits(project.records, firstPass, [from, to], simplifyCollinear).text;
   const next = commit(state, finalText);
 
   // La selección tiene que seguir al cable: si no, después de mover un extremo
@@ -1027,7 +1074,7 @@ export function mergeVertex(state: EditorState, x: number, y: number): EditorSta
       .map((r, i) => (i === first.index ? merged : r.raw))
       .filter((_, i) => i !== second.index)
       .join('');
-  return commit(state, pruneOrphanJunctions(project.records, text), [first.rec.id]);
+  return commit(state, pruneOrphanJunctions(project.records, text).text, [first.rec.id]);
 }
 
 /**
@@ -1105,8 +1152,6 @@ function writePolyline(state: EditorState, segmentIds: number[], points: Point[]
   return commit(state, text, edit.ids);
 }
 
-const nearPoint = (a: Point, b: Point): boolean =>
-  Math.abs(a.x - b.x) < AXIS_TOL && Math.abs(a.y - b.y) < AXIS_TOL;
 
 /**
  * Raws de los `4001` que hacen falta donde un extremo cae en el INTERIOR de
@@ -1166,26 +1211,12 @@ export function moveSegment(state: EditorState, id: number, at: Point, to: Point
   const q = points[index + 1]!;
   if (!p || !q) return state;
 
-  const vertical = Math.abs(p.x - q.x) < AXIS_TOL;
-  const newValue = vertical ? to.x : to.y;
-  const oldValue = vertical ? p.x : p.y;
-  if (Math.abs(newValue - oldValue) < AXIS_TOL) return state;
-
+  // Mismo plan que usa el preview: preview y commit no pueden divergir.
+  const plan = planSegmentPolyline(points, index, to);
+  if (plan.kind === 'none') return state;
   // Tramo extremo: el borne no se mueve, se inserta un codo (S2).
-  if (index === 0 || index === points.length - 2) return bendCable(state, id, at, to, sheet);
-
-  const movedP = vertical ? { x: newValue, y: p.y } : { x: p.x, y: newValue };
-  const movedQ = vertical ? { x: newValue, y: q.y } : { x: q.x, y: newValue };
-  const out: Point[] = points.slice(0, index);
-  const a = points[index - 1]!;
-  const bendA = vertical ? { x: a.x, y: movedP.y } : { x: movedP.x, y: a.y };
-  if (!nearPoint(bendA, a) && !nearPoint(bendA, movedP)) out.push(bendA);
-  out.push(movedP, movedQ);
-  const b = points[index + 2]!;
-  const bendB = vertical ? { x: b.x, y: movedQ.y } : { x: movedQ.x, y: b.y };
-  if (!nearPoint(bendB, movedQ) && !nearPoint(bendB, b)) out.push(bendB);
-  out.push(...points.slice(index + 2));
-  return writePolyline(state, path.segmentIds, normalizeOrthogonal(out));
+  if (plan.kind === 'end') return bendCable(state, id, at, to, sheet);
+  return writePolyline(state, path.segmentIds, plan.points);
 }
 
 /** Inserta un tramo de cable entre dos puntos. */
@@ -1215,7 +1246,7 @@ export function addWire(
     project.records.map((r) => r.raw).join('') +
     raw +
     junctions;
-  return commit(state, pruneOrphanJunctions(project.records, text), [id]);
+  return commit(state, pruneOrphanJunctions(project.records, text).text, [id]);
 }
 
 /**
@@ -1263,7 +1294,7 @@ export function addRoutedWire(
     project.records.map((r) => r.raw).join('') +
     raws.join('') +
     junctions;
-  return commit(state, pruneOrphanJunctions(project.records, text), addedIds);
+  return commit(state, pruneOrphanJunctions(project.records, text).text, addedIds);
 }
 
 /** Borra el registro 4001 indicado (acción del aviso `orphan-junction`). */

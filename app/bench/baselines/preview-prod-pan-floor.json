@@ -1,0 +1,34 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "gesture": "pan con boton central, escala fija, 6 pasos de 10 px",
+  "method": "Misma trayectoria y cadencia de entrada. Se registra la frecuencia real de pantalla en reposo (rAF) y se comparan hoja grande y hoja chica. Traza CDP con devtools.timeline,cc,viz,blink,benchmark, agregada por nombre de evento.",
+  "idleCadence": { "p50": 16.7, "p95": 16.7, "frames": 72, "hz": 60 },
+  "big": {
+    "records": 9577,
+    "zoom": 2.755794095160401,
+    "p95": [33.4, 33.4, 33.4, 33.4, 33.4],
+    "frames": [63, 64, 63, 65, 63],
+    "paintTraceTop": [
+      { "name": "Document::UpdateStyleAndLayout", "ms": 1974, "n": 1959502 },
+      { "name": "Blink.ForcedStyleAndLayout.UpdateTime", "ms": 1194, "n": 1184619 },
+      { "name": "LocalFrameView::UpdateStyleAndLayout", "ms": 519, "n": 469099 },
+      { "name": "ProxyMain::BeginMainFrame", "ms": 79, "n": 35 },
+      { "name": "Paint", "ms": 77, "n": 6 },
+      { "name": "LocalFrameView::RunPaintLifecyclePhase", "ms": 54, "n": 35 },
+      { "name": "LayoutView::HitTest", "ms": 58, "n": 4 }
+    ]
+  },
+  "small": {
+    "records": 211,
+    "zoom": 2.567003419512055,
+    "p95": [16.7, 16.7, 16.7, 16.8, 16.7],
+    "frames": [5, 5, 5, 5, 5]
+  },
+  "conclusion": "El entorno corre a 60 Hz (idle 16,7 ms). La hoja grande cae a 33,4 ms (pierde un cuadro de cada dos) y la chica sostiene 16,7 ms: es costo real proporcional al contenido, no cadencia del benchmark. En la traza domina style/layout (~1,97 s agregados), no Paint (77 ms). Los conteos de eventos estan inflados por el overhead de tracing: sirven para el ranking, no como costo total.",
+  "caveats": [
+    "El zoom final difiere (2,756 vs 2,567): la comparacion es de orden de magnitud, no exacta.",
+    "visitNode sigue sin URL; NO se atribuye a composicion: el ranking de la traza apunta a style/layout.",
+    "Paint 77 ms no se toma como costo total del renderizado.",
+    "Composicion/presentacion no se aislan con estas categorias."
+  ]
+}

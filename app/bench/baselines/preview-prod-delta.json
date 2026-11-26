@@ -1,0 +1,60 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": {
+    "records": 9577,
+    "components": 2736,
+    "cables": 6156,
+    "junctions": 456,
+    "blocks": 228,
+    "traceId": 4790
+  },
+  "view": {
+    "zoom": 2.755794095160401,
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "steps": 12,
+    "stepPx": 4
+  },
+  "move": {
+    "p95": 50,
+    "mean": 21.22019153639274,
+    "frames": [
+      97,
+      99,
+      98,
+      97,
+      96
+    ],
+    "p95PerRun": [
+      50.099999999998545,
+      50,
+      49.89999999999782,
+      50,
+      50
+    ]
+  },
+  "release": {
+    "domLatency": [
+      2479.2000000178814,
+      2528.800000011921,
+      2461.5,
+      2447.5,
+      2446.7000000178814
+    ],
+    "nextFrame": [
+      2539.7000000178814,
+      2590.100000023842,
+      2522.9000000059605,
+      2512.199999988079,
+      2510.9000000059605
+    ]
+  },
+  "limits": [
+    "latencia hasta actualización de DOM, no presentación confirmada",
+    "p95 del intervalo entre callbacks de rAF",
+    "build de producción (minificado: sin atribución por función)"
+  ],
+  "note": "Resumen compacto: sin registros LoAF ni perfil. Regenerable con PREVIEW_TRACE=1 PREVIEW_TRACE_URL=<prod> PREVIEW_TRACE_PROFILE=0."
+}

@@ -18,8 +18,8 @@ test('la marca del header abre «Acerca de cadeMixo»', async ({ page }) => {
   await expect(dialog.getByText(/educativo y 100\s% open source/)).toBeVisible();
   await expect(dialog.getByText(brandVersion!)).toBeVisible();
 
-  const repo = dialog.getByRole('link', { name: /github\.com\/fitoji\/rea-ing-inversa/ });
-  await expect(repo).toHaveAttribute('href', 'https://github.com/fitoji/rea-ing-inversa');
+  const repo = dialog.getByRole('link', { name: /github\.com\/fitoji\/cademixo/ });
+  await expect(repo).toHaveAttribute('href', 'https://github.com/fitoji/cademixo');
   await expect(repo).toHaveAttribute('target', '_blank');
 
   await page.keyboard.press('Escape');

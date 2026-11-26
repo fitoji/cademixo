@@ -1,0 +1,18 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "blocks": 228 },
+  "gesture": "wirediag: A pasos de 10 px (objetivo cambia), B pasos de 0.3 px (misma ruta)",
+  "change": "hover equality: se conserva el objeto previo cuando el punto ya snapeado tiene x e y exactos iguales (sin tolerancia). snapMark con la misma regla.",
+  "metric": "recalculos de ruta por fase; latencia pointermove -> mutacion de d del fantasma en la fase A; p95 de cuadro por fase",
+  "before": {
+    "A": { "moves": 7, "routeCalls": 6, "uniqueEffectiveRoutes": 6, "ghostUpdates": 6, "moveToGhostMedian": [7.4, 7.3], "moveToGhostP95": [9.8, 9.5], "frameP95": [50.0, 50.0] },
+    "B": { "moves": 6, "routeCalls": 6, "uniqueEffectiveRoutes": 1, "ghostUpdates": 0, "frameP95": [33.3, 33.2] }
+  },
+  "after": {
+    "A": { "moves": 7, "routeCalls": 6, "uniqueEffectiveRoutes": 6, "ghostUpdates": 6, "moveToGhostMedian": [7.2, 7.3], "moveToGhostP95": [10.5, 9.8], "frameP95": [50.0, 50.0] },
+    "B": { "moves": 6, "routeCalls": 0, "uniqueEffectiveRoutes": 0, "ghostUpdates": 0, "frameP95": [16.8, 16.7] }
+  },
+  "routeIdentity": "Las rutas efectivas (from,to) de la fase A son identicas antes y despues, y entre corridas.",
+  "recalculationGuarantee": "El memo de la ruta depende de wireStart, hover y records: cambiar el origen o la geometria de la hoja recalcula aunque la punta no se mueva.",
+  "conclusion": "Cero recalculos en la fase B tras el calculo inicial; fase A con los mismos 6 objetivos y rutas identicas. La latencia al DOM no baja (fase A sigue mutando el fantasma en cada paso); el p95 de cuadro de la fase B baja de 33,3 a 16,7 ms. Se mantiene."
+}
