@@ -7,6 +7,7 @@ import { shapesBounds } from '../symbols/draw.ts';
 import { componentHitBox } from './hit-box.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
 import { moveDelta, type DragOp, type Rotation } from '../editor/state.ts';
+import { bendPreviewLegs } from '../editor/wiring/bend-preview.ts';
 import { idle, startMarquee, startMove, startPan, startSegment, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
 import { attachPoints, type Point } from '../editor/pins.ts';
 import { buildNetwork, cableSegments } from '../editor/network.ts';
@@ -320,6 +321,9 @@ export function Canvas(props: Props): JSX.Element {
   const pins = useMemo(() => attachPoints(records), [records]);
   // Preview del gesto de mover: se dibuja desde acá y no toca el documento.
   const [movePreview, setMovePreview] = useState<{ dx: number; dy: number } | null>(null);
+  // Preview del gesto de tramo: la polilínea que el commit va a escribir, sin
+  // reconstruir el documento. Sólo para cables de un solo tramo.
+  const [wirePreview, setWirePreview] = useState<{ id: number; legs: WirePoints[] } | null>(null);
   /**
    * Delta del gesto de mover: misma regla que el commit, sin reconstruir el
    * documento ni la red. Sólo se recalcula cuando cambia el gesto.
@@ -459,15 +463,28 @@ export function Canvas(props: Props): JSX.Element {
           if (e.op !== null && e.op.kind === 'move') {
             // El movimiento se dibuja en el lienzo: App no reconstruye el documento.
             setMovePreview({ dx: e.op.dx, dy: e.op.dy });
+          } else if (e.op !== null && e.op.kind === 'segment') {
+            const op = e.op;
+            const rec = records.find((r) => r.id === op.id);
+            const pts = rec ? wirePoints(rec) : null;
+            if (pts && cableSegments(network, op.id).length === 1) {
+              setWirePreview({ id: op.id, legs: bendPreviewLegs(pts, op.at, op.to) });
+            } else {
+              setWirePreview(null);
+              onDragPreview(e.op);
+            }
           } else {
             setMovePreview(null);
+            setWirePreview(null);
             onDragPreview(e.op);
           }
         } else if (e.type === 'commit') {
           setMovePreview(null);
+          setWirePreview(null);
           onDragCommit(e.op);
         } else if (e.type === 'cancel') {
           setMovePreview(null);
+          setWirePreview(null);
           onDragPreview(null);
           setSnapMark(null);
         } else if (e.type === 'select') {
@@ -827,6 +844,7 @@ export function Canvas(props: Props): JSX.Element {
           {showTitleBlock && <TitleBlockLayer layout={titleLayout} />}
 
           {records.map((rec) => {
+            if (wirePreview !== null && rec.id === wirePreview.id) return null;
             if (rec.kind === 'connection')
               return (
                 <Wire
@@ -860,6 +878,15 @@ export function Canvas(props: Props): JSX.Element {
             );
           })}
 
+          {/* Cable doblándose: la polilínea que el commit va a escribir. */}
+          {wirePreview?.legs.map((leg, i) => (
+            <path
+              key={`wire-preview-${i}`}
+              className="wire"
+              d={`M${leg.x1} ${leg.y1}L${leg.x2} ${leg.y2}`}
+            />
+          ))}
+
           {/* Codos del preview: tramos que el commit insertará como registros. */}
           {dragDelta?.codos.map((codo) => (
             <path
@@ -880,6 +907,7 @@ export function Canvas(props: Props): JSX.Element {
           {snapMark && <circle className="snap-mark" cx={snapMark.x} cy={snapMark.y} r={2.4} />}
 
           {dragDelta === null &&
+            wirePreview === null &&
             selectedWires.map((rec) => {
             const pts = wirePoints(rec);
             if (!pts) return null;

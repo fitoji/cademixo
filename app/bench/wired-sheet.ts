@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createEditor, projectOf } from '../src/editor/state.ts';
 import { attachPoints } from '../src/editor/pins.ts';
-import { buildNetwork, netKey } from '../src/editor/network.ts';
+import { CABLE_NUMBER_INDEX, buildNetwork, netKey } from '../src/editor/network.ts';
 import { GEOMETRY, withId, withPosition, withWirePoints } from '../src/model/project.ts';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'test', 'fixtures');
@@ -51,10 +51,16 @@ export function wiredSheetText(targetRecords: number): WiredSheet {
     for (const rec of base.records) {
       // El cajetín es único por hoja: no se replica.
       if (b > 0 && rec.id === titleId) continue;
-      const g = rec.geometry;
+      const g = rec.geometry.slice();
+      // Cada bloque es un circuito independiente: sus cables llevan número
+      // propio. Si se repite el número, `wirePathsOf` agrupa tramos de bloques
+      // distintos en una sola polilínea y el gesto de tramo se anula.
+      if (rec.kind === 'connection' && g.length > CABLE_NUMBER_INDEX) {
+        g[CABLE_NUMBER_INDEX] = (g[CABLE_NUMBER_INDEX] ?? 0) + b * 1000;
+      }
       let raw = rec.raw;
       if (rec.kind === 'connection' && g.length > GEOMETRY.y2) {
-        raw = withWirePoints(rec, {
+        raw = withWirePoints({ ...rec, geometry: g }, {
           x1: g[GEOMETRY.x]! + dx,
           y1: g[GEOMETRY.y]!,
           x2: g[GEOMETRY.x2]! + dx,

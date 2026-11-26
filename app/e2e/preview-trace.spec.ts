@@ -1,13 +1,16 @@
 /**
- * Traza en navegador del preview del editor (etapa 0, segunda parte).
+ * Traza en navegador del preview del editor (etapa 0 y posteriores).
  *
- * Sobre una hoja cableada de ~9.800 registros y vista fija:
- *  - MOVER: desde pointerdown hasta antes de pointerup. p95 del intervalo entre
- *    callbacks de rAF, más una pasada aparte con muestreo de CPU para atribuir
- *    tiempo propio por función (React vs. estado vs. red).
- *  - SOLTAR: desde pointerup hasta el primer cuadro en el que el DOM muestra la
- *    edición confirmada (el gesto entra al historial). Es latencia hasta
- *    actualización de DOM, no presentación confirmada en pantalla.
+ * Gestos: PREVIEW_TRACE_GESTURE=move|segment|vertex (por defecto move).
+ *  - MOVER: arrastra un componente conectado desde su caja.
+ *  - TRAMO: arrastra el cuerpo de un cable recto (el "doblez" que expone la UI).
+ *  - VÉRTICE: selecciona un cable y arrastra uno de sus tiradores de extremo.
+ *
+ * Mide por separado, para cada gesto:
+ *  - durante el movimiento: p95 del intervalo entre callbacks de rAF y
+ *    reconstrucciones completas de red (contador `window.__networkStats`);
+ *  - al soltar: latencia desde pointerup hasta el DOM con la edición confirmada
+ *    (botón «Deshacer» habilitado) y reconstrucciones de esa fase.
  *
  * No corre por defecto: PREVIEW_TRACE=1 pnpm --filter electro-simulador trace
  */
@@ -20,11 +23,14 @@ import { fileURLToPath } from 'node:url';
 
 const APP = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RECORDS = Number(process.env.PREVIEW_TRACE_RECORDS ?? 9787);
+const GESTURE = (process.env.PREVIEW_TRACE_GESTURE ?? 'move') as 'move' | 'segment' | 'vertex';
+// Los gestos de cable se arrastran más lejos y en menos pasos: cada evento
+// reconstruye el documento hoy, y el snap devuelve un paso corto a un borne.
 const RUNS = Number(process.env.PREVIEW_TRACE_RUNS ?? 5);
-const STEPS = Number(process.env.PREVIEW_TRACE_STEPS ?? 12);
-const STEP_PX = 4;
+const STEPS = Number(process.env.PREVIEW_TRACE_STEPS ?? (GESTURE === 'move' ? 12 : 6));
+const STEP_PX = Number(process.env.PREVIEW_TRACE_STEP_PX ?? (GESTURE === 'move' ? 4 : 10));
 const TARGET_ZOOM = 2;
-const OUT = process.env.PREVIEW_TRACE_OUT ?? join(tmpdir(), 'preview-trace.json');
+const OUT = process.env.PREVIEW_TRACE_OUT ?? join(tmpdir(), `preview-trace-${GESTURE}.json`);
 const URL_OVERRIDE = process.env.PREVIEW_TRACE_URL;
 const PROFILE = process.env.PREVIEW_TRACE_PROFILE !== '0';
 
@@ -64,51 +70,15 @@ function bucket(rows: Row[]): Record<string, number> {
   return out;
 }
 
-/**
- * Tiempo inclusivo por función: la función más todo lo que llama. Se toma el
- * máximo entre sus instancias para no duplicar recursión. Es lo que hay que
- * mirar para saber cuánto cuesta `validate` con su `buildNetwork` adentro.
- */
-function inclusiveTimes(profile: { nodes: any[]; samples: number[]; timeDeltas: number[] }): Row[] {
-  const byId = new Map<number, any>(profile.nodes.map((n: any) => [n.id, n]));
-  const parent = new Map<number, number>();
-  for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id);
-  const self = new Map<number, number>();
-  for (let i = 0; i < profile.samples.length; i++) {
-    const id = profile.samples[i]!;
-    self.set(id, (self.get(id) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000);
-  }
-  const incl = new Map<number, number>(self);
-  for (const [id, ms] of self) {
-    let p = parent.get(id);
-    while (p !== undefined) {
-      incl.set(p, (incl.get(p) ?? 0) + ms);
-      p = parent.get(p);
-    }
-  }
-  const byName = new Map<string, Row>();
-  for (const [id, ms] of incl) {
-    const node = byId.get(id);
-    if (!node) continue;
-    const name: string = node.callFrame?.functionName || '(anónima)';
-    const url: string = node.callFrame?.url || '';
-    const key = `${name}\u0000${url}`;
-    const prev = byName.get(key);
-    if (!prev || ms > prev.ms) byName.set(key, { name, url, ms });
-  }
-  return [...byName.values()].sort((a, b) => b.ms - a.ms);
-}
-
 test.describe('traza del preview', () => {
   test.skip(!process.env.PREVIEW_TRACE, 'correr con PREVIEW_TRACE=1');
   test.setTimeout(1_800_000);
 
-  test('mover y soltar con hoja cableada', async ({ page, context }) => {
+  test(`mover, tramo y vértice · gesto=${GESTURE}`, async ({ page, context }) => {
     const sheetPath = join(tmpdir(), `preview-trace-${RECORDS}.cad`);
     const parsed = JSON.parse(
       execFileSync('node', [join(APP, 'bench/write-sheet.ts'), sheetPath, String(RECORDS)], { cwd: APP }).toString(),
     ) as { records: number; components: number; cables: number; junctions: number; blocks: number; traceId: number };
-    // Sólo metadatos: el texto de la hoja vive en el archivo, no en el resultado.
     const sheet = {
       records: parsed.records,
       components: parsed.components,
@@ -118,8 +88,6 @@ test.describe('traza del preview', () => {
       traceId: parsed.traceId,
     };
     const text = readFileSync(sheetPath, 'latin1');
-    const id = sheet.traceId;
-    const selector = `g[data-id="${id}"]`;
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(URL_OVERRIDE ?? '/');
@@ -132,26 +100,54 @@ test.describe('traza del preview', () => {
       target.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
     }, { name: 'traza.cad', text });
 
-    await page.waitForSelector(selector, { timeout: 180_000 });
-    const wirePaths = await page.locator('path[data-wire]').count();
-    expect(wirePaths, 'la hoja cargada debe traer cableado').toBeGreaterThan(sheet.cables / 2);
+    await page.waitForSelector(`g[data-id="${sheet.traceId}"]`, { timeout: 180_000 });
+    expect(await page.locator('path[data-wire]').count()).toBeGreaterThan(sheet.cables / 2);
 
-    // Vista fija: la app ajusta la hoja al cargar; se acerca con la rueda
-    // anclada al componente hasta un zoom conocido y estable.
-    let box = await page.locator(`${selector} rect.hitbox`).boundingBox();
+    // Vista fija: ajustar la hoja y acercar con la rueda anclada al componente
+    // central, igual que la línea base de mover.
+    let box = await page.locator(`g[data-id="${sheet.traceId}"] rect.hitbox`).boundingBox();
     for (let i = 0; i < 60 && box; i++) {
       if ((await zoomOf(page)) >= TARGET_ZOOM && box.width > 40) break;
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await page.mouse.wheel(0, -250);
       await page.waitForTimeout(25);
-      box = await page.locator(`${selector} rect.hitbox`).boundingBox();
+      box = await page.locator(`g[data-id="${sheet.traceId}"] rect.hitbox`).boundingBox();
     }
     const zoom = await zoomOf(page);
-    box = await page.locator(`${selector} rect.hitbox`).boundingBox();
+    box = await page.locator(`g[data-id="${sheet.traceId}"] rect.hitbox`).boundingBox();
     expect(box, 'el componente debe quedar visible').not.toBeNull();
-    const startX = box!.x + box!.width / 2;
-    const startY = box!.y + box!.height / 2;
-    const original = await transformOf(page, id);
+
+    // Punto de agarre y lectura de "qué cambió" según el gesto.
+    let startX = box!.x + box!.width / 2;
+    let startY = box!.y + box!.height / 2;
+    let wireId: number | null = null;
+    let dragAxis: 'h' | 'v' = 'v';
+    let read: () => Promise<string | null>;
+
+    if (GESTURE === 'move') {
+      read = () => transformOf(page, sheet.traceId);
+    } else {
+      const wire = await pickStraightWire(page);
+      expect(wire, 'debe haber un cable recto visible').not.toBeNull();
+      wireId = wire!.id;
+      startX = wire!.cx;
+      startY = wire!.cy;
+      // Perpendicular al cable para que el tramo cambie de verdad.
+      dragAxis = wire!.horizontal ? 'v' : 'h';
+      read = () => wireD(page, wireId!);
+      if (GESTURE === 'vertex') {
+        // Un clic selecciona el cable y hace aparecer los tiradores.
+        await page.mouse.move(startX, startY);
+        await page.mouse.down();
+        await page.mouse.up();
+        const handle = await page.locator(`[data-endpoint="0"][data-wire="${wireId}"]`).boundingBox();
+        expect(handle, 'el tirador del vértice debe aparecer').not.toBeNull();
+        startX = handle!.x + handle!.width / 2;
+        startY = handle!.y + handle!.height / 2;
+        dragAxis = 'v';
+      }
+    }
+    const original = await read();
 
     await page.evaluate(({ id }) => {
       const w = window as any;
@@ -194,8 +190,6 @@ test.describe('traza del preview', () => {
         let frames = 0;
         const poll = (): void => {
           frames += 1;
-          // Señal de commit: el gesto entró al historial y «Deshacer» se habilitó.
-          // El transform del componente ya mostraba el preview, así que no sirve.
           const undoBtn = document.querySelector('button[aria-label="Deshacer"]') as HTMLButtonElement | null;
           if (undoBtn !== null && !undoBtn.disabled && w.__trace.release === null) {
             w.__trace.release = performance.now() - w.__trace.upAt;
@@ -212,7 +206,8 @@ test.describe('traza del preview', () => {
         };
         requestAnimationFrame(poll);
       }, true);
-    }, { id });
+      void id;
+    }, { id: sheet.traceId });
 
     const drag = async (): Promise<void> => {
       const dirtyBefore = await page.evaluate(() =>
@@ -220,12 +215,13 @@ test.describe('traza del preview', () => {
       );
       await page.mouse.move(startX, startY);
       await page.mouse.down();
-      for (let s = 1; s <= STEPS; s++) await page.mouse.move(startX + s * STEP_PX, startY);
-      const previewTransform = await transformOf(page, id);
-      expect(previewTransform, 'el gesto debe mover el componente conectado').not.toBe(original);
-      // Invariantes del preview: no escribe historial (Deshacer sigue apagado)
-      // ni cambia el estado sucio. Toda escritura pasa por commit(), que empuja
-      // historial: si el historial no se movió, el documento tampoco.
+      for (let s = 1; s <= STEPS; s++) {
+        const dx = dragAxis === 'h' ? s * STEP_PX : 0;
+        const dy = dragAxis === 'v' ? -s * STEP_PX : 0;
+        await page.mouse.move(startX + dx, startY + dy);
+      }
+      const after = await read();
+      expect(after, `el gesto ${GESTURE} debe modificar el dibujo`).not.toBe(original);
       const during = await page.evaluate(() => {
         const undo = document.querySelector('button[aria-label="Deshacer"]') as HTMLButtonElement | null;
         const dot = document.querySelector('footer span.rounded-full[aria-hidden="true"]');
@@ -243,8 +239,11 @@ test.describe('traza del preview', () => {
         await page.keyboard.press(key);
         try {
           await page.waitForFunction(
-            ({ id, orig }) => document.querySelector(`g[data-id="${id}"]`)?.getAttribute('transform') === orig,
-            { id, orig: original },
+            ({ orig, id, wireId, gesture }) => {
+              const el = gesture === 'move' ? document.querySelector(`g[data-id="${id}"]`) : document.querySelector(`path[data-wire="${wireId}"]`);
+              return (gesture === 'move' ? el?.getAttribute('transform') : el?.getAttribute('d')) === orig;
+            },
+            { orig: original, id: sheet.traceId, wireId, gesture: GESTURE },
             { timeout: 10_000 },
           );
           return;
@@ -255,7 +254,7 @@ test.describe('traza del preview', () => {
       throw new Error('no se pudo deshacer con Meta+z ni Control+z');
     };
 
-    // Calentamiento: un gesto completo y deshacer.
+    // Calentamiento.
     await page.evaluate(() => (window as any).__trace.startFrames());
     await drag();
     await page.mouse.up();
@@ -310,11 +309,8 @@ test.describe('traza del preview', () => {
       await undo();
     }
 
-    // Pasada con perfilado: atribución por función, mover y soltar por separado.
     let moveRows: Row[] = [];
     let releaseRows: Row[] = [];
-    let moveInclusive: Row[] = [];
-    let releaseInclusive: Row[] = [];
     if (PROFILE) {
       const cdp = await context.newCDPSession(page);
       await cdp.send('Profiler.enable');
@@ -327,29 +323,18 @@ test.describe('traza del preview', () => {
       await page.mouse.up();
       await page.waitForFunction(() => (window as any).__trace.release !== null, null, { timeout: 180_000 });
       const releaseProfile = (await cdp.send('Profiler.stop')).profile;
-
       moveRows = selfTimes(moveProfile);
       releaseRows = selfTimes(releaseProfile);
-      moveInclusive = inclusiveTimes(moveProfile);
-      releaseInclusive = inclusiveTimes(releaseProfile);
     }
 
     const result = {
+      gesture: GESTURE,
       sheet,
       view: { zoom, viewport: { width: 1440, height: 900 }, steps: STEPS, stepPx: STEP_PX },
       target: URL_OVERRIDE ?? 'dev (webServer)',
       move: { p95: pct(moveP95, 0.5), mean: moveMean.reduce((a, b) => a + b, 0) / moveMean.length, frames, p95PerRun: moveP95, builds: moveBuilds, loaf },
       release: { domLatency: release, nextFrame: releaseFrames, builds: releaseBuilds },
-      profile: PROFILE
-        ? {
-            move: moveRows.slice(0, 18),
-            moveBucket: bucket(moveRows),
-            moveInclusive,
-            release: releaseRows.slice(0, 18),
-            releaseBucket: bucket(releaseRows),
-            releaseInclusive,
-          }
-        : null,
+      profile: PROFILE ? { move: moveRows.slice(0, 18), moveBucket: bucket(moveRows), release: releaseRows.slice(0, 18), releaseBucket: bucket(releaseRows) } : null,
       limits: [
         'latencia hasta actualización de DOM, no presentación confirmada',
         'p95 del intervalo entre callbacks de rAF',
@@ -361,22 +346,14 @@ test.describe('traza del preview', () => {
       JSON.stringify(
         {
           out: OUT,
-          target: result.target,
-          sheet,
-          view: result.view,
+          gesture: GESTURE,
           moveP95: result.move.p95,
           moveMean: result.move.mean,
-          frames: result.move.frames,
-          release,
-          releaseFrames,
           moveBuilds,
+          release,
           releaseBuilds,
           moveBucket: PROFILE ? bucket(moveRows) : null,
-          releaseBucket: PROFILE ? bucket(releaseRows) : null,
-          topMoveSelf: moveRows.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
-          topMoveInclusive: moveInclusive.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
-          topReleaseSelf: releaseRows.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
-          topReleaseInclusive: releaseInclusive.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
+          topMove: moveRows.slice(0, 8).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`),
         },
         null,
         2,
@@ -395,4 +372,34 @@ async function zoomOf(page: import('@playwright/test').Page): Promise<number> {
 
 async function transformOf(page: import('@playwright/test').Page, id: number): Promise<string | null> {
   return page.evaluate((id) => document.querySelector(`g[data-id="${id}"]`)?.getAttribute('transform') ?? null, id);
+}
+
+async function wireD(page: import('@playwright/test').Page, id: number): Promise<string | null> {
+  return page.evaluate((id) => document.querySelector(`path[data-wire="${id}"]`)?.getAttribute('d') ?? null, id);
+}
+
+/** Cable recto (un solo tramo) con su mitad bajo el cursor, el más largo. */
+async function pickStraightWire(page: import('@playwright/test').Page): Promise<{ id: number; cx: number; cy: number; horizontal: boolean } | null> {
+  return page.evaluate(() => {
+    const svg = document.querySelector('svg[role="application"]')!.getBoundingClientRect();
+    let best: { id: number; cx: number; cy: number; len: number; horizontal: boolean } | null = null;
+    for (const el of document.querySelectorAll('path[data-wire]')) {
+      const d = el.getAttribute('d') ?? '';
+      if (/[AQC]/.test(d)) continue;
+      if ((d.match(/L/g) ?? []).length !== 1) continue;
+      const r = (el as SVGGraphicsElement).getBoundingClientRect();
+      if (Math.max(r.width, r.height) < 50) continue;
+      const cx = r.x + r.width / 2;
+      const cy = r.y + r.height / 2;
+      if (cx < svg.left + 40 || cx > svg.right - 40 || cy < svg.top + 40 || cy > svg.bottom - 40) continue;
+      // El clic debe caer sobre el cable, no sobre la caja de un componente:
+      // el lienzo prioriza el componente cuando el cable toca su tinta.
+      if (document.elementFromPoint(cx, cy) !== el) continue;
+      const len = Math.hypot(r.width, r.height);
+      if (!best || len > best.len) {
+        best = { id: Number(el.getAttribute('data-wire')), cx, cy, len, horizontal: r.width >= r.height };
+      }
+    }
+    return best ? { id: best.id, cx: best.cx, cy: best.cy, horizontal: best.horizontal } : null;
+  });
 }
