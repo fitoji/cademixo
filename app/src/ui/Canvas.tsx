@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
 import { Grid3x3Icon, KeyboardIcon, MagnetIcon, MaximizeIcon, MinusIcon, PlusIcon } from 'lucide-react';
-import { GEOMETRY, baseBoxOf, boundsOf, boxOf, wirePoints, type CadeRecordModel } from '../model/project.ts';
+import { GEOMETRY, baseBoxOf, boundsOf, boxOf, wirePoints, type CadeRecordModel, type WirePoints } from '../model/project.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
 import { componentHitBox } from './hit-box.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
-import type { DragOp, Rotation } from '../editor/state.ts';
+import { moveDelta, type DragOp, type Rotation } from '../editor/state.ts';
 import { idle, startMarquee, startMove, startPan, startSegment, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
 import { attachPoints, type Point } from '../editor/pins.ts';
 import { buildNetwork, cableSegments } from '../editor/network.ts';
@@ -318,6 +318,16 @@ export function Canvas(props: Props): JSX.Element {
   );
 
   const pins = useMemo(() => attachPoints(records), [records]);
+  // Preview del gesto de mover: se dibuja desde acá y no toca el documento.
+  const [movePreview, setMovePreview] = useState<{ dx: number; dy: number } | null>(null);
+  /**
+   * Delta del gesto de mover: misma regla que el commit, sin reconstruir el
+   * documento ni la red. Sólo se recalcula cuando cambia el gesto.
+   */
+  const dragDelta = useMemo(
+    () => (movePreview === null ? null : moveDelta(records, pins, selection, movePreview.dx, movePreview.dy)),
+    [movePreview, records, pins, selection],
+  );
   const network = useMemo(() => buildNetwork(records), [records]);
   // Hoja que se está dibujando: los registros llegan recortados a esta página.
   const sheet = records[0]?.sheet ?? 0;
@@ -446,10 +456,18 @@ export function Canvas(props: Props): JSX.Element {
         if (e.type === 'pan') {
           setView((v) => ({ ...v, x: e.x, y: e.y }));
         } else if (e.type === 'preview') {
-          onDragPreview(e.op);
+          if (e.op !== null && e.op.kind === 'move') {
+            // El movimiento se dibuja en el lienzo: App no reconstruye el documento.
+            setMovePreview({ dx: e.op.dx, dy: e.op.dy });
+          } else {
+            setMovePreview(null);
+            onDragPreview(e.op);
+          }
         } else if (e.type === 'commit') {
+          setMovePreview(null);
           onDragCommit(e.op);
         } else if (e.type === 'cancel') {
+          setMovePreview(null);
           onDragPreview(null);
           setSnapMark(null);
         } else if (e.type === 'select') {
@@ -819,6 +837,7 @@ export function Canvas(props: Props): JSX.Element {
                   reverse={reversedWires?.has(rec.id) ?? false}
                   tone={conductorToneOf(rec.code)}
                   path={wirePaths?.get(rec.id)}
+                  points={dragDelta?.wires.get(rec.id)}
                 />
               );
             if (rec.kind !== 'component') return null;
@@ -835,10 +854,20 @@ export function Canvas(props: Props): JSX.Element {
                 rotation={rotation[rec.id] ?? 0}
                 pins={pins.get(rec.id) ?? []}
                 cursorIndex={cursorPin?.componentId === rec.id ? cursorPin.pinIndex : null}
+                offset={dragDelta?.positions.has(rec.id) ? { dx: dragDelta.dx, dy: dragDelta.dy } : undefined}
                 zoom={view.k}
               />
             );
           })}
+
+          {/* Codos del preview: tramos que el commit insertará como registros. */}
+          {dragDelta?.codos.map((codo) => (
+            <path
+              key={`codo-${codo.wireId}`}
+              className="wire"
+              d={`M${codo.moving.x1} ${codo.moving.y1}L${codo.moving.x2} ${codo.moving.y2}`}
+            />
+          ))}
 
           {[...network.nodes.values()]
             .filter((n) => n.junction || n.kind === 'tee')
@@ -850,7 +879,8 @@ export function Canvas(props: Props): JSX.Element {
 
           {snapMark && <circle className="snap-mark" cx={snapMark.x} cy={snapMark.y} r={2.4} />}
 
-          {selectedWires.map((rec) => {
+          {dragDelta === null &&
+            selectedWires.map((rec) => {
             const pts = wirePoints(rec);
             if (!pts) return null;
             return (
@@ -1053,6 +1083,7 @@ function Component({
   rotation,
   pins,
   cursorIndex,
+  offset,
   zoom,
 }: {
   rec: CadeRecordModel;
@@ -1067,6 +1098,8 @@ function Component({
   pins: Point[];
   /** Índice del borne enfocado por el teclado, o null. */
   cursorIndex: number | null;
+  /** Desplazamiento visual del gesto de mover: no toca el registro. */
+  offset?: { dx: number; dy: number };
   /** Escala de la vista, para las marcas que no deben escalar con el zoom. */
   zoom: number;
 }): JSX.Element | null {
@@ -1131,7 +1164,7 @@ function Component({
       data-protection={protection ? '' : undefined}
       data-bad={bad || undefined}
       data-sel={selected || undefined}
-      transform={`translate(${x} ${y})`}
+      transform={`translate(${x + (offset?.dx ?? 0)} ${y + (offset?.dy ?? 0)})`}
       style={{ cursor: 'move' }}
     >
       <rect className="hitbox" x={hitBox.x} y={hitBox.y} width={hitBox.w} height={hitBox.h} />
@@ -1202,6 +1235,7 @@ function Wire({
   reverse,
   tone,
   path,
+  points,
 }: {
   rec: CadeRecordModel;
   selected: boolean;
@@ -1210,8 +1244,10 @@ function Wire({
   tone: ConductorTone;
   /** Camino con esquinas redondeadas; ausente en el estilo clásico. */
   path?: string;
+  /** Extremos del preview de movimiento; mandan sobre `path`. */
+  points?: WirePoints;
 }): JSX.Element | null {
-  const pts = wirePoints(rec);
+  const pts = points ?? wirePoints(rec);
   if (!pts) return null;
   if (pts.x1 === pts.x2 && pts.y1 === pts.y2) {
     // Registro de unión (4001): geometría de longitud cero.
@@ -1231,7 +1267,7 @@ function Wire({
       data-id={rec.id}
       data-wire={rec.id}
       className={cls.join(' ')}
-      d={path ?? `M${pts.x1} ${pts.y1}L${pts.x2} ${pts.y2}`}
+      d={points ? `M${pts.x1} ${pts.y1}L${pts.x2} ${pts.y2}` : (path ?? `M${pts.x1} ${pts.y1}L${pts.x2} ${pts.y2}`)}
     />
   );
 }

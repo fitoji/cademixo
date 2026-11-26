@@ -178,5 +178,7 @@ test('sólo el estilo moderno pide esquinas redondeadas (S3)', () => {
 
   assert.match(app, /cornerRadius=\{styleMode === 'moderno' \? WIRE_CORNER_RADIUS : 0\}/);
   assert.match(canvas, /wireCornerPaths\(/);
-  assert.match(canvas, /d=\{path \?\?/);
+  // El camino redondeado manda en el render; el preview de movimiento lo
+  // reemplaza por los extremos del delta sólo mientras dura el gesto.
+  assert.match(canvas, /path \?\?/);
 });

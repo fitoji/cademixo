@@ -316,31 +316,49 @@ function indexed(project: Project): IndexedRecord[] {
 }
 
 /**
- * Mueve la selección. Los extremos de cable que coinciden exactamente con un
- * borne de un componente movido viajan con él: se acabó la regla provisional de
- * proximidad ±4, que arrastraba cables que sólo pasaban cerca de la caja.
+ * Delta geométrico de un movimiento de selección, sin tocar el documento.
+ *
+ * Es la misma regla que aplica `moveSelection` al confirmar, extraída como
+ * cálculo puro: el preview dibuja desde acá y el commit la usa para escribir.
+ * No serializa, no parsea y no construye red.
  */
-export function moveSelection(state: EditorState, dx: number, dy: number): EditorState {
-  if (state.selection.length === 0 || (dx === 0 && dy === 0)) return state;
-  const project = projectOf(state);
-  const selected = new Set(state.selection);
-  const pins = attachPoints(project.records);
+export interface MoveDelta {
+  /** Posición nueva de cada componente seleccionado, por id. */
+  positions: Map<number, { x: number; y: number }>;
+  /** Puntos nuevos de cada cable afectado, por id. */
+  wires: Map<number, WirePoints>;
+  /** Codos que el preview dibuja como tramo móvil, por cable. */
+  codos: { wireId: number; moving: WirePoints }[];
+  /** Desplazamiento del gesto, para dibujar componentes movidos. */
+  dx: number;
+  dy: number;
+  /** Puntos que la poda no debe tocar: los que el gesto está moviendo. */
+  protect: Point[];
+}
+
+export function moveDelta(
+  records: readonly CadeRecordModel[],
+  pins: ReadonlyMap<number, Point[]>,
+  selection: ReadonlySet<number>,
+  dx: number,
+  dy: number,
+): MoveDelta {
   const movedPins = new Set<string>();
-  for (const rec of project.records) {
-    if (!selected.has(rec.id) || rec.kind !== 'component') continue;
+  for (const rec of records) {
+    if (!selection.has(rec.id) || rec.kind !== 'component') continue;
     for (const p of pins.get(rec.id) ?? []) movedPins.add(`${p.x},${p.y}`);
   }
   const anchored = (x: number, y: number): boolean => movedPins.has(`${x},${y}`);
+  const out: MoveDelta = { positions: new Map(), wires: new Map(), codos: [], protect: [], dx, dy };
 
-  const edits = new Map<number, string>();
-  const appended: string[] = [];
-  const protect: Point[] = [];
-  let next = nextId(project);
-  for (const { index, rec } of indexed(project)) {
-    if (selected.has(rec.id) && rec.kind === 'component') {
+  for (const rec of records) {
+    if (selection.has(rec.id) && rec.kind === 'component') {
       // El ancla del registro es su `x,y`: con orientación, el origen de la caja
       // dibujada no coincide con ella, así que mover toma la posición guardada.
-      edits.set(index, withPosition(rec, rec.geometry[GEOMETRY.x]! + dx, rec.geometry[GEOMETRY.y]! + dy));
+      out.positions.set(rec.id, {
+        x: rec.geometry[GEOMETRY.x]! + dx,
+        y: rec.geometry[GEOMETRY.y]! + dy,
+      });
       continue;
     }
     if (rec.kind !== 'connection') continue;
@@ -354,17 +372,17 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
     const ay = moveA ? pts.y1 + dy : pts.y1;
     const bx = moveB ? pts.x2 + dx : pts.x2;
     const by = moveB ? pts.y2 + dy : pts.y2;
-    if (moveA) protect.push({ x: ax, y: ay });
-    if (moveB) protect.push({ x: bx, y: by });
+    if (moveA) out.protect.push({ x: ax, y: ay });
+    if (moveB) out.protect.push({ x: bx, y: by });
 
     const orthogonal = Math.abs(ax - bx) < AXIS_TOL || Math.abs(ay - by) < AXIS_TOL;
     if (orthogonal) {
-      edits.set(index, withWirePoints(rec, { x1: ax, y1: ay, x2: bx, y2: by }));
+      out.wires.set(rec.id, { x1: ax, y1: ay, x2: bx, y2: by });
       continue;
     }
 
-    // El extremo que se movió quedó fuera de eje: se inserta un codo junto al
-    // extremo QUIETO, conservando la orientación original de ese lado.
+    // El extremo que se movió quedó fuera de eje: el preview muestra un codo y
+    // el commit inserta el tramo con la misma geometría.
     const wasVertical = Math.abs(pts.x1 - pts.x2) < AXIS_TOL;
     const corner = moveB
       ? wasVertical
@@ -373,18 +391,47 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
       : wasVertical
         ? { x: pts.x2, y: ay }
         : { x: ax, y: pts.y2 };
-    const fixedLeg = { x1: ax, y1: ay, x2: corner.x, y2: corner.y };
-    const movingLeg = { x1: corner.x, y1: corner.y, x2: bx, y2: by };
-    edits.set(index, withWirePoints(rec, fixedLeg));
+    out.wires.set(rec.id, { x1: ax, y1: ay, x2: corner.x, y2: corner.y });
+    out.codos.push({ wireId: rec.id, moving: { x1: corner.x, y1: corner.y, x2: bx, y2: by } });
+  }
+  return out;
+}
+
+/**
+ * Mueve la selección. Los extremos de cable que coinciden exactamente con un
+ * borne de un componente movido viajan con él: se acabó la regla provisional de
+ * proximidad ±4, que arrastraba cables que sólo pasaban cerca de la caja.
+ */
+export function moveSelection(state: EditorState, dx: number, dy: number): EditorState {
+  if (state.selection.length === 0 || (dx === 0 && dy === 0)) return state;
+  const project = projectOf(state);
+  const selected = new Set(state.selection);
+  const pins = attachPoints(project.records);
+  const delta = moveDelta(project.records, pins, selected, dx, dy);
+
+  const byId = new Map(project.records.map((rec) => [rec.id, rec]));
+  const indexById = new Map(project.records.map((rec, index) => [rec.id, index]));
+  const edits = new Map<number, string>();
+  for (const [id, pos] of delta.positions) {
+    const rec = byId.get(id)!;
+    edits.set(indexById.get(id)!, withPosition(rec, pos.x, pos.y));
+  }
+  for (const [id, pts] of delta.wires) {
+    edits.set(indexById.get(id)!, withWirePoints(byId.get(id)!, pts));
+  }
+  const appended: string[] = [];
+  let next = nextId(project);
+  for (const codo of delta.codos) {
+    const rec = byId.get(codo.wireId)!;
     appended.push(
-      withWirePoints({ ...rec, id: next, raw: withId(rec, next), geometry: [...rec.geometry] }, movingLeg),
+      withWirePoints({ ...rec, id: next, raw: withId(rec, next), geometry: [...rec.geometry] }, codo.moving),
     );
     next++;
   }
 
   return commit(
     state,
-    pruneEdits(project.records, serializeWith(project, edits) + appended.join(''), protect),
+    pruneEdits(project.records, serializeWith(project, edits) + appended.join(''), delta.protect),
   );
 }
 
