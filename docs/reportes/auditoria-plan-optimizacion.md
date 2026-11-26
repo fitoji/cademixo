@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 22)
+**Fecha:** 2026-11-26 (revisión 23)
 **Rama:** `astra-perfo`
-**Tipo:** cierre del plan original + apertura del trabajo del cable fantasma.
+**Tipo:** cierre del plan + primer cambio del router del fantasma.
 
-> **Revisión 22.** Mide el **trazado de cable** en producción: p95 150–167 ms y 8 recálculos de ruta por gesto; en dev, `routeOrthogonal` 1.719 ms propio contra React 363 ms. El plan original queda cerrado; el router del fantasma se abre como trabajo separado. Ver 2.s.
+> **Revisión 23.** Indexa los obstáculos dentro de `routeOrthogonal`: mismo grafo, mismas tolerancias y desempates, rutas **idénticas**. Costo por ruta 195,5/762,6 → **9,7/10,0 ms**; p95 del gesto 150–167 → **50–67 ms** con los mismos 8 recálculos. Ver 2.t.
 
 ## Resumen ejecutivo
 
@@ -490,6 +490,31 @@ En el benchmark aislado el mismo cálculo da p50 195,5 ms / p95 762,6 ms con 2.7
 
 Nota de método: el primer pase perfilado quedó invalidado porque reclicar "Cable fase" deseleccionaba la herramienta; se corrigió leyendo `aria-pressed` y se reporta sólo el pase válido.
 
+### 2.t Router del fantasma: índice de obstáculos
+
+**Cambio:** dentro de `routeOrthogonal` se construye un índice de cubos uniformes sobre los obstáculos que bloquean, y las consultas `inside(punto)` y `blocked(tramo)` examinan sólo las cajas de la celda del punto o de las celdas que cubre el tramo. También se reemplazaron los `indexOf` lineales de coordenadas por mapas.
+**Intactos:** candidatos de la grilla (todos los bordes de obstáculos), reglas de tolerancia, penalización de codos, desempates y orden de exploración. No se recorta la grilla a un rectángulo alrededor de los extremos.
+
+**Golden de rutas (capturado antes del cambio):** cinco escenarios (corredor libre, desvío, borde, empate simétrico y trayectoria representativa del gesto) guardados en `test/fixtures/route-goldens.json`. El test compara **secuencias exactas de puntos**, longitud y codos: **idénticas**.
+
+**Costo por ruta (Node, 2.736 obstáculos):**
+
+| | p50 | p95 |
+|---|---|---|
+| Antes | 195,5 ms | 762,6 ms |
+| Después | **9,7 ms** | **10,0 ms** |
+
+El test de goldens baja de 1.054 a 93 ms con las mismas rutas.
+
+**A/B en producción** (gesto de trazado, 12 movimientos, 3 corridas por traza, 2 trazas):
+
+| Lado | p95 | Media | Recálculos | Duración del gesto |
+|---|---|---|---|---|
+| Antes | 150–166,7 ms | ~104 ms | 8 | 5,26–6,06 s |
+| Después | **50–66,6 ms** | ~95 ms | **8** | 4,03–4,32 s |
+
+**Los 8 recálculos se mantienen** (son cambios de objetivo magnético, no trabajo redundante) y aun así el trazado responde mejor: p95 −67 %, duración −25 %. El objetivo del cambio se cumple sin alterar la ruta que ve el usuario.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -560,7 +585,8 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 10. **Cámara CSS: probada y revertida** (ver 2.q). No mejora el p95 ni el style/layout; el atributo `transform` no queda demostrado como causante. Geometría verificada en ambas variantes.
 11. **Consulta de hit-test y snap medida** (ver 2.r): p95 ≤ 0,22 ms (≈1 % del cuadro). El **índice no se justifica** y queda descartado con datos. En cambio, el router del fantasma del mismo gesto cuesta 195–763 ms: candidato separado.
 12. **Cierre del plan original:** todos los gestos medidos y optimizados donde la medición lo justificó; la cámara CSS se revirtió y el índice de hit-test quedó descartado con datos.
-13. **Trabajo separado abierto:** router del cable fantasma (ver 2.s). `routeOrthogonal` domina el trazado (1.719 ms propios vs React 363 ms). Próximo paso: optimizarlo **sin cambiar la ruta visible** y confirmar con la traza del gesto.
+13. **Trabajo separado abierto:** router del cable fantasma (ver 2.s). `routeOrthogonal` dominaba el trazado (1.719 ms propios vs React 363 ms).
+14. **Router indexado** (ver 2.t): rutas idénticas y costo por ruta 195,5/762,6 → 9,7/10,0 ms; p95 del gesto 150–167 → 50–67 ms con los mismos 8 recálculos.
 
 ## 8. Los gates de performance existentes
 
@@ -609,6 +635,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 23 (2026-11-26).** Router del fantasma con índice de obstáculos:
+  - Goldens de 5 escenarios capturados antes del cambio; secuencias idénticas después.
+  - Costo por ruta 195,5/762,6 → 9,7/10,0 ms; test de goldens 1.054 → 93 ms.
+  - Producción: p95 150–166,7 → 50–66,6 ms con los mismos 8 recálculos y −25 % de duración.
+  - Baseline en `preview-prod-ghost-route-index.json`.
 - **Revisión 22 (2026-11-26).** Cierre del plan y trazado del fantasma:
   - Producción: p95 150–167 ms, 8 recálculos de ruta por gesto de 12 movimientos, 5,26–6,06 s por gesto.
   - Dev: `routeOrthogonal` 1.719 ms propios vs React 363 ms; `inside` 225 ms.
