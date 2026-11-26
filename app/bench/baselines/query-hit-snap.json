@@ -1,0 +1,20 @@
+{
+  "target": "node",
+  "sheet": { "records": 9577, "blocks": 228 },
+  "context": {
+    "scannedPerQuery": { "segments": 5472, "components": 2736, "pins": 8892, "junctions": 684 },
+    "note": "hitTest y snapTarget escanean de forma exhaustiva por hoja: no hay filtro espacial previo."
+  },
+  "queryCosts": {
+    "denso": { "point": [45783, 108], "withinTolerance": { "segments": 1, "pins": 1 }, "hitTest": { "p50": 0.068, "p95": 0.176 }, "snapTarget": { "p50": 0.025, "p95": 0.067 } },
+    "cruce": { "point": [45800, 100], "withinTolerance": { "segments": 0, "pins": 0 }, "hitTest": { "p50": 0.073, "p95": 0.184 }, "snapTarget": { "p50": 0.176, "p95": 0.223 } },
+    "vacio": { "point": [45800, 1000], "withinTolerance": { "segments": 0, "pins": 0 }, "hitTest": { "p50": 0.071, "p95": 0.075 }, "snapTarget": { "p50": 0.175, "p95": 0.204 } }
+  },
+  "interaction": {
+    "frameBudgetMs": 16.7,
+    "hitSharePct": 1.1,
+    "snapSharePct": 1.3,
+    "routeGhost": { "obstacles": 2736, "p50": 195.5, "p95": 762.6 }
+  },
+  "conclusion": "La consulta es barata (<=0.22 ms p95, ~1% del cuadro). No se justifica el indice de hit-test. El trazado del fantasma del mismo gesto cuesta 195-763 ms y domina la interaccion de dibujar cables: es un candidato separado."
+}

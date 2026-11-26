@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 20)
+**Fecha:** 2026-11-26 (revisión 21)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + deltas + paneo + A/B de cámara.
+**Tipo:** auditoría + benchmark + deltas + paneo + medición de la consulta de hit-test y snap.
 
-> **Revisión 20.** A/B acotado de la cámara (atributo SVG vs CSS): **sin mejora** del p95 (33,4 ms en ambos) ni del style/layout. Se revierte el cambio; la geometría se verificó en las dos variantes. Ver 2.q.
+> **Revisión 21.** Mide la **consulta real** de `hitTest` y `snapTarget` con el contexto armado: p95 ≤ 0,22 ms (≈1 % de un cuadro). **No se justifica el índice.** El trazado del fantasma del mismo gesto cuesta 195–763 ms y queda como candidato separado. Ver 2.r.
 
 ## Resumen ejecutivo
 
@@ -435,6 +435,28 @@ El índice de hit-test sigue fuera: necesita su propia medición de la consulta.
 
 **Conclusión:** el atributo `transform` **no** queda demostrado como causante del piso de 33,4 ms. Los conteos absolutos de la traza pesada están inflados por su propio overhead y no sirven como costo total; la comparación válida es la de p95, que no cambió. El piso sigue sin explicación directa y no se toca el renderer con estos datos.
 
+### 2.r Consulta real de hit-test y snap
+
+**Método** (`pnpm bench:query`, hoja cableada de 9.577 registros, contexto ya construido, 300 consultas por punto):
+
+- **Denso:** sobre un borne del bloque central.
+- **Cruce:** intersección estricta de un tramo horizontal y uno vertical, sin unión.
+- **Vacío:** zona sin candidatos.
+
+Candidatos que recorre cada consulta (**escaneo exhaustivo por hoja, sin filtro espacial**): 5.472 tramos, 2.736 componentes, 8.892 bornes y 684 uniones.
+
+| Punto | Candidatos en tolerancia | `hitTest` p50 / p95 | `snapTarget` p50 / p95 |
+|---|---|---|---|
+| Denso | 1 tramo, 1 borne | 0,068 / **0,176 ms** | 0,025 / **0,067 ms** |
+| Cruce | 0 | 0,073 / **0,184 ms** | 0,176 / **0,223 ms** |
+| Vacío | 0 | 0,071 / **0,075 ms** | 0,175 / **0,204 ms** |
+
+**Aporte a la interacción:** `hitTest` corre en el clic y `snapTarget` en cada `pointermove` del trazado. Con p95 ≤0,22 ms representan **≈1 % de un cuadro de 16,7 ms**.
+
+**Referencia del mismo gesto:** el trazado del cable fantasma (`routeOrthogonal`) con los 2.736 obstáculos de la hoja cuesta **p50 195,5 ms / p95 762,6 ms**; se recalcula cuando cambia el hover. Domina la interacción de dibujar cables por dos órdenes de magnitud frente a la consulta.
+
+**Decisión:** la consulta **no** explica una parte relevante de la latencia. **No se implementa el índice de hit-test**; queda documentado el dato. El costo del router del fantasma es un candidato separado, fuera de este cambio.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -503,7 +525,8 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 8. **Paneo: medido, memoizado y con capa estable** (ver 2.n y 2.o). La escena ya no se recorre al panear y la cola de 50 ms desapareció; el piso de 33,4 ms no es React.
 9. **Piso del paneo explicado** (ver 2.p): 60 Hz reales; la hoja chica va a 16,7 ms y la grande a 33,4 ms; la traza apunta a style/layout, no a pintura.
 10. **Cámara CSS: probada y revertida** (ver 2.q). No mejora el p95 ni el style/layout; el atributo `transform` no queda demostrado como causante. Geometría verificada en ambas variantes.
-11. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta real por evento.
+11. **Consulta de hit-test y snap medida** (ver 2.r): p95 ≤ 0,22 ms (≈1 % del cuadro). El **índice no se justifica** y queda descartado con datos. En cambio, el router del fantasma del mismo gesto cuesta 195–763 ms: candidato separado.
+12. **Cierre del plan:** todos los gestos medidos y optimizados donde la medición lo justificó; el índice queda descartado hasta que aparezca una consulta cara.
 
 ## 8. Los gates de performance existentes
 
@@ -552,6 +575,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 21 (2026-11-26).** Consulta real de hit-test y snap:
+  - `hitTest` p95 0,075–0,184 ms; `snapTarget` p95 0,067–0,223 ms sobre 5.472 tramos / 8.892 bornes (escaneo exhaustivo).
+  - Aporte ≈1 % de un cuadro de 16,7 ms → **índice descartado con datos**.
+  - El router del fantasma del mismo gesto cuesta p50 195,5 / p95 762,6 ms con 2.736 obstáculos: candidato separado.
+  - Baseline en `query-hit-snap.json`.
 - **Revisión 20 (2026-11-26).** Cámara CSS vs SVG:
   - A/B acotado: p95 33,4 ms en ambas, style/layout 1.961 vs 2.025 ms. Sin mejora → revertido.
   - Geometría verificada en ambas: clic símbolo/cable y zoom anclado (Δ≈0).
