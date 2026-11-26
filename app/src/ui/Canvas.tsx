@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { JSX } from 'react';
 import { Grid3x3Icon, KeyboardIcon, MagnetIcon, MaximizeIcon, MinusIcon, PlusIcon } from 'lucide-react';
 import { GEOMETRY, baseBoxOf, boundsOf, boxOf, wirePoints, type CadeRecordModel, type WirePoints } from '../model/project.ts';
@@ -1207,7 +1207,7 @@ function DockButton({
   );
 }
 
-function Component({
+function ComponentView({
   rec,
   selected,
   live,
@@ -1363,7 +1363,7 @@ function Component({
   );
 }
 
-function Wire({
+function WireView({
   rec,
   selected,
   live,
@@ -1406,3 +1406,7 @@ function Wire({
     />
   );
 }
+
+/** Símbolos y cables no se re-renderizan si sus props no cambian (paneo). */
+const Component = memo(ComponentView);
+const Wire = memo(WireView);

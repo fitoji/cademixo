@@ -128,7 +128,12 @@ test.describe('traza del preview', () => {
     let dragAxis: 'h' | 'v' = 'v';
     let read: () => Promise<string | null>;
 
-    if (GESTURE === 'move') {
+    if (GESTURE === 'pan') {
+      // Paneo: botón central desde el centro del viewport, escala fija.
+      startX = 720;
+      startY = 480;
+      read = () => viewTransform(page);
+    } else if (GESTURE === 'move') {
       read = () => transformOf(page, sheet.traceId);
     } else {
       const wireTarget = WIRE_ID > 0 ? WIRE_ID : process.env.PREVIEW_TRACE_END ? sheet.traceGroupedEndWireId : process.env.PREVIEW_TRACE_GROUPED ? sheet.traceGroupedWireId : 0;
@@ -186,7 +191,31 @@ test.describe('traza del preview', () => {
       } catch {
         /* sin soporte de LoAF */
       }
+      w.__trace.sceneTargets = new Set();
+      w.__trace.sceneMutations = 0;
+      w.__trace.cameraMutations = 0;
+      w.__trace.resetMutations = (): void => {
+        w.__trace.sceneTargets = new Set();
+        w.__trace.sceneMutations = 0;
+        w.__trace.cameraMutations = 0;
+      };
       const svg = document.querySelector('svg[role="application"]')!;
+      const viewGroup = svg.querySelector(':scope > g[transform]');
+      new MutationObserver((records) => {
+        for (const r of records) {
+          const el = r.target.nodeType === 1 ? (r.target as Element) : (r.target.parentElement as Element | null);
+          if (!el) continue;
+          if (el === viewGroup) {
+            w.__trace.cameraMutations += 1;
+            continue;
+          }
+          const scene = el.closest('[data-id], [data-wire], [data-endpoint]');
+          if (scene) {
+            w.__trace.sceneMutations += 1;
+            w.__trace.sceneTargets.add(scene.getAttribute('data-id') ?? scene.getAttribute('data-wire') ?? scene.tagName);
+          }
+        }
+      }).observe(svg, { subtree: true, attributes: true, childList: true, characterData: true });
       svg.addEventListener('pointerdown', () => { w.__trace.downAt = performance.now(); }, true);
       svg.addEventListener('pointerup', () => {
         w.__trace.upAt = performance.now();
@@ -220,7 +249,7 @@ test.describe('traza del preview', () => {
         (document.querySelector('footer span.rounded-full[aria-hidden="true"]')?.className ?? '').includes('bg-warn'),
       );
       await page.mouse.move(startX, startY);
-      await page.mouse.down();
+      await page.mouse.down(GESTURE === 'pan' ? { button: 'middle' } : {});
       const startBuilds = await page.evaluate(() => (window as any).__networkStats.builds as number);
       const stepBuilds: number[] = [];
       let prevBuilds = startBuilds;
@@ -266,6 +295,78 @@ test.describe('traza del preview', () => {
       }
       throw new Error('no se pudo deshacer con Meta+z ni Control+z');
     };
+
+    if (GESTURE === 'pan') {
+      await page.evaluate(() => (window as any).__trace.startFrames());
+      await drag();
+      await page.mouse.up({ button: 'middle' });
+      await page.evaluate(() => (window as any).__trace.stopFrames());
+
+      const panRuns: Record<string, unknown>[] = [];
+      for (let run = 0; run < RUNS; run++) {
+        await page.evaluate(() => {
+          const t = (window as any).__trace;
+          t.loaf.length = 0;
+          t.downAt = 0;
+          t.resetMutations();
+          t.startFrames();
+        });
+        await drag();
+        const endAt = await page.evaluate(() => performance.now());
+        const raw = await page.evaluate(() => {
+          const t = (window as any).__trace;
+          return {
+            stamps: t.stopFrames() as number[],
+            downAt: t.downAt as number,
+            loaf: t.loaf as any[],
+            sceneTargets: t.sceneTargets.size as number,
+            sceneMutations: t.sceneMutations as number,
+            cameraMutations: t.cameraMutations as number,
+          };
+        });
+        await page.mouse.up({ button: 'middle' });
+        const windowStamps = raw.stamps.filter((s) => s >= raw.downAt && s <= endAt);
+        const intervals = windowStamps.slice(1).map((s, i) => s - windowStamps[i]!);
+        panRuns.push({
+          p95: pct(intervals, 0.95),
+          mean: intervals.reduce((a, b) => a + b, 0) / Math.max(1, intervals.length),
+          frames: intervals.length,
+          sceneTargets: raw.sceneTargets,
+          sceneMutations: raw.sceneMutations,
+          cameraMutations: raw.cameraMutations,
+          builds: 0,
+          loaf: raw.loaf,
+        });
+      }
+
+      let profileRows: Row[] = [];
+      if (PROFILE) {
+        const cdp = await context.newCDPSession(page);
+        await cdp.send('Profiler.enable');
+        await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
+        await cdp.send('Profiler.start');
+        await drag();
+        profileRows = selfTimes((await cdp.send('Profiler.stop')).profile);
+        await page.mouse.up({ button: 'middle' });
+      }
+
+      const result = {
+        gesture: 'pan',
+        sheet,
+        view: { zoom, viewport: { width: 1440, height: 900 }, steps: STEPS, stepPx: STEP_PX },
+        target: URL_OVERRIDE ?? 'dev (webServer)',
+        runs: panRuns,
+        profile: PROFILE ? { rows: profileRows.slice(0, 18), bucket: bucket(profileRows) } : null,
+        limits: [
+          'p95 del intervalo entre callbacks de rAF',
+          'mutaciones del DOM en elementos de escena (no equivalen a renders de React)',
+          'LoAF separa scripts de estilo/layout; pintura y composición no se aíslan',
+        ],
+      };
+      writeFileSync(OUT, JSON.stringify(result, null, 2));
+      console.log(JSON.stringify({ out: OUT, gesture: 'pan', runs: panRuns.map((r) => ({ p95: r.p95, frames: r.frames, sceneTargets: r.sceneTargets, sceneMutations: r.sceneMutations, cameraMutations: r.cameraMutations })), bucket: PROFILE ? bucket(profileRows) : null, top: profileRows.slice(0, 10).map((r) => `${r.name} ${r.ms.toFixed(0)}ms`) }, null, 2));
+      return;
+    }
 
     // Calentamiento.
     await page.evaluate(() => (window as any).__trace.startFrames());
@@ -434,4 +535,8 @@ async function pickWireById(page: import('@playwright/test').Page, id: number): 
     if (document.elementFromPoint(cx, cy) !== el) return null;
     return { id, cx, cy, horizontal: r.width >= r.height };
   }, id);
+}
+
+async function viewTransform(page: import('@playwright/test').Page): Promise<string | null> {
+  return page.evaluate(() => document.querySelector('svg[role="application"] > g[transform]')?.getAttribute('transform') ?? null);
 }
