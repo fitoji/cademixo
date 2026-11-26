@@ -121,6 +121,77 @@ if (typeof window !== 'undefined') {
   (window as unknown as { __routeStats?: typeof routeStats }).__routeStats = routeStats;
 }
 
+/** Índice espacial conservador sobre los obstáculos que bloquean. */
+interface BoxIndex {
+  minX: number;
+  minY: number;
+  cw: number;
+  ch: number;
+  cells: Map<string, Box[]>;
+}
+
+function buildBoxIndex(boxes: Box[]): BoxIndex | null {
+  if (boxes.length < 64) return null; // pocos: el escaneo directo es más barato
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const b of boxes) {
+    if (b.minX < minX) minX = b.minX;
+    if (b.minY < minY) minY = b.minY;
+    if (b.maxX > maxX) maxX = b.maxX;
+    if (b.maxY > maxY) maxY = b.maxY;
+  }
+  const side = Math.max(1, Math.ceil(Math.sqrt(boxes.length)));
+  const cw = Math.max(1, (maxX - minX) / side);
+  const ch = Math.max(1, (maxY - minY) / side);
+  const cells = new Map<string, Box[]>();
+  for (const b of boxes) {
+    const x0 = Math.floor((b.minX - minX) / cw);
+    const x1 = Math.floor((b.maxX - minX) / cw);
+    const y0 = Math.floor((b.minY - minY) / ch);
+    const y1 = Math.floor((b.maxY - minY) / ch);
+    for (let cy = y0; cy <= y1; cy++) {
+      for (let cx = x0; cx <= x1; cx++) {
+        const key = `${cx},${cy}`;
+        const list = cells.get(key);
+        if (list) list.push(b);
+        else cells.set(key, [b]);
+      }
+    }
+  }
+  return { minX, minY, cw, ch, cells };
+}
+
+/** Cajas que podrían tocar un punto (una celda: cualquier caja que lo contenga está ahí). */
+function boxesAt(index: BoxIndex | null, boxes: Box[], p: Point): Box[] {
+  if (index === null) return boxes;
+  const cx = Math.floor((p.x - index.minX) / index.cw);
+  const cy = Math.floor((p.y - index.minY) / index.ch);
+  return index.cells.get(`${cx},${cy}`) ?? [];
+}
+
+/** Cajas que podrían tocar un tramo recto (todas las celdas de su caja envolvente). */
+function boxesOnSegment(index: BoxIndex | null, boxes: Box[], a: Point, b: Point): Box[] {
+  if (index === null) return boxes;
+  const minX = Math.min(a.x, b.x);
+  const maxX = Math.max(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxY = Math.max(a.y, b.y);
+  const x0 = Math.floor((minX - index.minX) / index.cw);
+  const x1 = Math.floor((maxX - index.minX) / index.cw);
+  const y0 = Math.floor((minY - index.minY) / index.ch);
+  const y1 = Math.floor((maxY - index.minY) / index.ch);
+  const out: Box[] = [];
+  for (let cy = y0; cy <= y1; cy++) {
+    for (let cx = x0; cx <= x1; cx++) {
+      const list = index.cells.get(`${cx},${cy}`);
+      if (list) out.push(...list);
+    }
+  }
+  return out;
+}
+
 export function routeOrthogonal(request: RouteRequest): RouteResult {
   routeStats.calls += 1;
   const { from, to } = request;
@@ -137,8 +208,11 @@ export function routeOrthogonal(request: RouteRequest): RouteResult {
   // Un borne puede caer justo sobre el borde inflado de su propio símbolo: ese
   // obstáculo no puede bloquear la salida (Excalidraw lo llama overlap management).
   const blockers = inflated.filter((b) => !touchesEndpoint(b, from) && !touchesEndpoint(b, to));
+  const boxIndex = buildBoxIndex(blockers);
   const inside = (p: Point): boolean =>
-    blockers.some((b) => p.x > b.minX + EPS && p.x < b.maxX - EPS && p.y > b.minY + EPS && p.y < b.maxY - EPS);
+    boxesAt(boxIndex, blockers, p).some(
+      (b) => p.x > b.minX + EPS && p.x < b.maxX - EPS && p.y > b.minY + EPS && p.y < b.maxY - EPS,
+    );
 
   if (same(from, to)) return { waypoints: [{ ...from }], length: 0, bends: 0, explored: 0 };
 
@@ -161,7 +235,11 @@ export function routeOrthogonal(request: RouteRequest): RouteResult {
       valid.push(same(p, from) || same(p, to) || !inside(p));
     }
   }
-  const index = (p: Point): number => ys.indexOf(p.y) * xs.length + xs.indexOf(p.x);
+  const xIndex = new Map<number, number>();
+  for (let i = 0; i < xs.length; i++) xIndex.set(xs[i]!, i);
+  const yIndex = new Map<number, number>();
+  for (let i = 0; i < ys.length; i++) yIndex.set(ys[i]!, i);
+  const index = (p: Point): number => (yIndex.get(p.y) ?? 0) * xs.length + (xIndex.get(p.x) ?? 0);
   const start = index(from);
   const end = index(to);
 
@@ -170,7 +248,7 @@ export function routeOrthogonal(request: RouteRequest): RouteResult {
     const vertical = Math.abs(a.x - b.x) < EPS;
     const lo = vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x);
     const hi = vertical ? Math.max(a.y, b.y) : Math.max(a.x, b.x);
-    for (const box of blockers) {
+    for (const box of boxesOnSegment(boxIndex, blockers, a, b)) {
       if (vertical) {
         if (box.minX + EPS < a.x && a.x < box.maxX - EPS && lo < box.maxY - EPS && hi > box.minY + EPS)
           return true;
@@ -184,8 +262,8 @@ export function routeOrthogonal(request: RouteRequest): RouteResult {
   /** Vecino más cercano en una dirección cardinal, o -1. */
   const nearest = (node: number, dir: number): number => {
     const p = nodes[node]!;
-    const ix = xs.indexOf(p.x);
-    const iy = ys.indexOf(p.y);
+    const ix = xIndex.get(p.x)!;
+    const iy = yIndex.get(p.y)!;
     const step = DX[dir]!;
     const ystep = DY[dir]!;
     let ci = ix + step;
