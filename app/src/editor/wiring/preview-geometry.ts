@@ -8,7 +8,7 @@
  * sólo pintura.
  */
 import type { Point } from '../pins.ts';
-import { wirePoints, type CadeRecordModel, type WirePoints } from '../../model/project.ts';
+import { GEOMETRY, wirePoints, type CadeRecordModel, type WirePoints } from '../../model/project.ts';
 import { normalizeOrthogonal } from './geometry.ts';
 
 const TOL = 0.01;
@@ -223,3 +223,62 @@ export function legsOf(points: readonly Point[]): WirePoints[] {
   }
   return legs;
 }
+
+export interface SplitBendLeg {
+  points: WirePoints;
+  /** Registro original del que sale el tramo (para el color del cable). */
+  sourceId: number;
+}
+
+export type SplitBendPlan =
+  | { kind: 'none' }
+  | { kind: 'unsafe' }
+  | { kind: 'legs'; legs: SplitBendLeg[]; touched: Set<number> };
+
+/**
+ * Plan puro del tramo extremo de un cable: `bendCable` inserta un vértice en
+ * `at` (parte el registro en dos) y luego mueve ese vértice, lo que también
+ * afecta a cualquier otro tramo que toque `at` (conexiones vecinas). Se replica
+ * esa secuencia sobre registros virtuales y se devuelve la geometría final.
+ */
+export function planSplitBend(records: readonly CadeRecordModel[], id: number, at: Point, to: Point): SplitBendPlan {
+  const rec = records.find((r) => r.id === id);
+  const pts = rec ? wirePoints(rec) : null;
+  if (!rec || !pts) return { kind: 'none' };
+
+  // El corte sólo vale si `at` cae sobre la recta del tramo (como insertVertex).
+  const vertical = Math.abs(pts.x1 - pts.x2) < TOL;
+  const onLine = vertical ? Math.abs(at.x - pts.x1) < TOL : Math.abs(at.y - pts.y1) < TOL;
+  if (!onLine) return { kind: 'none' };
+
+  const cut = (geometry: number[], a: Point, b: Point): CadeRecordModel => {
+    const g = [...geometry];
+    g[GEOMETRY.x] = a.x;
+    g[GEOMETRY.y] = a.y;
+    g[GEOMETRY.x2] = b.x;
+    g[GEOMETRY.y2] = b.y;
+    return { ...rec, geometry: g };
+  };
+  const first = cut(rec.geometry, { x: pts.x1, y: pts.y1 }, at);
+  const second = { ...cut(rec.geometry, at, { x: pts.x2, y: pts.y2 }), id: -1 };
+
+  const post = records.map((r) => (r.id === id ? first : r));
+  post.push(second);
+
+  const plan = planVertexMove(post, at, to);
+  if (plan.edits.size === 0 && plan.extras.length === 0) return { kind: 'none' };
+  if (!isVertexPlanSafe(post, plan)) return { kind: 'unsafe' };
+
+  const touched = new Set(plan.edits.keys());
+  for (const extra of plan.extras) touched.add(extra.sourceId);
+
+  const legs: SplitBendLeg[] = [];
+  for (const [postId, points] of plan.edits) {
+    legs.push({ points, sourceId: postId === -1 ? id : postId });
+  }
+  for (const extra of plan.extras) {
+    legs.push({ points: extra.points, sourceId: extra.sourceId === -1 ? id : extra.sourceId });
+  }
+  return { kind: 'legs', legs, touched };
+}
+

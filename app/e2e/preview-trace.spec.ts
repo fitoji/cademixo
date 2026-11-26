@@ -29,6 +29,7 @@ const GESTURE = (process.env.PREVIEW_TRACE_GESTURE ?? 'move') as 'move' | 'segme
 const RUNS = Number(process.env.PREVIEW_TRACE_RUNS ?? 5);
 const STEPS = Number(process.env.PREVIEW_TRACE_STEPS ?? (GESTURE === 'move' ? 12 : 6));
 const STEP_PX = Number(process.env.PREVIEW_TRACE_STEP_PX ?? (GESTURE === 'move' ? 4 : 10));
+const DIR = Number(process.env.PREVIEW_TRACE_DIR ?? 1);
 const WIRE_ID = Number(process.env.PREVIEW_TRACE_WIRE_ID ?? 0);
 const TARGET_ZOOM = 2;
 const OUT = process.env.PREVIEW_TRACE_OUT ?? join(tmpdir(), `preview-trace-${GESTURE}.json`);
@@ -221,10 +222,15 @@ test.describe('traza del preview', () => {
       await page.mouse.move(startX, startY);
       await page.mouse.down();
       const startBuilds = await page.evaluate(() => (window as any).__networkStats.builds as number);
+      const stepBuilds: number[] = [];
+      let prevBuilds = startBuilds;
       for (let s = 1; s <= STEPS; s++) {
-        const dx = dragAxis === 'h' ? s * STEP_PX : 0;
-        const dy = dragAxis === 'v' ? -s * STEP_PX : 0;
+        const dx = dragAxis === 'h' ? s * STEP_PX * DIR : 0;
+        const dy = dragAxis === 'v' ? -s * STEP_PX * DIR : 0;
         await page.mouse.move(startX + dx, startY + dy);
+        const now = await page.evaluate(() => (window as any).__networkStats.builds as number);
+        stepBuilds.push(now - prevBuilds);
+        prevBuilds = now;
       }
       const after = await read();
       expect(after, `el gesto ${GESTURE} debe modificar el dibujo`).not.toBe(original);
@@ -238,7 +244,7 @@ test.describe('traza del preview', () => {
       });
       expect(during.historyClean, 'el preview no debe escribir historial').toBe(true);
       expect(during.dirty, 'el preview no debe cambiar el estado sucio').toBe(dirtyBefore);
-      return { startBuilds };
+      return { startBuilds, stepBuilds };
     };
 
     const undo = async (): Promise<void> => {
@@ -277,6 +283,7 @@ test.describe('traza del preview', () => {
     const releaseFrames: (number | null)[] = [];
     const moveBuilds: number[] = [];
     const startBuildsList: number[] = [];
+    const stepBuildsList: number[][] = [];
     const releaseBuilds: number[] = [];
     for (let run = 0; run < RUNS; run++) {
       await page.evaluate(() => {
@@ -287,7 +294,7 @@ test.describe('traza del preview', () => {
         t.startFrames();
         (window as any).__networkStats.builds = 0;
       });
-      const { startBuilds } = await drag();
+      const { startBuilds, stepBuilds } = await drag();
       const endAt = await page.evaluate(() => performance.now());
       const raw = await page.evaluate(() => {
         const t = (window as any).__trace;
@@ -316,6 +323,7 @@ test.describe('traza del preview', () => {
       releaseFrames.push(signals.releaseFrame);
       moveBuilds.push(buildsDuringMove);
       startBuildsList.push(buildsAtStart);
+      stepBuildsList.push(stepBuilds);
       releaseBuilds.push(signals.builds);
       await undo();
     }
@@ -343,7 +351,7 @@ test.describe('traza del preview', () => {
       sheet,
       view: { zoom, viewport: { width: 1440, height: 900 }, steps: STEPS, stepPx: STEP_PX },
       target: URL_OVERRIDE ?? 'dev (webServer)',
-      move: { p95: pct(moveP95, 0.5), mean: moveMean.reduce((a, b) => a + b, 0) / moveMean.length, frames, p95PerRun: moveP95, builds: moveBuilds, startBuilds: startBuildsList, loaf },
+      move: { p95: pct(moveP95, 0.5), mean: moveMean.reduce((a, b) => a + b, 0) / moveMean.length, frames, p95PerRun: moveP95, builds: moveBuilds, startBuilds: startBuildsList, stepBuilds: stepBuildsList, loaf },
       release: { domLatency: release, nextFrame: releaseFrames, builds: releaseBuilds },
       profile: PROFILE ? { move: moveRows.slice(0, 18), moveBucket: bucket(moveRows), release: releaseRows.slice(0, 18), releaseBucket: bucket(releaseRows) } : null,
       limits: [

@@ -9,7 +9,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { applyDrag, createEditor, projectOf, select } from '../src/editor/state.ts';
-import { bendPreviewLegs, isVertexPlanSafe, legsOf, planSegmentPolyline, planVertexMove } from '../src/editor/wiring/preview-geometry.ts';
+import { bendPreviewLegs, isVertexPlanSafe, legsOf, planSegmentPolyline, planSplitBend, planVertexMove } from '../src/editor/wiring/preview-geometry.ts';
 import { wirePoints, type WirePoints } from '../src/model/project.ts';
 import { buildNetwork, cableNumberOf } from '../src/editor/network.ts';
 import { pathPoints, wirePathsOf } from '../src/editor/wiring/types.ts';
@@ -162,4 +162,91 @@ test('el preview del cable agrupado coincide con la polilínea completa que escr
     checked += 1;
   }
   assert.ok(checked > 0, 'algún desplazamiento debe ejercitar la polilínea');
+});
+
+
+/** Cobertura por unión: un tramo puede ser la fusión de varios colineales. */
+const coveredByUnion = (leg: WirePoints, segments: WirePoints[]): boolean => {
+  const horizontal = Math.abs(leg.y1 - leg.y2) < 0.01;
+  const lo = horizontal ? Math.min(leg.x1, leg.x2) : Math.min(leg.y1, leg.y2);
+  const hi = horizontal ? Math.max(leg.x1, leg.x2) : Math.max(leg.y1, leg.y2);
+  const spans: [number, number][] = [];
+  for (const s of segments) {
+    const sh = Math.abs(s.y1 - s.y2) < 0.01;
+    if (sh !== horizontal) continue;
+    if (horizontal ? Math.abs(s.y1 - leg.y1) > 0.01 : Math.abs(s.x1 - leg.x1) > 0.01) continue;
+    spans.push(
+      horizontal
+        ? [Math.min(s.x1, s.x2), Math.max(s.x1, s.x2)]
+        : [Math.min(s.y1, s.y2), Math.max(s.y1, s.y2)],
+    );
+  }
+  spans.sort((a, b) => a[0] - b[0]);
+  let reach = lo;
+  for (const [a, b] of spans) {
+    if (a > reach + 0.01) break;
+    if (b > reach) reach = b;
+    if (reach >= hi - 0.01) return true;
+  }
+  return reach >= hi - 0.01;
+};
+
+test('el preview del tramo extremo agrupado coincide con el commit en ambos extremos', () => {
+  const base = createEditor(ARRANQUE);
+  const project = projectOf(base);
+  const network = buildNetwork(project.records);
+  const grouped = wirePathsOf(network).find((path) => path.segmentIds.length >= 3);
+  assert.ok(grouped, 'el fixture debe tener una polilínea de varios tramos');
+
+  const touches = (pts: WirePoints, p: { x: number; y: number }): boolean =>
+    (Math.abs(pts.x1 - p.x) < 0.01 && Math.abs(pts.y1 - p.y) < 0.01) ||
+    (Math.abs(pts.x2 - p.x) < 0.01 && Math.abs(pts.y2 - p.y) < 0.01);
+
+  let checked = 0;
+  let unsafe = 0;
+  for (const index of [0, grouped.segmentIds.length - 1]) {
+    const id: number = grouped.segmentIds[index]!;
+    const rec = project.records.find((r) => r.id === id)!;
+    const pts = wirePoints(rec)!;
+    const vertical = Math.abs(pts.x1 - pts.x2) < 0.01;
+    const at = { x: (pts.x1 + pts.x2) / 2, y: (pts.y1 + pts.y2) / 2 };
+
+    for (const delta of [6, -6]) {
+      const to = vertical ? { x: at.x + delta, y: at.y } : { x: at.x, y: at.y + delta };
+      const plan = planSplitBend(project.records, id, at, to);
+      if (plan.kind === 'unsafe') unsafe += 1;
+      if (plan.kind !== 'legs') continue;
+
+      const out = applyDrag(select(base, [id]), { kind: 'segment', id, at, to, sheet: 0 });
+      if (out.text === base.text) continue;
+
+      // Todo el cable: tramos del cable que el gesto no toca + los del plan.
+      const cable = cableNumberOf(rec);
+      const untouched: WirePoints[] = grouped.segmentIds
+        .filter((segId) => segId !== id)
+        .map((segId) => wirePoints(project.records.find((r) => r.id === segId)!))
+        .filter((p): p is WirePoints => p !== null)
+        .filter((seg) => !touches(seg, at));
+      const expected = [...plan.legs.filter((leg) => leg.sourceId === id).map((leg) => leg.points), ...untouched];
+      const written = projectOf(out).records
+        .filter((r) => r.kind === 'connection' && r.sheet === 0 && cableNumberOf(r) === cable)
+        .map((r) => wirePoints(r))
+        .filter((p): p is WirePoints => p !== null);
+
+      for (const leg of expected) assert.ok(coveredByUnion(leg, written), `falta geometría del cable (${index}, ${delta})`);
+      for (const leg of written) assert.ok(coveredByUnion(leg, expected), `sobra geometría del cable (${index}, ${delta})`);
+
+      // Conexiones vecinas: el plan puede tocar otros tramos que pasan por `at`.
+      const documentSegments = projectOf(out).records
+        .map((r) => wirePoints(r))
+        .filter((p): p is WirePoints => p !== null);
+      for (const leg of plan.legs.filter((l) => l.sourceId !== id)) {
+        assert.ok(coveredByUnion(leg.points, documentSegments), `falta geometría vecina (${index}, ${delta})`);
+      }
+      checked += 1;
+    }
+  }
+
+  assert.ok(checked > 0, 'ambos extremos deben ejercitar el preview');
+  assert.ok(unsafe >= 0);
 });

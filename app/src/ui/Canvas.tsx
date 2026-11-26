@@ -7,7 +7,7 @@ import { shapesBounds } from '../symbols/draw.ts';
 import { componentHitBox } from './hit-box.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
 import { moveDelta, type DragOp, type Rotation } from '../editor/state.ts';
-import { bendPreviewLegs, isVertexPlanSafe, legsOf, planSegmentPolyline, planVertexMove } from '../editor/wiring/preview-geometry.ts';
+import { bendPreviewLegs, isVertexPlanSafe, legsOf, planSegmentPolyline, planSplitBend, planVertexMove } from '../editor/wiring/preview-geometry.ts';
 import { pathPoints, wirePathsOf, type WirePath } from '../editor/wiring/types.ts';
 import { idle, startMarquee, startMove, startPan, startSegment, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
 import { attachPoints, type Point } from '../editor/pins.ts';
@@ -326,9 +326,12 @@ export function Canvas(props: Props): JSX.Element {
   // reconstruir el documento. Sólo para cables de un solo tramo.
   const [wirePreview, setWirePreview] = useState<{
     ids: Set<number>;
-    legs: WirePoints[];
-    tone: ConductorTone;
+    legs: { points: WirePoints; tone: ConductorTone }[];
   } | null>(null);
+  // Si un paso del gesto no se puede previsualizar con garantías, el gesto
+  // entero sigue por documento: mezclar preview local y documento deja el
+  // lienzo mostrando el preview como si fuera el estado confirmado.
+  const gestureFallback = useRef(false);
   // Preview del gesto de vértice: tramos que el commit va a escribir. Puede
   // afectar varios registros (uniones T), así que se ocultan todos.
   const [vertexPreview, setVertexPreview] = useState<{
@@ -478,7 +481,10 @@ export function Canvas(props: Props): JSX.Element {
         if (e.type === 'pan') {
           setView((v) => ({ ...v, x: e.x, y: e.y }));
         } else if (e.type === 'preview') {
-          if (e.op !== null && e.op.kind === 'move') {
+          if (e.op !== null && e.op.kind !== 'move' && gestureFallback.current) {
+            // El gesto ya cayó al documento: no se mezcla con preview local.
+            onDragPreview(e.op);
+          } else if (e.op !== null && e.op.kind === 'move') {
             // El movimiento se dibuja en el lienzo: App no reconstruye el documento.
             setMovePreview({ dx: e.op.dx, dy: e.op.dy });
           } else if (e.op !== null && e.op.kind === 'vertex') {
@@ -496,6 +502,7 @@ export function Canvas(props: Props): JSX.Element {
               }
               setVertexPreview({ hidden: new Set(plan.edits.keys()), legs });
             } else {
+              gestureFallback.current = true;
               setVertexPreview(null);
               onDragPreview(e.op);
             }
@@ -505,26 +512,50 @@ export function Canvas(props: Props): JSX.Element {
             const pts = rec ? wirePoints(rec) : null;
             const group = cableSegments(network, op.id);
             if (pts && rec && group.length === 1) {
-              setWirePreview({ ids: new Set([op.id]), legs: bendPreviewLegs(pts, op.at, op.to), tone: conductorToneOf(rec.code) });
+              const tone = conductorToneOf(rec.code);
+              setWirePreview({
+                ids: new Set([op.id]),
+                legs: bendPreviewLegs(pts, op.at, op.to).map((points) => ({ points, tone })),
+              });
             } else if (pts && rec && group.length > 1) {
-              // Cable agrupado: se mueve el tramo y se normaliza toda la polilínea.
               const path = wirePathById.get(op.id);
-              if (!path) {
+              const index = path ? path.segmentIds.indexOf(op.id) : -1;
+              if (!path || index < 0) {
+                gestureFallback.current = true;
                 setWirePreview(null);
                 onDragPreview(op);
-              } else {
-                const plan = planSegmentPolyline(pathPoints(network, path), path.segmentIds.indexOf(op.id), op.to);
-                if (plan.kind === 'polyline') {
+              } else if (index === 0 || index === path.segmentIds.length - 1) {
+                // Extremo del cable: bendCable parte el registro y mueve el vértice,
+                // lo que también afecta a los tramos vecinos que tocan el punto.
+                const plan = planSplitBend(records, op.id, op.at, op.to);
+                if (plan.kind === 'legs') {
                   setWirePreview({
-                    ids: new Set(path.segmentIds),
-                    legs: legsOf(plan.points),
-                    tone: conductorToneOf(rec.code),
+                    ids: plan.touched,
+                    legs: plan.legs.map((leg) => ({
+                      points: leg.points,
+                      tone: conductorToneOf(records.find((r) => r.id === leg.sourceId)?.code ?? rec.code),
+                    })),
                   });
                 } else if (plan.kind === 'none') {
-                  // Sin cambio: no se toca el documento ni se reconstruye.
                   setWirePreview(null);
                 } else {
-                  // Extremo del cable agrupado: el commit usa bendCable.
+                  gestureFallback.current = true;
+                  setWirePreview(null);
+                  onDragPreview(op);
+                }
+              } else {
+                // Tramo interior: se mueve y se normaliza toda la polilínea.
+                const plan = planSegmentPolyline(pathPoints(network, path), index, op.to);
+                if (plan.kind === 'polyline') {
+                  const tone = conductorToneOf(rec.code);
+                  setWirePreview({
+                    ids: new Set(path.segmentIds),
+                    legs: legsOf(plan.points).map((points) => ({ points, tone })),
+                  });
+                } else if (plan.kind === 'none') {
+                  setWirePreview(null);
+                } else {
+                  gestureFallback.current = true;
                   setWirePreview(null);
                   onDragPreview(op);
                 }
@@ -540,11 +571,13 @@ export function Canvas(props: Props): JSX.Element {
             onDragPreview(e.op);
           }
         } else if (e.type === 'commit') {
+          gestureFallback.current = false;
           setMovePreview(null);
           setWirePreview(null);
           setVertexPreview(null);
           onDragCommit(e.op);
         } else if (e.type === 'cancel') {
+          gestureFallback.current = false;
           setMovePreview(null);
           setWirePreview(null);
           setVertexPreview(null);
@@ -955,8 +988,8 @@ export function Canvas(props: Props): JSX.Element {
           {wirePreview?.legs.map((leg, i) => (
             <path
               key={`wire-preview-${i}`}
-              className={`wire ${wirePreview.tone}`}
-              d={`M${leg.x1} ${leg.y1}L${leg.x2} ${leg.y2}`}
+              className={`wire ${leg.tone}`}
+              d={`M${leg.points.x1} ${leg.points.y1}L${leg.points.x2} ${leg.points.y2}`}
             />
           ))}
 
