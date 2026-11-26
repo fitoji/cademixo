@@ -56,6 +56,7 @@ import { attachPoints, type Point } from './pins.ts';
 import { routeOrthogonal, type Box } from './wiring/router.ts';
 import { normalizeOrthogonal, projectOnSegment } from './wiring/geometry.ts';
 import { pathPoints, wirePathsOf } from './wiring/types.ts';
+import { planVertexMove } from './wiring/preview-geometry.ts';
 
 export type { Rotation };
 
@@ -831,65 +832,27 @@ export function moveVertex(state: EditorState, from: Point, to: Point, sheet = 0
     sig: string;
   }
   const built: Built[] = [];
-  const used = new Set<string>();
+  const byId = new Map(project.records.map((rec, index) => [rec.id, { rec, index }]));
 
-  project.records.forEach((rec, index) => {
-    const pts = wirePoints(rec);
-    if (!pts) return;
-
-    const atA = Math.abs(pts.x1 - from.x) < AXIS_TOL && Math.abs(pts.y1 - from.y) < AXIS_TOL;
-    const atB = Math.abs(pts.x2 - from.x) < AXIS_TOL && Math.abs(pts.y2 - from.y) < AXIS_TOL;
-    if (!atA && !atB) return;
-
-    const fixed = atA ? point(pts.x2, pts.y2) : point(pts.x1, pts.y1);
-    if (Math.abs(fixed.x - to.x) < AXIS_TOL && Math.abs(fixed.y - to.y) < AXIS_TOL) return;
-
-    const wasVertical = Math.abs(pts.x1 - pts.x2) < AXIS_TOL;
-      const pushLeg = (leg: WirePoints, isExtra: boolean): void => {
-      const sig = signature(point(leg.x1, leg.y1), point(leg.x2, leg.y2));
-      if (isExtra && used.has(sig)) return;
-      used.add(sig);
-      if (!isExtra) {
-        built.push({ index, newId: null, raw: withWirePoints(rec, leg), sig });
-        return;
-      }
-      const clone: CadeRecordModel = { ...rec, id, raw: withId(rec, id), geometry: [...rec.geometry] };
-      built.push({
-        index: null,
-        newId: id,
-        raw: withWirePoints({ ...clone, raw: withCableNumber(clone, cableNumberOf(rec)) }, leg),
-        sig,
-      });
-      id += 1;
-    };
-
-    if (isOrthogonal(fixed, to)) {
-      pushLeg({ x1: fixed.x, y1: fixed.y, x2: to.x, y2: to.y }, false);
-      return;
-    }
-
-    // Dos codos posibles. Se prefiere el que deja el codo junto al extremo
-    // quieto, así el tramo que se arrastra mantiene su orientación y el cable
-    // se ve moverse en vez de sólo aparecer una línea.
-    //
-    // Con el codo del otro lado, arrastrar hacia la derecha el extremo inferior
-    // de un cable vertical dejaba la vertical intacta y agregaba un tramo
-    // horizontal abajo: parecía que no había pasado nada.
-    const preferred = wasVertical ? point(to.x, fixed.y) : point(fixed.x, to.y);
-    const alternate = wasVertical ? point(fixed.x, to.y) : point(to.x, fixed.y);
-    let corner: Point | null = null;
-    for (const candidate of [preferred, alternate]) {
-      if (!isOrthogonal(fixed, candidate) || !isOrthogonal(candidate, to)) continue;
-      if (Math.abs(candidate.x - to.x) < AXIS_TOL && Math.abs(candidate.y - to.y) < AXIS_TOL) continue;
-      if (!used.has(signature(candidate, to))) {
-        corner = candidate;
-        break;
-      }
-    }
-    corner ??= preferred;
-    pushLeg({ x1: fixed.x, y1: fixed.y, x2: corner.x, y2: corner.y }, false);
-    pushLeg({ x1: corner.x, y1: corner.y, x2: to.x, y2: to.y }, true);
-  });
+  // Mismo plan que usa el preview: preview y commit no pueden divergir.
+  const plan = planVertexMove(project.records, from, to);
+  for (const [recId, leg] of plan.edits) {
+    const entry = byId.get(recId);
+    if (!entry) continue;
+    built.push({ index: entry.index, newId: null, raw: withWirePoints(entry.rec, leg), sig: signature(point(leg.x1, leg.y1), point(leg.x2, leg.y2)) });
+  }
+  for (const extra of plan.extras) {
+    const entry = byId.get(extra.sourceId);
+    if (!entry) continue;
+    const clone: CadeRecordModel = { ...entry.rec, id, raw: withId(entry.rec, id), geometry: [...entry.rec.geometry] };
+    built.push({
+      index: null,
+      newId: id,
+      raw: withWirePoints({ ...clone, raw: withCableNumber(clone, cableNumberOf(entry.rec)) }, extra.points),
+      sig: signature(point(extra.points.x1, extra.points.y1), point(extra.points.x2, extra.points.y2)),
+    });
+    id += 1;
+  }
 
   if (built.length === 0) return state;
 

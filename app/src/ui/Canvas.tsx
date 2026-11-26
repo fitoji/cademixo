@@ -7,7 +7,7 @@ import { shapesBounds } from '../symbols/draw.ts';
 import { componentHitBox } from './hit-box.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
 import { moveDelta, type DragOp, type Rotation } from '../editor/state.ts';
-import { bendPreviewLegs } from '../editor/wiring/bend-preview.ts';
+import { bendPreviewLegs, isVertexPlanSafe, planVertexMove } from '../editor/wiring/preview-geometry.ts';
 import { idle, startMarquee, startMove, startPan, startSegment, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
 import { attachPoints, type Point } from '../editor/pins.ts';
 import { buildNetwork, cableSegments } from '../editor/network.ts';
@@ -324,6 +324,12 @@ export function Canvas(props: Props): JSX.Element {
   // Preview del gesto de tramo: la polilínea que el commit va a escribir, sin
   // reconstruir el documento. Sólo para cables de un solo tramo.
   const [wirePreview, setWirePreview] = useState<{ id: number; legs: WirePoints[] } | null>(null);
+  // Preview del gesto de vértice: tramos que el commit va a escribir. Puede
+  // afectar varios registros (uniones T), así que se ocultan todos.
+  const [vertexPreview, setVertexPreview] = useState<{
+    hidden: Set<number>;
+    legs: { points: WirePoints; tone: ConductorTone }[];
+  } | null>(null);
   /**
    * Delta del gesto de mover: misma regla que el commit, sin reconstruir el
    * documento ni la red. Sólo se recalcula cuando cambia el gesto.
@@ -463,6 +469,24 @@ export function Canvas(props: Props): JSX.Element {
           if (e.op !== null && e.op.kind === 'move') {
             // El movimiento se dibuja en el lienzo: App no reconstruye el documento.
             setMovePreview({ dx: e.op.dx, dy: e.op.dy });
+          } else if (e.op !== null && e.op.kind === 'vertex') {
+            const op = e.op;
+            const plan = planVertexMove(records, op.from, op.to);
+            if (plan.edits.size > 0 && isVertexPlanSafe(records, plan)) {
+              const legs: { points: WirePoints; tone: ConductorTone }[] = [];
+              for (const [id, points] of plan.edits) {
+                const rec = records.find((r) => r.id === id);
+                if (rec) legs.push({ points, tone: conductorToneOf(rec.code) });
+              }
+              for (const extra of plan.extras) {
+                const rec = records.find((r) => r.id === extra.sourceId);
+                if (rec) legs.push({ points: extra.points, tone: conductorToneOf(rec.code) });
+              }
+              setVertexPreview({ hidden: new Set(plan.edits.keys()), legs });
+            } else {
+              setVertexPreview(null);
+              onDragPreview(e.op);
+            }
           } else if (e.op !== null && e.op.kind === 'segment') {
             const op = e.op;
             const rec = records.find((r) => r.id === op.id);
@@ -476,15 +500,18 @@ export function Canvas(props: Props): JSX.Element {
           } else {
             setMovePreview(null);
             setWirePreview(null);
+            setVertexPreview(null);
             onDragPreview(e.op);
           }
         } else if (e.type === 'commit') {
           setMovePreview(null);
           setWirePreview(null);
+          setVertexPreview(null);
           onDragCommit(e.op);
         } else if (e.type === 'cancel') {
           setMovePreview(null);
           setWirePreview(null);
+          setVertexPreview(null);
           onDragPreview(null);
           setSnapMark(null);
         } else if (e.type === 'select') {
@@ -845,6 +872,7 @@ export function Canvas(props: Props): JSX.Element {
 
           {records.map((rec) => {
             if (wirePreview !== null && rec.id === wirePreview.id) return null;
+            if (vertexPreview !== null && vertexPreview.hidden.has(rec.id)) return null;
             if (rec.kind === 'connection')
               return (
                 <Wire
@@ -878,6 +906,15 @@ export function Canvas(props: Props): JSX.Element {
             );
           })}
 
+          {/* Vértice en movimiento: los tramos que el commit va a escribir. */}
+          {vertexPreview?.legs.map((leg, i) => (
+            <path
+              key={`vertex-preview-${i}`}
+              className={`wire ${leg.tone}`}
+              d={`M${leg.points.x1} ${leg.points.y1}L${leg.points.x2} ${leg.points.y2}`}
+            />
+          ))}
+
           {/* Cable doblándose: la polilínea que el commit va a escribir. */}
           {wirePreview?.legs.map((leg, i) => (
             <path
@@ -908,6 +945,7 @@ export function Canvas(props: Props): JSX.Element {
 
           {dragDelta === null &&
             wirePreview === null &&
+            vertexPreview === null &&
             selectedWires.map((rec) => {
             const pts = wirePoints(rec);
             if (!pts) return null;

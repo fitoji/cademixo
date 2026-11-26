@@ -209,12 +209,14 @@ test.describe('traza del preview', () => {
       void id;
     }, { id: sheet.traceId });
 
-    const drag = async (): Promise<void> => {
+    /** Ejecuta el gesto; devuelve las redes acumuladas al iniciar (pointerdown). */
+    const drag = async (): Promise<{ startBuilds: number }> => {
       const dirtyBefore = await page.evaluate(() =>
         (document.querySelector('footer span.rounded-full[aria-hidden="true"]')?.className ?? '').includes('bg-warn'),
       );
       await page.mouse.move(startX, startY);
       await page.mouse.down();
+      const startBuilds = await page.evaluate(() => (window as any).__networkStats.builds as number);
       for (let s = 1; s <= STEPS; s++) {
         const dx = dragAxis === 'h' ? s * STEP_PX : 0;
         const dy = dragAxis === 'v' ? -s * STEP_PX : 0;
@@ -232,6 +234,7 @@ test.describe('traza del preview', () => {
       });
       expect(during.historyClean, 'el preview no debe escribir historial').toBe(true);
       expect(during.dirty, 'el preview no debe cambiar el estado sucio').toBe(dirtyBefore);
+      return { startBuilds };
     };
 
     const undo = async (): Promise<void> => {
@@ -269,6 +272,7 @@ test.describe('traza del preview', () => {
     const release: (number | null)[] = [];
     const releaseFrames: (number | null)[] = [];
     const moveBuilds: number[] = [];
+    const startBuildsList: number[] = [];
     const releaseBuilds: number[] = [];
     for (let run = 0; run < RUNS; run++) {
       await page.evaluate(() => {
@@ -279,13 +283,15 @@ test.describe('traza del preview', () => {
         t.startFrames();
         (window as any).__networkStats.builds = 0;
       });
-      await drag();
+      const { startBuilds } = await drag();
       const endAt = await page.evaluate(() => performance.now());
       const raw = await page.evaluate(() => {
         const t = (window as any).__trace;
         return { stamps: t.stopFrames() as number[], downAt: t.downAt as number, loaf: t.loaf as any[] };
       });
-      const buildsDuringMove = await page.evaluate(() => (window as any).__networkStats.builds as number);
+      const buildsTotal = await page.evaluate(() => (window as any).__networkStats.builds as number);
+      const buildsDuringMove = buildsTotal - startBuilds;
+      const buildsAtStart = startBuilds;
       const windowStamps = raw.stamps.filter((s) => s >= raw.downAt && s <= endAt);
       const intervals = windowStamps.slice(1).map((s, i) => s - windowStamps[i]!);
       await page.evaluate(() => { (window as any).__networkStats.builds = 0; });
@@ -305,6 +311,7 @@ test.describe('traza del preview', () => {
       release.push(signals.release);
       releaseFrames.push(signals.releaseFrame);
       moveBuilds.push(buildsDuringMove);
+      startBuildsList.push(buildsAtStart);
       releaseBuilds.push(signals.builds);
       await undo();
     }
@@ -332,7 +339,7 @@ test.describe('traza del preview', () => {
       sheet,
       view: { zoom, viewport: { width: 1440, height: 900 }, steps: STEPS, stepPx: STEP_PX },
       target: URL_OVERRIDE ?? 'dev (webServer)',
-      move: { p95: pct(moveP95, 0.5), mean: moveMean.reduce((a, b) => a + b, 0) / moveMean.length, frames, p95PerRun: moveP95, builds: moveBuilds, loaf },
+      move: { p95: pct(moveP95, 0.5), mean: moveMean.reduce((a, b) => a + b, 0) / moveMean.length, frames, p95PerRun: moveP95, builds: moveBuilds, startBuilds: startBuildsList, loaf },
       release: { domLatency: release, nextFrame: releaseFrames, builds: releaseBuilds },
       profile: PROFILE ? { move: moveRows.slice(0, 18), moveBucket: bucket(moveRows), release: releaseRows.slice(0, 18), releaseBucket: bucket(releaseRows) } : null,
       limits: [
