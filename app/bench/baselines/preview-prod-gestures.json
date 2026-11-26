@@ -1,0 +1,33 @@
+{
+  "target": "http://127.0.0.1:4173",
+  "sheet": { "records": 9577, "components": 2736, "cables": 6156, "junctions": 456, "blocks": 228 },
+  "view": { "zoom": 2.755794095160401, "viewport": { "width": 1440, "height": 900 } },
+  "note": "Tres gestos sobre la misma hoja. El movimiento se mide con 12 pasos de 4 px; los gestos de cable con 6 pasos de 10 px perpendiculares. 5 corridas por gesto tras calentamiento.",
+  "gestures": {
+    "move": {
+      "p95": 50,
+      "buildsPerGesture": 1,
+      "release": [1824.8, 1816.5, 1648.9, 1635.5, 1662.6],
+      "releaseBuilds": 3
+    },
+    "segment": {
+      "p95": 2966.5,
+      "buildsPerGesture": 49,
+      "release": [3594.6, 3504.4, 3411.9, 3392.2, 3504.2],
+      "releaseBuilds": 6
+    },
+    "vertex": {
+      "p95": 2633.2,
+      "buildsPerGesture": 26,
+      "release": [3636.4, 3577.7, 3591.7, 3553.0, 3612.6],
+      "releaseBuilds": 9
+    }
+  },
+  "bend": "No existe gesto separado: startBend no se usa fuera de tests. El arrastre del cuerpo de un cable (gesto tramo) es el doblez que expone la UI.",
+  "segmentDeltaAb": {
+    "fixture": "números de cable únicos por bloque",
+    "before": { "p95": 3883.2, "buildsPerGesture": 49, "release": [4725.4, 4665.5, 4666.1, 4652.1, 4721.3], "releaseBuilds": 9 },
+    "after": { "p95": 50, "buildsPerGesture": 1, "release": [3559.1, 3722.3, 3758.0, 3729.0, 4381.4], "releaseBuilds": 9 },
+    "conclusion": "Movimiento -98% y 49 -> 1 red. El soltar es el mismo camino (9 redes en ambos lados): la diferencia de latencia es ruido."
+  }
+}

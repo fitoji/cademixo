@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 10)
+**Fecha:** 2026-11-26 (revisión 11)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + etapas 1-3 (delta y confirmación) + reutilización de la red de poda.
+**Tipo:** auditoría + benchmark + etapas 1-4 (delta de mover, confirmación y delta de tramo).
 
-> **Revisión 10.** Reutiliza la red posterior de la poda como red final confirmada, sólo si representa exactamente el texto. Reconstrucciones al soltar: 4 → 3. La latencia **no** mejora de forma consistente (mediana −2 %, rangos solapados): se detiene esta línea y se pasa a medir los otros gestos. Ver 2.f.
+> **Revisión 11.** Mide vértice, tramo y doblez por separado en producción y extiende el delta al gesto con peor latencia atribuible a la red: **tramo**. Movimiento 3.883 → 50 ms y 49 → 1 reconstrucción; el soltar no cambia. Ver 2.g.
 
 ## Resumen ejecutivo
 
@@ -205,6 +205,41 @@ Caso negativo probado: mover el componente 21 a (−24, 12) elimina una unión 4
 
 **Conclusión:** se cumple el criterio funcional (4→3 redes, mismo texto, avisos, conectividad y un solo paso de deshacer; 919/919 pruebas), pero no hay mejora de latencia demostrable. **No se suma más complejidad en esta línea**: el siguiente paso es medir los otros gestos con su propia línea base.
 
+### 2.g Vértice, tramo y doblez: medición y delta del tramo
+
+**Aclaración de gestos:** `startBend` no se usa fuera de los tests. La UI expone tres: mover un componente, arrastrar el cuerpo de un cable (**tramo**, que es el doblez visible) y arrastrar un vértice después de seleccionar el cable.
+
+**Método:** misma hoja (9.577 registros), misma vista (zoom 2,755), 12 pasos de 4 px al mover y 6 pasos de 10 px perpendiculares en los gestos de cable; 5 corridas tras calentamiento. En cada corrida se verifica que el gesto modifique el dibujo, se cuentan las reconstrucciones completas y se mide el p95 entre callbacks de rAF y la latencia hasta el DOM confirmado.
+
+| Gesto | p95 al mover | Redes en el gesto | Soltar (DOM) | Redes al soltar |
+|---|---|---|---|---|
+| mover | **50 ms** | 1 | 1.635–1.825 ms | 3 |
+| tramo | **2.966 ms** | 49 | 3.392–3.636 ms | 6 |
+| vértice | **2.633 ms** | 26 | 3.492–3.595 ms | 9 |
+
+El peor gesto atribuible a la reconstrucción de red es **tramo**: 49 reconstrucciones por gesto y el p95 más alto.
+
+**Defecto de medición encontrado (y corregido):** la hoja replicada repetía el número de cable de cada bloque, así que `wirePathsOf` agrupaba 228 tramos de bloques distintos en una sola polilínea. Con esa agrupación el gesto de tramo se anulaba (`normalizeOrthogonal` deshacía el movimiento) y la medición era inválida. El generador ahora renumera el cable por bloque (cada bloque es un circuito independiente) y el gesto modifica el cable.
+
+**Delta del tramo (implementado):**
+
+- `bendPreviewLegs` reproduce la geometría de `bendCable` (insertar vértice + moverlo) como cálculo puro, con la misma normalización de colineales que el commit.
+- El lienzo intercepta los previews `segment` cuando el cable es de **un solo tramo** (`cableSegments(...).length === 1`): oculta el cable original y dibuja la polilínea del preview. Si el cable agrupa varios tramos, cae al preview por documento.
+- El commit no cambia: `bendCable` se aplica una sola vez al soltar.
+
+A/B con el mismo fixture y en la misma sesión:
+
+| Lado | p95 al mover | Redes en el gesto | Soltar | Redes al soltar |
+|---|---|---|---|---|
+| Antes | 3.883,2 ms | 49 | 4.652–4.725 ms | 9 |
+| Después | **50 ms** | **1** | 3.559–4.381 ms | 9 |
+
+**Movimiento −98 % y 49 → 1 reconstrucción.** El soltar conserva 9 reconstrucciones en ambos lados: es el mismo camino de commit y la diferencia de latencia es ruido entre corridas.
+
+**Equivalencia:** prueba dedicada que compara los tramos del preview con los que escribe el commit para 12 cables en dos direcciones. El texto, la conectividad y el deshacer no cambian porque el commit es el mismo. 920/920 pruebas.
+
+**Límites de este incremento:** sólo el gesto de tramo y sólo cables de un tramo (número de cable propio). Cables con varios tramos agrupados y el gesto de vértice siguen con el preview por documento.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -267,7 +302,7 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 2. **Etapa 1 — primer incremento hecho** (ver 2.b). Quedan pendientes los consumidores que todavía reconstruyen red por dentro (`validate`, `buildNetlist`) y el lienzo, que la reconstruye en cada preview.
 3. **Etapa 2 — preview por delta: hecho para mover** (ver 2.d). Siguiente: extender el mismo delta a vértice, tramo y doblez, cada gesto con su propia línea base.
 4. **Etapa 3 — confirmación: dos incrementos hechos** (ver 2.e y 2.f). La red final compartida bajó el soltar 26 %; reutilizar la red de la poda llevó las reconstrucciones a 3 pero **sin mejora de latencia consistente**. Se detiene acá: no se justifica más complejidad en confirmación.
-5. **Etapa 4 — medir los otros gestos.** Vértice, tramo y doblez siguen usando el preview por documento completo y no tienen línea base propia: es el próximo trabajo, un gesto por cambio.
+5. **Etapa 4 — gestos de cable: medición hecha; delta del tramo hecho** (ver 2.g). Movimiento 3.883 → 50 ms con 49 → 1 red. Queda el gesto de vértice (26 redes) y los cables con varios tramos agrupados.
 6. **Etapa 5 — capas estables y memoización** (paso 2 del plan), con el criterio de "cero re-renders en paneo a escala fija".
 7. **Etapa 6 — índice de consulta de hit-test**, solo cuando exista medición de la consulta por evento.
 
@@ -318,6 +353,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 11 (2026-11-26).** Gestos de cable y delta del tramo:
+  - Medición en producción de mover (50 ms, 1 red), tramo (2.966 ms, 49 redes) y vértice (2.633 ms, 26 redes), con verificación de que cada gesto modifica el dibujo.
+  - `startBend` no se usa fuera de tests: el doblez de la UI es el arrastre del cuerpo del cable (gesto tramo).
+  - Se corrige un defecto del fixture: los números de cable repetidos agrupaban 228 tramos por polilínea y anulaban el gesto de tramo.
+  - Delta del tramo: preview geométrico puro (`bendPreviewLegs`) para cables de un tramo; movimiento 3.883 → 50 ms y 49 → 1 red; soltar sin cambios estructurales. 920/920.
 - **Revisión 10 (2026-11-26).** Reutilización de la red de la poda:
   - Las podas devuelven `{ text, net }`; `moveSelection` publica la red final sólo si el texto coincide; `App` la usa si el texto actual es ese.
   - Reconstrucciones 4 → 3 con red reutilizable. Caso negativo probado (unión huérfana eliminada: sin reutilización).
