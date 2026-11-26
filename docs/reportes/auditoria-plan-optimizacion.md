@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 21)
+**Fecha:** 2026-11-26 (revisión 22)
 **Rama:** `astra-perfo`
-**Tipo:** auditoría + benchmark + deltas + paneo + medición de la consulta de hit-test y snap.
+**Tipo:** cierre del plan original + apertura del trabajo del cable fantasma.
 
-> **Revisión 21.** Mide la **consulta real** de `hitTest` y `snapTarget` con el contexto armado: p95 ≤ 0,22 ms (≈1 % de un cuadro). **No se justifica el índice.** El trazado del fantasma del mismo gesto cuesta 195–763 ms y queda como candidato separado. Ver 2.r.
+> **Revisión 22.** Mide el **trazado de cable** en producción: p95 150–167 ms y 8 recálculos de ruta por gesto; en dev, `routeOrthogonal` 1.719 ms propio contra React 363 ms. El plan original queda cerrado; el router del fantasma se abre como trabajo separado. Ver 2.s.
 
 ## Resumen ejecutivo
 
@@ -457,6 +457,39 @@ Candidatos que recorre cada consulta (**escaneo exhaustivo por hoja, sin filtro 
 
 **Decisión:** la consulta **no** explica una parte relevante de la latencia. **No se implementa el índice de hit-test**; queda documentado el dato. El costo del router del fantasma es un candidato separado, fuera de este cambio.
 
+### 2.s Trazado del cable fantasma: medición y trabajo separado
+
+**Gestos medidos:** seleccionar "Cable fase" en la paleta, primer clic (origen), 12 movimientos y clic final. La ruta se recalcula cuando cambia el hover snapeado.
+
+**Producción** (3 corridas de 12 movimientos, `PREVIEW_TRACE_GESTURE=wire`):
+
+| Corrida | p95 | Media | Cuadros | Recálculos de ruta | Duración del gesto |
+|---|---|---|---|---|---|
+| 1 | 150 ms | 103,5 ms | 52 | 8 | 5,26 s |
+| 2 | 166,7 ms | 105,7 ms | 53 | 8 | 5,45 s |
+| 3 | 166,7 ms | 103,5 ms | 51 | 8 | 6,06 s |
+
+Los 12 movimientos producen **8 recálculos**: el hover se queda en el mismo punto snapeado en varios pasos.
+
+**Perfil dev (pasada separada):**
+
+| Función | Tiempo propio |
+|---|---|
+| `routeOrthogonal` | **1.719 ms** |
+| React (bucket) | 363 ms |
+| `visitNode` | 450 ms |
+| `inside` (contención del router) | 225 ms |
+
+En el benchmark aislado el mismo cálculo da p50 195,5 ms / p95 762,6 ms con 2.736 obstáculos.
+
+**Conclusión:** el trazado del fantasma está dominado por el **algoritmo del router**, no por el render (React es ~5× menor). El plan original queda **cerrado**; el router es un problema distinto de arrastrar cables existentes y se abre como trabajo separado:
+
+1. Optimizar `routeOrthogonal` **sin cambiar la ruta visible** (preservar el camino exacto que ve el usuario).
+2. Confirmar con esta misma traza: p95 del gesto y recálculos por gesto.
+3. No mezclarlo con los cambios de preview ni con el índice de hit-test.
+
+Nota de método: el primer pase perfilado quedó invalidado porque reclicar "Cable fase" deseleccionaba la herramienta; se corrigió leyendo `aria-pressed` y se reporta sólo el pase válido.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -526,7 +559,8 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 9. **Piso del paneo explicado** (ver 2.p): 60 Hz reales; la hoja chica va a 16,7 ms y la grande a 33,4 ms; la traza apunta a style/layout, no a pintura.
 10. **Cámara CSS: probada y revertida** (ver 2.q). No mejora el p95 ni el style/layout; el atributo `transform` no queda demostrado como causante. Geometría verificada en ambas variantes.
 11. **Consulta de hit-test y snap medida** (ver 2.r): p95 ≤ 0,22 ms (≈1 % del cuadro). El **índice no se justifica** y queda descartado con datos. En cambio, el router del fantasma del mismo gesto cuesta 195–763 ms: candidato separado.
-12. **Cierre del plan:** todos los gestos medidos y optimizados donde la medición lo justificó; el índice queda descartado hasta que aparezca una consulta cara.
+12. **Cierre del plan original:** todos los gestos medidos y optimizados donde la medición lo justificó; la cámara CSS se revirtió y el índice de hit-test quedó descartado con datos.
+13. **Trabajo separado abierto:** router del cable fantasma (ver 2.s). `routeOrthogonal` domina el trazado (1.719 ms propios vs React 363 ms). Próximo paso: optimizarlo **sin cambiar la ruta visible** y confirmar con la traza del gesto.
 
 ## 8. Los gates de performance existentes
 
@@ -575,6 +609,10 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 22 (2026-11-26).** Cierre del plan y trazado del fantasma:
+  - Producción: p95 150–167 ms, 8 recálculos de ruta por gesto de 12 movimientos, 5,26–6,06 s por gesto.
+  - Dev: `routeOrthogonal` 1.719 ms propios vs React 363 ms; `inside` 225 ms.
+  - Plan original cerrado; router del fantasma como trabajo separado, con la condición de preservar la ruta visible. Baseline en `preview-prod-ghost-wire.json`.
 - **Revisión 21 (2026-11-26).** Consulta real de hit-test y snap:
   - `hitTest` p95 0,075–0,184 ms; `snapTarget` p95 0,067–0,223 ms sobre 5.472 tramos / 8.892 bornes (escaneo exhaustivo).
   - Aporte ≈1 % de un cuadro de 16,7 ms → **índice descartado con datos**.
