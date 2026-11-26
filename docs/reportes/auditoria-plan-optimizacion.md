@@ -1,11 +1,11 @@
 # Auditoría del plan de optimización del editor
 
 **Documento auditado:** [astra-optimizacion.md](../astra-optimizacion.md)
-**Fecha:** 2026-11-26 (revisión 29)
+**Fecha:** 2026-11-26 (revisión 30)
 **Rama:** `astra-perfo`
-**Tipo:** cierre del trazado y límite del índice de obstáculos.
+**Tipo:** verificación de entrega de la rama.
 
-> **Revisión 29.** Cierra el trabajo del trazado: router indexado, split transitorio e igualdad de hover, los tres medidos y mantenidos. Deja documentado que el índice **no** se puede cachear por documento (se construye sobre `blockers`, que excluye las cajas que tocan origen o destino) y qué evidencia haría falta para retomar los ~50 ms. Sin cambios de código. Ver 2.z.
+> **Revisión 30.** Verifica la rama contra `main` antes de integrar: 924/924 en unidad, pasada de producción con la hoja grande (`move` 33,3 · `pan` 33,3–33,4 · `wire` 50,0–50,1 ms) y E2E con los **mismos 3 fallos preexistentes**, confirmados en la base y documentados aparte. Corrige dos defectos de entrega (resumen de la traza de `pan` y registro ilimitado en `__routeTimes`). Ver 2.aa.
 
 ## Resumen ejecutivo
 
@@ -643,6 +643,31 @@ El test de goldens baja de 1.054 a 93 ms con las mismas rutas.
 
 **Para atacar los ~50 ms restantes:** primero medir qué trabajo ocupa esos cuadros cuando el objetivo sí cambia; no asumir que es el índice.
 
+### 2.aa Verificación de entrega
+
+**Alcance:** `astra-perfo` está 54 commits adelante de `main` (`232a577`) y 0 atrás; no hay merge pendiente.
+
+**Unidad:** 924/924 y `tsc --noEmit` limpio. Build de producción OK.
+
+**Pasada corta de producción** (hoja grande: 9.577 registros, 2.736 componentes, 228 bloques; zoom 2,756; vista 1440×900):
+
+| Gesto | p95 | Corridas | Rebuilds | Referencia |
+|---|---|---|---|---|
+| `move` | **33,3 ms** | 5/5 (33,3–33,4) | 0 | 2.o: 33,3–33,4 |
+| `pan` | **33,3–33,4 ms** | 5/5 | — | 2.p: piso 33,4 |
+| `wire` | **50,0–50,1 ms** | 3/3, 8 recálculos | — | 2.t: 50–67 |
+
+`move` se midió con y sin perfilador (33,4 en ambos). El baseline `preview-prod-gestures.json` (50 ms, 1 rebuild) es **anterior** a la capa de escena; el valor vigente es el de 2.o. La media del trazado quedó en 66–68 ms (antes 91–99), con el p95 de cuadro igual: el recálculo redundante eliminado se nota en el trabajo total, no en la cadencia.
+
+**E2E:** 38 pasan, 3 fallan, 1 salteado. Los tres fallos (`canvas-hover:20`, `editor-smoke:159`, `editor-smoke:195`) **ocurren igual en `main`** y quedan documentados en [fallos-e2e-preexistentes.md](fallos-e2e-preexistentes.md), sin corregir.
+
+**Correcciones de entrega:**
+
+1. La rama `pan` de la traza rompía en `zoom: view.zoom` después de escribir el JSON (`view` no existe en ese scope); el resumen ahora usa `zoom`.
+2. `routeOrthogonal` registraba cada llamada en `window.__routeTimes` y el arreglo crecía sin límite en producción. Ahora sólo registra si la traza instala el arreglo; sin diagnóstico no asigna ni crece. Verificado: `wirediag` sigue midiendo 6 recálculos en la fase A y 0 en la B.
+
+**Revisión:** el assess del rango `main..astra-perfo` da **medium / under_budget** (`review_due: false`): 48 archivos, 4.894 líneas. No hay recibo pendiente ni requerido por la compuerta. Sin push.
+
 ## 3. Verificación de las afirmaciones del plan
 
 | Afirmación | Resultado | Evidencia |
@@ -721,6 +746,7 @@ Total por confirmación: 7 → 5 (y 6 si la primera poda elimina un tramo). Por 
 18. **Capa transitoria: mantenida con la métrica correcta** (ver 2.x). Mediana 10,6 → 7,3–9,2 ms; p95 13,5 → 10,6–12,1; p95 de cuadro sin cambios.
 19. **Igualdad de hover implementada** (ver 2.y): igualdad exacta del punto snapeado. Fase B: 6 → **0 recálculos** y p95 de cuadro 33,3 → **16,7 ms**. Fase A: mismos 6 objetivos y rutas efectivas idénticas; latencia al DOM sin cambio. Se mantiene.
 20. **Trazado cerrado** (ver 2.z). El índice no se puede cachear por documento: se construye sobre `blockers`, que excluye las cajas que tocan origen o destino. Los ~50 ms restantes requieren medir el trabajo de esos cuadros antes de suponer una causa.
+21. **Verificación de entrega** (ver 2.aa): 924/924; producción `move` 33,3 · `pan` 33,3–33,4 · `wire` 50,0–50,1 ms; E2E con los mismos 3 fallos preexistentes confirmados en `main`. Assess `medium / under_budget`, sin recibo requerido. Sin push.
 
 ## 8. Los gates de performance existentes
 
@@ -769,6 +795,11 @@ cd app && node --test test/wiring-performance.test.ts test/parse-perf.test.ts
 
 ## Historial de correcciones
 
+- **Revisión 30 (2026-11-26).** Verificación de entrega:
+  - 54 commits adelante de `main`, 0 atrás. Unidad 924/924 y build OK.
+  - Producción: `move` 33,3 (5/5, 0 rebuilds), `pan` 33,3–33,4 (5/5), `wire` 50,0–50,1 con 8 recálculos (3/3).
+  - E2E: 38 pasan, 3 fallan y 1 salteado; los 3 fallos se reproducen en `main` y se documentan en `fallos-e2e-preexistentes.md`.
+  - Correcciones: resumen de la traza de `pan` y `__routeTimes` inerte salvo diagnóstico. Assess `medium / under_budget`.
 - **Revisión 29 (2026-11-26).** Cierre del trazado y límite del índice:
   - El índice se construye sobre `blockers` (excluye cajas que tocan origen o destino) → no cacheable por documento.
   - Los 18 ms de `buildBoxIndex` son acumulados por gesto en dev, no por cuadro.
