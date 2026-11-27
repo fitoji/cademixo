@@ -9,6 +9,17 @@
 @custom-variant dark (&:is(.dark *));
 @custom-variant moderno (&:is(.moderno *));
 
+/* Tirador de la barra flotante: sólo él captura el gesto de arrastre. */
+[data-drag-handle] {
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+[data-drag-handle][data-dragging] {
+  cursor: grabbing;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   /*

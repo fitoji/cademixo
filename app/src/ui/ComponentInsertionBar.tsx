@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   Command,
   CommandEmpty,
@@ -8,7 +8,7 @@ import {
   CommandList,
   createCommandController,
 } from '@ui-sdk/react/command';
-import { CornerDownLeftIcon } from 'lucide-react';
+import { CornerDownLeftIcon, GripVerticalIcon, Maximize2Icon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PaletteScope } from '../symbols/scope.ts';
 import { insertionMatches } from './insertion-matches.ts';
@@ -30,12 +30,91 @@ interface Props {
   className?: string;
 }
 
+interface Offset {
+  x: number;
+  y: number;
+}
+
+interface Box {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+const HOME: Offset = { x: 0, y: 0 };
+const STEP = 16;
+const BIG_STEP = 48;
+const THRESHOLD = 4;
+const MARGIN = 8;
+const PRESETS = ['abajo al centro', 'abajo a la izquierda', 'abajo a la derecha', 'arriba al centro'] as const;
+
+/** El mismo límite para puntero, teclado y presets: la barra no se pierde. */
+function clamp(base: Offset, rect: Box, host: Box, next: Offset): Offset {
+  const minX = Math.min(host.left + MARGIN - rect.left, host.right - MARGIN - rect.right);
+  const maxX = Math.max(host.left + MARGIN - rect.left, host.right - MARGIN - rect.right);
+  const minY = Math.min(host.top + MARGIN - rect.top, host.bottom - MARGIN - rect.bottom);
+  const maxY = Math.max(host.top + MARGIN - rect.top, host.bottom - MARGIN - rect.bottom);
+  return {
+    x: base.x + Math.min(Math.max(next.x - base.x, minX), maxX),
+    y: base.y + Math.min(Math.max(next.y - base.y, minY), maxY),
+  };
+}
+
 export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Props>(
   function ComponentInsertionBar({ scope, placing, onPick, onFocusCanvas, canSearch, className }, ref) {
     const controller = useMemo(() => createCommandController(), []);
     const [query, setQuery] = useState('');
     const matches = useMemo(() => insertionMatches(scope, query), [scope, query]);
     const searching = query.trim() !== '';
+
+    const rootRef = useRef<HTMLDivElement | null>(null);
+    const drag = useRef<{
+      pointerId: number;
+      startX: number;
+      startY: number;
+      offset: Offset;
+      rect: Box;
+      host: Box;
+      moved: boolean;
+    } | null>(null);
+    const [offset, setOffset] = useState<Offset>(HOME);
+    const [dragging, setDragging] = useState(false);
+    const [preset, setPreset] = useState(0);
+    const [announcement, setAnnouncement] = useState('');
+
+    const geometry = useCallback((): { rect: Box; host: Box } | null => {
+      const root = rootRef.current;
+      const host = root?.parentElement;
+      if (!root || !host) return null;
+      const a = root.getBoundingClientRect();
+      const b = host.getBoundingClientRect();
+      return { rect: a, host: b };
+    }, []);
+
+    const atHome = useCallback((rect: Box, current: Offset): Box => ({
+      left: rect.left - current.x,
+      right: rect.right - current.x,
+      top: rect.top - current.y,
+      bottom: rect.bottom - current.y,
+    }), []);
+
+    const moveBy = (dx: number, dy: number, label: string): void => {
+      const box = geometry();
+      if (box === null) return;
+      setOffset(clamp(offset, box.rect, box.host, { x: offset.x + dx, y: offset.y + dy }));
+      setAnnouncement(`Barra movida ${label}`);
+    };
+
+    useEffect(() => {
+      const onResize = (): void => {
+        const box = geometry();
+        if (box === null) return;
+        setOffset((current) => clamp(HOME, atHome(box.rect, current), box.host, current));
+      };
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }, [atHome, geometry]);
 
     const clear = (): void => {
       controller.setQuery('');
@@ -63,9 +142,29 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
       onFocusCanvas();
     };
 
+    const cyclePreset = (): void => {
+      const box = geometry();
+      if (box === null) return;
+      const rest = atHome(box.rect, offset);
+      const next = (preset + 1) % PRESETS.length;
+      const target: Offset =
+        next === 1
+          ? { x: box.host.left + MARGIN - rest.left, y: 0 }
+          : next === 2
+            ? { x: box.host.right - MARGIN - rest.right, y: 0 }
+            : next === 3
+              ? { x: 0, y: box.host.top + MARGIN - rest.top }
+              : HOME;
+      setOffset(clamp(HOME, rest, box.host, target));
+      setPreset(next);
+      setAnnouncement(`Barra ${PRESETS[next]}`);
+    };
+
     return (
       <div
+        ref={rootRef}
         data-component-insertion-bar=""
+        style={{ transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)` }}
         className={cn(
           'z-30 rounded-sm border border-border bg-card text-foreground shadow-float moderno:rounded-lg',
           className,
@@ -96,7 +195,84 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
           if (searching) clear();
         }}
       >
+        <span role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </span>
         <div className="flex h-9 items-center gap-2 px-2.5 focus-within:ring-2 focus-within:ring-ring/40 moderno:focus-within:ring-primary/30">
+          <button
+            type="button"
+            data-drag-handle=""
+            data-dragging={dragging ? '' : undefined}
+            aria-label="Mover barra de inserción. Usá las flechas; con Mayús, pasos grandes; Inicio la centra."
+            title="Arrastrar para mover"
+            className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              const box = geometry();
+              if (box === null) return;
+              drag.current = {
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                offset,
+                rect: box.rect,
+                host: box.host,
+                moved: false,
+              };
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              const active = drag.current;
+              if (active === null || active.pointerId !== event.pointerId) return;
+              const dx = event.clientX - active.startX;
+              const dy = event.clientY - active.startY;
+              if (!active.moved && Math.hypot(dx, dy) < THRESHOLD) return;
+              active.moved = true;
+              setDragging(true);
+              setOffset(clamp(active.offset, active.rect, active.host, {
+                x: active.offset.x + dx,
+                y: active.offset.y + dy,
+              }));
+            }}
+            onPointerUp={(event) => {
+              const active = drag.current;
+              drag.current = null;
+              setDragging(false);
+              if (active?.moved === true) setAnnouncement('Barra movida');
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+              }
+            }}
+            onPointerCancel={() => {
+              drag.current = null;
+              setDragging(false);
+            }}
+            onLostPointerCapture={() => setDragging(false)}
+            onKeyDown={(event) => {
+              const step = event.shiftKey ? BIG_STEP : STEP;
+              if (event.key === 'ArrowLeft') moveBy(-step, 0, 'a la izquierda');
+              else if (event.key === 'ArrowRight') moveBy(step, 0, 'a la derecha');
+              else if (event.key === 'ArrowUp') moveBy(0, -step, 'arriba');
+              else if (event.key === 'ArrowDown') moveBy(0, step, 'abajo');
+              else if (event.key === 'Home') {
+                setOffset(HOME);
+                setPreset(0);
+                setAnnouncement('Barra abajo al centro');
+              } else return;
+              event.preventDefault();
+            }}
+          >
+            <GripVerticalIcon aria-hidden="true" className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-label={`Mover barra ${PRESETS[(preset + 1) % PRESETS.length]}`}
+            title="Mover a otra posición"
+            className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            onClick={cyclePreset}
+          >
+            <Maximize2Icon aria-hidden="true" className="size-3" />
+          </button>
           <span
             aria-hidden="true"
             className="shrink-0 font-mono text-[11px] font-medium text-ring moderno:text-primary"

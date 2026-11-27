@@ -2179,7 +2179,7 @@ export function App(): JSX.Element {
             onPick={paletteOnPick}
             onFocusCanvas={focusCanvas}
             canSearch={canSearch}
-            className="absolute bottom-32 left-1/2 z-30 w-[min(720px,calc(100%-2rem))] -translate-x-1/2"
+            className="absolute bottom-32 left-1/2 z-30 w-[min(720px,calc(100%-2rem))]"
           />
         </div>
 
