@@ -13,7 +13,7 @@
  * valores por defecto sin romper la aplicación.
  */
 
-import type { CableHandling } from '../editor/wiring/cable-move.ts';
+import { CABLE_HANDLINGS, type CableHandling } from '../editor/wiring/cable-move.ts';
 
 export type PinSize = 'chico' | 'normal' | 'grande';
 export type WireWidth = 'fino' | 'normal' | 'grueso';
@@ -73,7 +73,6 @@ export const SETTINGS_KEY = 'simuelectro:ajustes';
 const PIN_SIZES: readonly PinSize[] = ['chico', 'normal', 'grande'];
 const WIRE_WIDTHS: readonly WireWidth[] = ['fino', 'normal', 'grueso'];
 const PANELES: readonly Paneles[] = ['horizontal', 'vertical'];
-const CABLE_HANDLINGS: readonly CableHandling[] = ['actual', 'ortogonal'];
 
 function isPinSize(value: unknown): value is PinSize {
   return typeof value === 'string' && (PIN_SIZES as readonly string[]).includes(value);
