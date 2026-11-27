@@ -273,7 +273,7 @@ test('las versiones recuperables se descargan como copia sin reparar el archivo 
   const downloadPromise = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Descargar copia' }).first().click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe('plano.cad');
+  expect(download.suggestedFilename()).toBe('plano.mixo');
   const path = await download.path();
   expect(readFileSync(path!, 'latin1')).toBe(original);
   // La recuperación no escribió en el archivo abierto.

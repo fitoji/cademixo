@@ -36,8 +36,9 @@ espacio/permiso para conservarla, **no se sobreescribe**: se avisa y se ofrece
 `Archivo → Recuperar versión…` lista las generaciones del proyecto actual con
 su revisión, fecha y tamaño. Cada fila permite:
 
-- **Descargar copia**: baja la revisión como `.cad` nuevo; el archivo abierto no
-  se toca.
+- **Descargar copia**: baja la revisión con su extensión original (`.mixo` o
+  `.cad`), para no perder el manifiesto y los atajos al volver a guardarla; el
+  archivo abierto no se toca.
 - **Borrar**: elimina esa copia del navegador.
 
 Si al abrir un proyecto el sidecar de atajos es inválido, la apertura se

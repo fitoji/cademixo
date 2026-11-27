@@ -956,7 +956,10 @@ export function App(): JSX.Element {
 
   const downloadRecovery = useCallback(
     (entry: RecoveryEntry): void => {
-      const name = cadFileName(entry.name);
+      // La copia conserva su extensión: si es un `.mixo`, sus bytes incluyen
+      // dibujo, atajos y manifiesto; renombrarla a `.cad` los perdería al
+      // volver a guardar.
+      const name = entry.name;
       downloadBytes(entry.bytes, name);
       flash(`descarga iniciada: ${name}; el archivo original no se reparó`);
     },

@@ -42,7 +42,9 @@ export function RecoveryDialog({
         <DialogHeader>
           <DialogTitle>Versiones recuperables</DialogTitle>
           <DialogDescription>
-            Copias de «{projectId}» guardadas en este navegador. {contract.note}
+            Copias de «{projectId}» guardadas en este navegador. {contract.note} Si no
+            hay cuota para conservar la generación anterior, el guardado se rechaza
+            y se ofrece otro destino.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 py-2">

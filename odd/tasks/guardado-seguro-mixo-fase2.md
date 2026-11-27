@@ -52,5 +52,21 @@ Feature: Fase 2 de `docs/plan-guardado-seguro-mixo.md`. Branch:
   listado/descarga de versiones sin escribir el original. Fallos simulados:
   `write`/`close` con stubs. Sin prueba de corte de energía; S5 no aplicable.
 - L8: Risk: item 1 (copias persistentes en IndexedDB y reemplazo de archivos
-  del usuario) e item 3 (flujo de guardado compartido). Requiere evaluación
-  nativa antes de entrega.
+  del usuario) e item 3 (flujo de guardado compartido). Assess nativo sobre
+  `7249a32`: `medium`, `review_due: false`, `under_budget` (14 paths, 1084
+  líneas); no se abrió revisión.
+- L9: verificador técnico independiente (ítems 1 y 3): sin bloqueadores;
+  S1/S2/S3/S4/S6 met, S5 `not implemented` por no existir Rust. Reprodujo en
+  scratch: fallo de cuota al preservar (archivo byte-idéntico, sin escritura),
+  fallo de `close`, relectura distinta, archivo vacío, identidad por
+  proyecto/revisión y contrato de garantías. Los 2 fallos de `editor-smoke`
+  aparecen igual en la base. Avisos atendidos: la copia de un `.mixo` se
+  descargaba como `.cad` (perdería atajos al re-guardarla) → conserva su
+  extensión; se añadió el aviso de cuota al diálogo. Se agregaron sus 9 probes
+  como `app/test/verifier-highrisk-probe.test.ts`. Recheck: `tsc` limpio,
+  build OK, 982/982 unitarios y 9/9 e2e de foco. Scratch
+  `/private/var/folders/yw/6bjyc44d1rgg5163wpzd1cr80000gn/T/opencode/cademixo-verify-QpF0bF`
+  borrado.
+- L10: límite no probado: agotamiento real de cuota y borrado de datos del sitio
+  en navegador (no hay comando autorizado para forzarlos); el rechazo por cuota
+  se probó a nivel de adaptador. Sin declaración de resistencia a cortes.
