@@ -29,7 +29,10 @@ su formato. Branch: `feat/guardado-seguro-mixo-v1`. Test runner: `pnpm test` y
   revisión sigue siendo la actual.
 - T4 (S4): verificación unitaria, `tsc`, build y foco e2e; informar qué se probó
   en navegador real y qué queda simulado. Route: inline. DONE — `tsc` limpio,
-  build OK, 960/960 dos corridas seguidas, 6/6 e2e de foco.
+  build OK, 960/960 (961 tras la corrección) y 7/7 e2e de foco.
+- T5 (S3, revisión): corrección acotada del bloqueador de adopción del handle
+  elegido. Route: inline. DONE — commit `b66b224`, 123/-4 líneas, validado por
+  el revisor dirigido y aprobado por el motor nativo.
 
 ## Log
 
@@ -64,5 +67,18 @@ su formato. Branch: `feat/guardado-seguro-mixo-v1`. Test runner: `pnpm test` y
   resistencia a cortes de energía.
 - L8: Risk: item 3 (flujo de guardado compartido por Guardar, Guardar como,
   sidecar y descarga; helpers `drawingHash`/`encodeLatin1` movidos con
-  re-export). Sin verifier independiente todavía; pendiente de la decisión de
-  revisión nativa.
+  re-export).
+- L9: revisión nativa autorizada por la persona (`granted`). Candidato
+  `14c345c`, linaje `review-df69b086edf5169c`, 4 lentes. Los tres lentes
+  ejecutables encontraron el mismo bloqueador: al guardar con selector, la
+  adopción del handle/nombre quedó detrás de `isCurrentSave`, que comparaba
+  contra los refs viejos. Corrección `b66b224`: `completionHandle` y
+  `completionName` usan el destino escrito cuando el resultado es
+  `confirmed`; se fijó con test unitario y e2e real (`footer` muestra
+  `plano.mixo` y sin indicador de cambios pendientes). El validador dirigido
+  confirmó los dos criterios sin regresión. Receipt `review-acknowledged/v1`,
+  autoridad quemada. Hallazgos informativos: duplicación del armado del
+  payload, input booleano en `buildVerifiedDocumentBytes` y `writeHandle`
+  (falso positivo: sigue usándose en `writeSidecar`).
+- L10: verifier técnico independiente en curso para el ítem 3; su veredicto se
+  incorpora al cerrar.
