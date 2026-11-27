@@ -57,7 +57,9 @@ test('sin coincidencias, Escape, Tab y clic fuera cierran sin insertar', async (
 
   await canvas.focus();
   await page.keyboard.type('zzzz');
-  await expect(page.getByRole('status')).toHaveText('Sin componentes para «zzzz»');
+  await expect(page.locator('[data-component-insertion-bar] [data-slot="command-empty"]')).toHaveText(
+    'Sin componentes para «zzzz»',
+  );
   await page.keyboard.press('Enter');
   await expect(field).toHaveValue('zzzz');
   await expect(canvas.locator('g[data-id]')).toHaveCount(before);
@@ -135,6 +137,41 @@ test('barra y paleta devuelven los mismos códigos en el mismo orden', async ({ 
 
     await page.keyboard.press('Escape');
   }
+});
+
+test('la barra flotante no tapa los controles del lienzo', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('simuelectro:estilo', 'moderno');
+    localStorage.setItem('simuelectro:mode', 'light');
+  });
+  const canvas = await openFixture(page);
+  const bar = page.locator('[data-component-insertion-bar]');
+  expect(await bar.evaluate((el) => getComputedStyle(el).position)).toBe('absolute');
+
+  const barBox = await bar.boundingBox();
+  expect(barBox).not.toBeNull();
+  const overlaps = (other: { x: number; y: number; width: number; height: number } | null): boolean => {
+    if (other === null) return false;
+    const a = barBox!;
+    return (
+      a.x < other.x + other.width &&
+      a.x + a.width > other.x &&
+      a.y < other.y + other.height &&
+      a.y + a.height > other.y
+    );
+  };
+
+  for (const name of ['Alejar', 'Acercar', 'Atajos del lienzo']) {
+    expect(overlaps(await page.getByRole('button', { name }).boundingBox())).toBe(false);
+  }
+
+  await canvas.focus();
+  await page.keyboard.type('motor');
+  await page.getByRole('button', { name: 'Atajos del lienzo' }).click();
+  expect(overlaps(await page.locator('div.bottom-14').boundingBox())).toBe(false);
+
+  const prompt = page.locator('[data-component-insertion-bar] span').first();
+  expect(await prompt.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/mono/i);
 });
 
 test('la lista cabe y no desplaza la vista en una ventana estrecha', async ({ page }) => {

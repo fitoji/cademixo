@@ -2110,7 +2110,7 @@ export function App(): JSX.Element {
           </Button>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="relative flex min-h-0 flex-1 flex-col">
           {/* La paleta va arriba en horizontal y a la izquierda del lienzo en
               vertical: es la misma pieza, cambia sólo dónde se monta. */}
           {settings.paneles === 'horizontal' && palette}
@@ -2179,6 +2179,7 @@ export function App(): JSX.Element {
             onPick={paletteOnPick}
             onFocusCanvas={focusCanvas}
             canSearch={canSearch}
+            className="absolute bottom-32 left-1/2 z-30 w-[min(720px,calc(100%-2rem))] -translate-x-1/2"
           />
         </div>
 

@@ -8,7 +8,8 @@ import {
   CommandList,
   createCommandController,
 } from '@ui-sdk/react/command';
-import { CornerDownLeftIcon, SearchIcon } from 'lucide-react';
+import { CornerDownLeftIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { PaletteScope } from '../symbols/scope.ts';
 import { insertionMatches } from './insertion-matches.ts';
 import { recordRecentUse } from './recent.ts';
@@ -26,10 +27,11 @@ interface Props {
   onPick: (code: number) => void;
   onFocusCanvas: () => void;
   canSearch: () => boolean;
+  className?: string;
 }
 
 export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Props>(
-  function ComponentInsertionBar({ scope, placing, onPick, onFocusCanvas, canSearch }, ref) {
+  function ComponentInsertionBar({ scope, placing, onPick, onFocusCanvas, canSearch, className }, ref) {
     const controller = useMemo(() => createCommandController(), []);
     const [query, setQuery] = useState('');
     const matches = useMemo(() => insertionMatches(scope, query), [scope, query]);
@@ -64,7 +66,10 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
     return (
       <div
         data-component-insertion-bar=""
-        className="relative z-20 shrink-0 border-t border-border bg-card px-2 py-1 shadow-chrome-up"
+        className={cn(
+          'z-30 rounded-sm border border-border bg-card text-foreground shadow-float moderno:rounded-lg',
+          className,
+        )}
         onKeyDownCapture={(event) => {
           // La composición IME consume Enter antes que la lista: no confirmar
           // una fila con la tecla que termina de escribir el carácter.
@@ -91,8 +96,13 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
           if (searching) clear();
         }}
       >
-        <div className="flex h-8 items-center gap-2 rounded-md border border-border bg-background px-2 focus-within:ring-2 focus-within:ring-ring/40">
-          <SearchIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+        <div className="flex h-9 items-center gap-2 px-2.5 focus-within:ring-2 focus-within:ring-ring/40 moderno:focus-within:ring-primary/30">
+          <span
+            aria-hidden="true"
+            className="shrink-0 font-mono text-[11px] font-medium text-ring moderno:text-primary"
+          >
+            Insertar:
+          </span>
           <Command
             controller={controller}
             filter={false}
@@ -103,31 +113,41 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
           >
             <CommandInput
               aria-label="Buscar componente para insertar"
-              placeholder="Insertar componente: nombre o código…"
-              className="h-7 w-full min-w-0 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+              placeholder="nombre o código…"
+              className="h-full w-full min-w-0 bg-transparent font-mono text-xs text-foreground caret-ring outline-none placeholder:text-muted-foreground moderno:caret-primary"
             />
             {searching && (
               <>
-                <CommandEmpty role="status" className="sr-only">
-                  {(state) =>
-                    state.empty && !state.loading
-                      ? `Sin componentes para «${query.trim()}»`
-                      : null
-                  }
-                </CommandEmpty>
-                <CommandList className="absolute right-0 bottom-full left-0 mb-1 max-h-[min(260px,42vh)] overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-float">
+                {matches.length === 0 && (
+                  <CommandEmpty
+                    role="status"
+                    className="absolute right-0 bottom-full left-0 mb-1 rounded-sm border border-border bg-popover px-2.5 py-2 font-mono text-[11px] text-muted-foreground shadow-float moderno:rounded-lg"
+                  >
+                    {(state) =>
+                      state.empty && !state.loading
+                        ? `Sin componentes para «${query.trim()}»`
+                        : null
+                    }
+                  </CommandEmpty>
+                )}
+                <CommandList
+                  className={cn(
+                    'absolute right-0 bottom-full left-0 mb-1 max-h-[min(260px,40vh)] overflow-y-auto rounded-sm border border-border bg-popover p-0 shadow-float moderno:rounded-lg',
+                    matches.length === 0 && 'hidden',
+                  )}
+                >
                   {matches.map((sym) => (
                     <CommandItem
                       key={sym.code}
                       value={String(sym.code)}
                       data-code={sym.code}
                       aria-label={`${sym.name}, código ${sym.code}, ${GROUP_LABEL[sym.group]}`}
-                      className="flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[highlighted]:outline data-[highlighted]:outline-1 data-[highlighted]:outline-border"
+                      className="flex items-center gap-2 border-b border-border/60 px-2 py-1.5 text-xs last:border-b-0 data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[highlighted]:outline-1 data-[highlighted]:outline-ring data-[highlighted]:-outline-offset-1"
                     >
                       {(state) => (
                         <>
                           <span
-                            className="pal-tone grid size-7 shrink-0 place-items-center rounded border"
+                            className="pal-tone grid size-7 shrink-0 place-items-center rounded-[2px] border"
                             style={{ '--ink': GROUP_TONE[sym.group] } as CSSProperties}
                             aria-hidden="true"
                           >
@@ -150,12 +170,14 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
           </Command>
           <span
             aria-hidden="true"
-            className="hidden shrink-0 gap-2 font-mono text-[10px] text-muted-foreground sm:flex"
+            className="hidden shrink-0 gap-1.5 font-mono text-[10px] text-muted-foreground sm:flex"
           >
             {placing === null ? (
               <>
                 <span>↑↓ elegir</span>
+                <span aria-hidden="true">·</span>
                 <span>Enter preparar</span>
+                <span aria-hidden="true">·</span>
                 <span>Esc cancelar</span>
               </>
             ) : (
