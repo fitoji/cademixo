@@ -98,22 +98,29 @@ async function installPickerStubs(
   await page.evaluate(({ files, queuedFiles, shouldFailWrites }) => {
     const state = { openCalls: 0, saveCalls: 0, writeHandles: [] as string[], failWrites: shouldFailWrites };
     (window as TestWindow).__pickerState = state;
-    const createHandle = (name: keyof typeof files) => ({
-      name,
-      async getFile() {
-        return new File([Uint8Array.from(files[name])], name, { type: 'application/octet-stream' });
-      },
-      async createWritable() {
-        return {
-          async write() {
-            state.writeHandles.push(name);
-            if (state.failWrites) throw new Error('test write failed');
-          },
-          async close() {},
-          async abort() {},
-        };
-      },
-    });
+    const createHandle = (name: keyof typeof files) => {
+      let current = Uint8Array.from(files[name]);
+      let pending = current;
+      return {
+        name,
+        async getFile() {
+          return new File([current], name, { type: 'application/octet-stream' });
+        },
+        async createWritable() {
+          return {
+            async write(chunk: Uint8Array | string) {
+              state.writeHandles.push(name);
+              if (state.failWrites) throw new Error('test write failed');
+              pending = typeof chunk === 'string' ? new TextEncoder().encode(chunk) : new Uint8Array(chunk);
+            },
+            async close() {
+              current = pending;
+            },
+            async abort() {},
+          };
+        },
+      };
+    };
 
     Object.defineProperty(window, 'showOpenFilePicker', {
       configurable: true,

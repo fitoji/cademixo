@@ -90,7 +90,7 @@ import { ComponentInsertionBar, type ComponentInsertionBarHandle } from './Compo
 import { WIRE_CORNER_RADIUS } from './wire-corner.ts';
 import { Palette } from './Palette.tsx';
 import { Inspector } from './Inspector.tsx';
-import { SAMPLES, loadSample, loadFile, downloadCade } from './samples.ts';
+import { SAMPLES, loadSample, loadFile, downloadBytes, downloadCade } from './samples.ts';
 import {
   hasFileSystemAccess,
   normalizeSaveName,
@@ -101,14 +101,24 @@ import {
   suggestedSaveName,
   writeHandle,
 } from './files.ts';
+import { publishRevision } from './save-adapter.ts';
+import { browserRecoveryStore, projectIdFor, type RecoveryEntry } from './recovery-store.ts';
+import {
+  beginSave,
+  completionHandle,
+  completionName,
+  isCurrentSave,
+  type SaveContext,
+  type SaveOutcome,
+} from './save-coordinator.ts';
 import { isApplePlatform, isTypingTarget, ownsSpaceKey, useShortcut, useShortcutHint } from './shortcuts.ts';
 import { getBindings, keyEventToKeys, subscribeBindings } from './shortcut-bindings.ts';
 import { JUNCTION_TEMPLATE, WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { templateForPlacement } from '../symbols/place.ts';
 import { blankDocument } from '../format/blank.ts';
 import { DEFAULT_FILE_NAME, cadFileName, isMixoFileName } from '../format/filename.ts';
-import { isCadeDocument } from '../format/cade.ts';
-import { parseMixo, serializeMixo } from '../format/mixo.ts';
+import { buildVerifiedDocumentBytes } from '../format/mixo-revision.ts';
+import { canAttemptOpen, inspectTextForOpen } from './mixo-open.ts';
 import { circuitFrom } from '../sim/circuit.ts';
 import { detectFaults, type SimulationFault } from '../sim/faults.ts';
 import { faultFinding } from './fault-avisos.ts';
@@ -173,6 +183,7 @@ import { ProjectSettingsDialog } from './ProjectSettingsDialog.tsx';
 import { TitleBlockDialog } from './TitleBlockDialog.tsx';
 import { ShortcutsDialog } from './ShortcutsDialog.tsx';
 import { SaveAsDialog } from './SaveAsDialog.tsx';
+import { RecoveryDialog } from './RecoveryDialog.tsx';
 import { getScope, setScope, subscribeScope } from '../symbols/scope.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { getSettings, setSettings, subscribeSettings, wireStroke } from './settings.ts';
@@ -228,6 +239,9 @@ function protectionStateOf(code: number, state?: 'closed' | 'open'): 'closed' | 
 /** Conjunto vacío de identidad estable: sin paso de simulación nadie cumple el retardo. */
 const NO_TIMER_READY: ReadonlySet<number> = new Set<number>();
 
+/** Copias de recuperación del navegador; no toca IndexedDB hasta que se usa. */
+const recoveryStore = browserRecoveryStore();
+
 export function App(): JSX.Element {
   const [state, setState] = useState<EditorState | null>(null);
   const [fileName, setFileName] = useState('');
@@ -269,6 +283,9 @@ export function App(): JSX.Element {
    */
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [saveAsTarget, setSaveAsTarget] = useState<'cade' | 'mixo'>('cade');
+  /** Copias buenas conservadas en el navegador, independientes del archivo actual. */
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryEntries, setRecoveryEntries] = useState<RecoveryEntry[]>([]);
   /** Primer clic de un cable: origen. El segundo clic lo cierra. */
   const [wireStart, setWireStart] = useState<{ x: number; y: number } | null>(null);
   // Drop de archivos: profundidad de `dragenter` para que el aviso no parpadee
@@ -397,6 +414,26 @@ export function App(): JSX.Element {
    * destino nuevo. Ni «Nuevo» ni un ejemplo tienen archivo detrás.
    */
   const fileHandle = useRef<FileSystemFileHandle | null>(null);
+  /**
+   * Guardado: secuencia creciente y cola de escrituras. Una finalización vieja
+   * nunca gana a una revisión posterior ni marca el documento equivocado.
+   * Los espejos se actualizan en efectos para comparar contra lo que hay en
+   * pantalla cuando la escritura en vuelo termina.
+   */
+  const saveSequence = useRef(0);
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve());
+  const stateRef = useRef(state);
+  const shortcutsRef = useRef(componentShortcuts);
+  const fileNameRef = useRef(fileName);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+  useEffect(() => {
+    shortcutsRef.current = componentShortcuts;
+  }, [componentShortcuts]);
+  useEffect(() => {
+    fileNameRef.current = fileName;
+  }, [fileName]);
 
   // El grosor de cable es una variable CSS: el lienzo la consume en `diagram.css`.
   useEffect(() => {
@@ -475,19 +512,46 @@ export function App(): JSX.Element {
    */
   const openLoaded = useCallback(
     (text: string, name: string, handle: FileSystemFileHandle | null = null): boolean => {
-      const bundle = parseMixo(text);
-      if (bundle) {
-        if (!isCadeDocument(bundle.drawing)) {
+      const inspection = inspectTextForOpen(text);
+      if (inspection.kind === 'rejected') {
+        if (inspection.reason === 'bad-keys' && inspection.drawing !== null) {
+          // El documento actual NO se toca y el archivo original NO se reescribe.
+          // La recuperación es una copia nueva con nombre de `.cad`.
+          const drawing = inspection.drawing;
+          toast('no se cargó: los atajos del proyecto no son válidos', {
+            duration: 8000,
+            action: {
+              label: 'Recuperar dibujo como copia',
+              onClick: () => {
+                downloadCade(drawing, cadFileName(name));
+                toast('dibujo recuperado como copia; el archivo original no se tocó');
+              },
+            },
+          });
+          void recoveryStore.list(projectIdFor(name)).then((entries) => {
+            if (entries.length > 0) {
+              toast(`hay ${entries.length} copia(s) recuperable(s) en este navegador`, {
+                action: {
+                  label: 'Ver copias',
+                  onClick: () => {
+                    setRecoveryEntries(entries);
+                    setRecoveryOpen(true);
+                  },
+                },
+              });
+            }
+          });
+        } else {
           flash('no se cargó: el proyecto no contiene un esquema CADe_SIMU', 'error');
-          return false;
         }
-        const keys = parseSidecar(bundle.keys);
-        openText(bundle.drawing, name, handle, { bindings: keys?.bindings ?? {}, mode: 'mixo' });
-        return true;
-      }
-      if (!isCadeDocument(text)) {
-        flash('no se cargó: el archivo no parece un esquema CADe_SIMU', 'error');
         return false;
+      }
+      if (inspection.kind === 'mixo-valid') {
+        openText(inspection.bundle.drawing, name, handle, {
+          bindings: inspection.keys.bindings,
+          mode: 'mixo',
+        });
+        return true;
       }
       openText(text, name, handle);
       return true;
@@ -495,11 +559,12 @@ export function App(): JSX.Element {
     [flash, openText],
   );
 
-  /** El contenido es abrible si es un `.cad` o un `.mixo` con dibujo CADe. */
-  const isValidOpenText = useCallback((text: string): boolean => {
-    const bundle = parseMixo(text);
-    return isCadeDocument(bundle?.drawing ?? text);
-  }, []);
+  /**
+   * El contenido es abrible si es un `.cad` o un `.mixo` con dibujo CADe. Un
+   * sidecar roto llega hasta `openLoaded`, que ofrece recuperar el dibujo; un
+   * archivo que ni siquiera es CADe se corta antes de preguntar por guardar.
+   */
+  const isValidOpenText = useCallback((text: string): boolean => canAttemptOpen(text), []);
 
   /** Proyecto nuevo: si hay cambios sin guardar, primero pregunta. */
   const newProject = useCallback(() => {
@@ -598,26 +663,37 @@ export function App(): JSX.Element {
   }, [importSidecarFile]);
 
   const writeDocument = useCallback(
-    async (handle: FileSystemFileHandle, text: string): Promise<boolean> => {
+    async (handle: FileSystemFileHandle, text: string): Promise<SaveOutcome> => {
       const native = isMixoFileName(handle.name);
       const hash = drawingHash(text);
       const bindings = componentShortcuts.bindings;
-      const output = native
-        ? serializeMixo({
-            drawing: text,
-            keys: serializeSidecar({ version: 2, drawingHash: hash, sourceName: handle.name, bindings }),
-            manifest: { format: 'cademixo', version: 1, sourceName: handle.name },
-          })
-        : text;
-      try {
-        await writeHandle(handle, output);
-      } catch {
-        flash('no se guardó: no se pudo escribir el archivo', 'error');
-        return false;
+      // Se escriben los MISMOS bytes que se verificaron; no se vuelve a
+      // serializar después de la comprobación.
+      const payload = buildVerifiedDocumentBytes({
+        drawing: text,
+        native,
+        ...(native
+          ? {
+              keys: serializeSidecar({ version: 2, drawingHash: hash, sourceName: handle.name, bindings }),
+              manifest: { format: 'cademixo' as const, version: 1 as const, sourceName: handle.name },
+            }
+          : {}),
+      });
+      if (payload === null) {
+        flash('no se guardó: la revisión no coincide con los bytes a escribir', 'error');
+        return 'failed';
       }
-      fileHandle.current = handle;
-      setFileName(handle.name);
-      setDocumentMode(native ? 'mixo' : 'cade');
+      // El adaptador conserva primero la generación previa, escribe y espera
+      // el cierre, y confirma por relectura antes de rotar las copias.
+      const published = await publishRevision({ handle, bytes: payload.bytes, store: recoveryStore });
+      if (!published.ok) {
+        const advice =
+          published.reason === 'preserve-failed'
+            ? ' no se tocó el archivo; probá Guardar como…'
+            : '';
+        flash(`no se guardó: ${published.detail}.${advice}`, 'error');
+        return 'failed';
+      }
       writeComponentBindings(hash, bindings, { drawingHash: hash, sourceName: handle.name });
       if (native) {
         // Todo vive adentro del `.mixo`; el sidecar hermano deja de tener sentido.
@@ -625,9 +701,9 @@ export function App(): JSX.Element {
       } else {
         await writeSidecar(text, handle.name, bindings);
       }
-      setState((s) => (s && s.text === text ? markSaved(s) : s));
-      cue('guardar');
-      return true;
+      // La identidad del documento la adopta `saveDocument` sólo si esta
+      // escritura sigue siendo la revisión actual al terminar.
+      return 'confirmed';
     },
     [flash, componentShortcuts, writeSidecar],
   );
@@ -641,78 +717,108 @@ export function App(): JSX.Element {
    * se escribe por ningún camino.
    */
   const saveDocument = useCallback(
-    async (mode: 'save' | 'save-as', targetArg?: 'cade' | 'mixo'): Promise<boolean> => {
-      if (!state) return false;
+    async (mode: 'save' | 'save-as', targetArg?: 'cade' | 'mixo'): Promise<SaveOutcome> => {
+      const doc = stateRef.current;
+      if (!doc) return 'failed';
       const target = targetArg ?? documentMode;
-      if (!roundTrips(state.text)) {
+      if (!roundTrips(doc.text)) {
         flash('no se guardó: el documento no re-parsea igual', 'error');
-        return false;
+        return 'failed';
       }
-      const text = state.text;
+      const text = doc.text;
+      // «Guardar como…» NUNCA reescribe el archivo abierto, aunque haya handle:
+      // siempre pide destino (o abre el diálogo de nombre en el fallback).
       const openHandle = mode === 'save' ? fileHandle.current : null;
       const action = planSaveAction({
         hasHandle: openHandle !== null,
         browserSupportsPickers: hasFileSystemAccess(),
       });
-      if (action === 'write-in-place' && openHandle) {
-        return writeDocument(openHandle, text);
-      }
+
+      let handle: FileSystemFileHandle | null = openHandle;
       if (action === 'pick-location') {
         // Se sugiere el `.cad` normalizado; el nombre que queda en pantalla es
         // el del archivo que el usuario eligió.
-        let picked: FileSystemFileHandle | null;
         try {
-          picked = await pickSaveHandle(suggestedSaveName(fileName, target === 'mixo'), target === 'mixo');
+          handle = await pickSaveHandle(suggestedSaveName(fileNameRef.current, target === 'mixo'), target === 'mixo');
         } catch {
           flash('no se guardó: no se pudo abrir el selector de destino', 'error');
-          return false;
+          return 'failed';
         }
-        // `null` es cancelación: el usuario decidió no escribir en ningún lado.
-        if (!picked) {
+        if (handle === null) {
           flash('no se guardó: no se eligió destino', 'error');
-          return false;
+          return 'cancelled';
         }
         // Otro archivo es otro sidecar: se vuelve a pedir destino.
         sidecarHandle.current = null;
-        return writeDocument(picked, text);
       }
-      // Sin selectores: se descarga, con el `.cad` normalizado como nombre. La
-      // diferencia entre «Guardar» y «Guardar como…» es el nombre: «Guardar» usa
-      // el del documento y «Guardar como…» lo pregunta en un diálogo, porque acá
-      // el navegador no tiene selector propio al que pedírselo. El archivo
-      // abierto no se toca, así que la extensión es la del nombre sugerido;
-      // reescribir el original es cosa de la File System Access API, no de este
-      // camino.
-      if (mode === 'save-as') {
+
+      // Sin selectores, «Guardar como…» pregunta el nombre en un diálogo propio.
+      if (action === 'download' && mode === 'save-as') {
         setSaveAsTarget(target);
         setSaveAsOpen(true);
-        return false;
+        return 'cancelled';
       }
-      const native = target === 'mixo';
-      const name = suggestedSaveName(fileName, native);
-      const hash = drawingHash(text);
-      if (native) {
-        downloadCade(
-          serializeMixo({
-            drawing: text,
-            keys: serializeSidecar({ version: 2, drawingHash: hash, sourceName: name, bindings: componentShortcuts.bindings }),
-            manifest: { format: 'cademixo', version: 1, sourceName: name },
-          }),
-          name,
-        );
-        sidecarHandle.current = null;
-      } else {
-        downloadCade(text, name);
-        await writeSidecar(text, name, componentShortcuts.bindings);
+
+      const native = handle ? isMixoFileName(handle.name) : target === 'mixo';
+      const name = handle ? handle.name : suggestedSaveName(fileNameRef.current, native);
+      const snapshot = beginSave(
+        { text, fileName: name, handle, bindings: shortcutsRef.current.bindings },
+        ++saveSequence.current,
+      );
+
+      // Dos guardados seguidos se escriben en orden: una finalización anterior
+      // no puede sobrescribir la revisión posterior aunque termine más tarde.
+      const run = async (): Promise<SaveOutcome> => {
+        if (handle) return writeDocument(handle, text);
+        const hash = drawingHash(text);
+        const bindings = shortcutsRef.current.bindings;
+        const payload = buildVerifiedDocumentBytes({
+          drawing: text,
+          native,
+          ...(native
+            ? {
+                keys: serializeSidecar({ version: 2, drawingHash: hash, sourceName: name, bindings }),
+                manifest: { format: 'cademixo' as const, version: 1 as const, sourceName: name },
+              }
+            : {}),
+        });
+        if (payload === null) {
+          flash('no se guardó: la revisión no coincide con los bytes a descargar', 'error');
+          return 'failed';
+        }
+        downloadBytes(payload.bytes, name);
+        if (native) {
+          sidecarHandle.current = null;
+        } else {
+          await writeSidecar(text, name, bindings);
+        }
+        writeComponentBindings(hash, bindings, { drawingHash: hash, sourceName: name });
+        return 'download-started';
+      };
+      const chained = saveChain.current.then(run, run);
+      saveChain.current = chained.catch(() => {});
+      const outcome = await chained;
+
+      const current: SaveContext = {
+        text: stateRef.current?.text ?? '',
+        fileName: completionName(outcome, name, fileNameRef.current),
+        handle: completionHandle(outcome, handle, fileHandle.current),
+        bindings: shortcutsRef.current.bindings,
+      };
+      if (isCurrentSave(snapshot, outcome, current, saveSequence.current)) {
+        if (outcome === 'confirmed' && handle) {
+          fileHandle.current = handle;
+          setFileName(handle.name);
+          setDocumentMode(isMixoFileName(handle.name) ? 'mixo' : 'cade');
+          setState((s) => (s ? markSaved(s) : s));
+          cue('guardar');
+        }
+      } else if (outcome === 'download-started') {
+        flash(`descarga iniciada: ${name}; el archivo aún no está confirmado`);
       }
-      writeComponentBindings(hash, componentShortcuts.bindings, { drawingHash: hash, sourceName: name });
-      setDocumentMode(native ? 'mixo' : 'cade');
-      setFileName(name);
-      setState((s) => (s && s.text === text ? markSaved(s) : s));
-      cue('guardar');
-      return true;
+      return outcome;
     },
-    [state, fileName, flash, writeDocument, componentShortcuts, writeSidecar, documentMode],
+    [flash, writeDocument, writeSidecar, documentMode],
   );
 
   const canOpenFile = useCallback(
@@ -722,7 +828,10 @@ export function App(): JSX.Element {
           `Hay cambios sin guardar en «${fileName}». ¿Guardar antes de abrir «${name}»?`,
         );
         if (!wantsSave) return false;
-        if (!(await saveDocument('save'))) {
+        const outcome = await saveDocument('save');
+        // Una descarga iniciada entrega una copia al navegador: autoriza a
+        // reemplazar el documento, pero no afirma que el archivo fue escrito.
+        if (outcome !== 'confirmed' && outcome !== 'download-started') {
           flash('no se cargó: el proyecto no se guardó', 'error');
           return false;
         }
@@ -810,28 +919,57 @@ export function App(): JSX.Element {
       const text = state.text;
       const native = isMixoFileName(name);
       const hash = drawingHash(text);
+      const bindings = componentShortcuts.bindings;
+      const payload = buildVerifiedDocumentBytes({
+        drawing: text,
+        native,
+        ...(native
+          ? {
+              keys: serializeSidecar({ version: 2, drawingHash: hash, sourceName: name, bindings }),
+              manifest: { format: 'cademixo' as const, version: 1 as const, sourceName: name },
+            }
+          : {}),
+      });
+      if (payload === null) {
+        flash('no se guardó: la revisión no coincide con los bytes a descargar', 'error');
+        return;
+      }
+      // Invalida cualquier guardado en vuelo: esta descarga es otra revisión.
+      saveSequence.current += 1;
+      downloadBytes(payload.bytes, name);
       if (native) {
-        downloadCade(
-          serializeMixo({
-            drawing: text,
-            keys: serializeSidecar({ version: 2, drawingHash: hash, sourceName: name, bindings: componentShortcuts.bindings }),
-            manifest: { format: 'cademixo', version: 1, sourceName: name },
-          }),
-          name,
-        );
         sidecarHandle.current = null;
       } else {
-        downloadCade(text, name);
-        void writeSidecar(text, name, componentShortcuts.bindings);
+        void writeSidecar(text, name, bindings);
       }
-      writeComponentBindings(hash, componentShortcuts.bindings, { drawingHash: hash, sourceName: name });
-      setDocumentMode(native ? 'mixo' : 'cade');
-      setFileName(name);
-      setState((s) => (s && s.text === text ? markSaved(s) : s));
-      flash(`guardado como ${name}`, 'guardar como');
+      writeComponentBindings(hash, bindings, { drawingHash: hash, sourceName: name });
+      flash(`descarga iniciada: ${name}; el archivo aún no está confirmado`);
     },
     [state, flash, componentShortcuts, writeSidecar],
   );
+
+  /** Abre el inventario de copias; nunca modifica el archivo del documento. */
+  const openRecovery = useCallback(async (): Promise<void> => {
+    setRecoveryEntries(await recoveryStore.list(projectIdFor(fileNameRef.current)));
+    setRecoveryOpen(true);
+  }, []);
+
+  const downloadRecovery = useCallback(
+    (entry: RecoveryEntry): void => {
+      // La copia conserva su extensión: si es un `.mixo`, sus bytes incluyen
+      // dibujo, atajos y manifiesto; renombrarla a `.cad` los perdería al
+      // volver a guardar.
+      const name = entry.name;
+      downloadBytes(entry.bytes, name);
+      flash(`descarga iniciada: ${name}; el archivo original no se reparó`);
+    },
+    [flash],
+  );
+
+  const deleteRecovery = useCallback(async (entry: RecoveryEntry): Promise<void> => {
+    await recoveryStore.delete({ projectId: entry.projectId, revisionId: entry.revisionId });
+    setRecoveryEntries(await recoveryStore.list(projectIdFor(fileNameRef.current)));
+  }, []);
 
   /** Copia limpia para CADe, sin cambiar el archivo ni el modo actual. */
   const exportToCade = useCallback(async (): Promise<void> => {
@@ -1775,6 +1913,10 @@ export function App(): JSX.Element {
                     <DownloadIcon />
                     Exportar para CADe…
                   </MenubarItem>
+                  <MenubarItem onSelect={() => void openRecovery()}>
+                    <RotateCcwIcon />
+                    Recuperar versión…
+                  </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />
                 <MenubarGroup>
@@ -2330,6 +2472,15 @@ export function App(): JSX.Element {
         target={saveAsTarget}
         onCancel={() => setSaveAsOpen(false)}
         onConfirm={saveAsConfirmed}
+      />
+
+      <RecoveryDialog
+        open={recoveryOpen}
+        projectId={projectIdFor(fileNameRef.current)}
+        entries={recoveryEntries}
+        onCancel={() => setRecoveryOpen(false)}
+        onDownload={downloadRecovery}
+        onDelete={(entry) => void deleteRecovery(entry)}
       />
 
       <Toaster theme={mode} position="top-center" />

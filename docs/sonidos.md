@@ -46,8 +46,9 @@ Temas visuales del motor: `default`, `mech` (el que usa la app), `bubble`, `pres
 | Acción | Evento en `CUES` | Preset | Canal | Capa | Se dispara en |
 | --- | --- | --- | --- | --- | --- |
 | Abrir un archivo (selector, input o drop) | `abrir archivo` | `open` | interfaz | `play` | `openDocument` · `openDropped` |
-| Guardar (escribe o descarga) | `guardar` | `success` | interfaz | `play` | `writeDocument` · `saveDocument` |
-| Guardar como | `guardar como` | `success` | interfaz | `play` | `saveDocument('save-as')` |
+| Guardar (sólo escritura confirmada) | `guardar` | `success` | interfaz | `play` | `saveDocument` tras verificar `write` y `close` |
+| Descarga iniciada | — | — | — | — | aviso sin sonido: la descarga no es escritura verificada ni limpia cambios pendientes |
+| Guardar como sin selector | — | — | — | — | aviso sin sonido: `saveAsConfirmed` inicia una descarga, no confirma el archivo |
 | Proyecto nuevo | `proyecto nuevo` | `success` | interfaz | `play` | `newProject` |
 | Cualquier aviso de error | `error` | `error` | interfaz | `play` | ramas de error del camino de archivo y validación |
 | «detené la simulación para editar el circuito» | `rechazo` | `warning` | interfaz | `play` | guarda de edición en simulación |
