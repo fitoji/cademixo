@@ -27,6 +27,7 @@ import {
   type PinSize,
   type WireWidth,
 } from './settings.ts';
+import type { CableHandling } from '../editor/wiring/cable-move.ts';
 import { resumeMotorHum } from './motor-hum.ts';
 
 /**
@@ -155,6 +156,30 @@ export function SettingsDrawer({
               </ToggleGroup>
               <FieldDescription className="font-mono text-[11px]">
                 La barra de componentes arriba, como siempre, o al costado en una columna plegable.
+              </FieldDescription>
+            </Field>
+
+            <Field>
+              <FieldLabel>Manejo de cables</FieldLabel>
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                size="sm"
+                value={settings.cableHandling}
+                onValueChange={(value) => {
+                  if (value) setSettings({ cableHandling: value as CableHandling });
+                }}
+              >
+                <ToggleGroupItem value="actual" aria-label="Manejo de cables actual">
+                  Actual
+                </ToggleGroupItem>
+                <ToggleGroupItem value="ortogonal" aria-label="Manejo de cables ortogonal Wybrow">
+                  Ortogonal (Wybrow)
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <FieldDescription className="font-mono text-[11px]">
+                Al mover componentes, Actual conserva la geometría de siempre. Ortogonal mantiene los
+                tramos en sus carriles y enruta alrededor de obstáculos sin cambiar las conexiones.
               </FieldDescription>
             </Field>
 

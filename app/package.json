@@ -16,6 +16,7 @@
     "test": "node --test",
     "bench": "node --expose-gc bench/editor-preview.ts",
     "bench:query": "node --expose-gc bench/hit-snap.ts",
+    "bench:cables": "node --expose-gc bench/cable-move.ts",
     "report": "node src/report.ts",
     "spike": "node spike/make-spike.ts",
     "catalog": "node scripts/make-catalog.ts",
