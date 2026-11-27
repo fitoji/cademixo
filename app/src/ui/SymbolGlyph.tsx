@@ -158,9 +158,9 @@ export function SymbolGlyph({
       )}
       {anchored
         ? (sym.originPins ?? [])
-            .map((p) => (
+            .map((p, index) => (
               <circle
-                key={`op-${p.name}`}
+                key={`op-${p.name}-${index}`}
                 className="pin"
                 cx={p.x}
                 cy={p.y}
@@ -171,9 +171,9 @@ export function SymbolGlyph({
               </circle>
             ))
         : sym.pins
-            .map((p) => (
+            .map((p, index) => (
               <circle
-                key={`p-${p.name}`}
+                key={`p-${p.name}-${index}`}
                 className="pin"
                 cx={p.nx * w}
                 cy={p.ny * h}

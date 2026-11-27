@@ -1,10 +1,10 @@
 import type { CSSProperties, JSX } from 'react';
 import { useState, useSyncExternalStore } from 'react';
 import { BoxesIcon, ChevronDownIcon, SearchIcon, StarIcon, XIcon } from 'lucide-react';
-import { lineList, symbolList, type SymbolDef, type SymbolGroup } from '../symbols/library.ts';
-import { CATALOG } from '../symbols/catalog.ts';
+import type { SymbolDef, SymbolGroup } from '../symbols/library.ts';
 import { searchSymbols } from '../symbols/search.ts';
 import { getScope, subscribeScope } from '../symbols/scope.ts';
+import { insertableSymbols } from './insertion-matches.ts';
 import { getSettings, nextOpenAccordion, nextOpenCats, subscribeSettings } from './settings.ts';
 import { SymbolPreview } from './SymbolPreview.tsx';
 import { ComponentTooltip } from './ComponentTooltip.tsx';
@@ -19,42 +19,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const GROUP_LABEL: Record<SymbolGroup, string> = {
-  motor: 'Motores',
-  potencia: 'Potencia',
-  contactor: 'Contactores',
-  fusible: 'Fusibles',
-  proteccion: 'Automáticos',
-  mando: 'Mando',
-  alimentacion: 'Alimentación',
-  senalizacion: 'Señalización',
-  sensor: 'Sensores',
-  neumatico: 'Actuadores neumáticos',
-  linea: 'Líneas y cables',
-  borne: 'Borneras',
-  carga: 'Cargas',
-  otro: 'Otros',
-};
-
 import { GROUP_ORDER, codeOrder, groupSymbols } from './palette-order.ts';
-
-/** Tono por familia: pinta las miniaturas, no el esquema. */
-const GROUP_TONE: Record<SymbolGroup, string> = {
-  alimentacion: 'var(--tone-alimentacion)',
-  motor: 'var(--tone-motor)',
-  potencia: 'var(--tone-potencia)',
-  contactor: 'var(--tone-potencia)',
-  fusible: 'var(--tone-proteccion)',
-  proteccion: 'var(--tone-proteccion)',
-  mando: 'var(--tone-mando)',
-  senalizacion: 'var(--tone-senalizacion)',
-  sensor: 'var(--tone-sensor)',
-  linea: 'var(--wire)',
-  carga: 'var(--tone-otro)',
-  borne: 'var(--tone-otro)',
-  neumatico: 'var(--tone-otro)',
-  otro: 'var(--tone-otro)',
-};
+import { GROUP_LABEL, GROUP_TONE } from './symbol-presentation.ts';
 
 interface Props {
   placing: number | null;
@@ -87,9 +53,7 @@ export function Palette({ placing, onPick, sheets, activeSheet, onSheet }: Props
   const scope = useSyncExternalStore(subscribeScope, getScope, getScope);
   const { autoCierre, paneles } = useSyncExternalStore(subscribeSettings, getSettings, getSettings);
   const horizontal = paneles === 'horizontal';
-  const available = [...symbolList(), ...lineList()].filter(
-    (sym) => scope === 'all' || CATALOG[sym.code] !== undefined,
-  );
+  const available = insertableSymbols(scope);
   const byGroup = groupSymbols(available);
   // Categorías plegadas: con el catálogo completo la lista no entra de una vista.
   // El mismo estado sirve a las dos orientaciones; arrancan todas plegadas.
@@ -439,6 +403,7 @@ function SymbolTile({
       <Button
         variant={active ? 'secondary' : 'ghost'}
         className="flex h-auto w-[56px] flex-col items-center gap-0.5 px-0.5 py-1"
+        data-symbol-code={sym.code}
         aria-pressed={active}
         onClick={() => onPick(active ? null : sym.code)}
       >
@@ -462,6 +427,7 @@ function SymbolRow({ sym, group, active, favorite, onPick, onToggleFavorite }: R
         <Button
           variant={active ? 'secondary' : 'ghost'}
           className="h-auto min-w-0 flex-1 justify-start gap-2 px-1.5 py-1"
+          data-symbol-code={sym.code}
           aria-pressed={active}
           onClick={() => onPick(active ? null : sym.code)}
         >
