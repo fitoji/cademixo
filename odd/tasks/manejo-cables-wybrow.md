@@ -24,11 +24,11 @@ Runner: `pnpm test` (`node --test`). Riesgo: item 3 — cambia el contrato de mo
 
 ## Tasks
 
-- T1 (S1-S4, delegated, done, commit: pendiente): prueba RED de aceptación K2M +12 en modo ortogonal, regresión del modo Actual y grupos de bornes antes/después.
-- T2 (S5-S7, inline, done, commit: pendiente): preferencia persistida en `settings.ts` + campo en el cajón Ver → Configuración; rama Actual intacta y estrategia ortogonal conectada a preview y commit.
-- T3 (S8-S12, inline, done, commit: pendiente): enrutado incremental: contexto del gesto, deformación local, fallback Wybrow con `router.ts` (preferencia de trazado previo, rejilla y separación de paralelos).
-- T4 (S13-S15, inline, done, commit: pendiente): validación por identidad de bornes con las reglas del simulador, candidato exacto y una sola entrada de historial; sin reconstrucción completa en cada evento.
-- T5 (S16, inline, done, commit: pendiente): casos de borde, persistencia, preview vs commit, undo/redo, rendimiento y evidencia.
+- T1 (S1-S4, delegated, done, commit: `106091c`): prueba RED de aceptación K2M +12 en modo ortogonal, regresión del modo Actual y grupos de bornes antes/después.
+- T2 (S5-S7, inline, done, commit: `106091c`): preferencia persistida en `settings.ts` + campo en el cajón Ver → Configuración; rama Actual intacta y estrategia ortogonal conectada a preview y commit.
+- T3 (S8-S12, inline, done, commit: `106091c`): enrutado incremental: contexto del gesto, deformación local, fallback Wybrow con `router.ts` (preferencia de trazado previo, rejilla y separación de paralelos).
+- T4 (S13-S15, inline, done, commit: `106091c`): validación por identidad de bornes con las reglas del simulador, candidato exacto y una sola entrada de historial; sin reconstrucción completa en cada evento.
+- T5 (S16, inline, done, commit: `106091c`): casos de borde, persistencia, preview vs commit, undo/redo, rendimiento y evidencia.
 
 Route: inline + un explorador de solo lectura para el mapa del editor. El trigger de writer no se dispara: una sola conducta cohesiva, sin unidades paralelas ni backstop de contexto. Verificación: verificador independiente al cierre por el riesgo 3 (contrato compartido de movimiento/dibujo).
 
@@ -48,3 +48,4 @@ L1 (verbatim): «implementa @docs/plan-manejo-cables-wybrow.md» con el archivo 
 - Suite completa: 996/996 en la corrida limpia; `wiring-performance` volvió a fallar una vez por el flake de timing ya documentado (2,68 ms/evento contra 2,5) y pasó al correrse solo.
 - Limitación declarada: un movimiento vertical/diagonal de un manojo denso puede rechazarse cuando un borne o codo del componente cae sobre el carril de otra red (es un contacto real) o cuando el router no encuentra una ruta que respete todos los carriles. En ese caso se informa el conflicto y el documento queda intacto; no se recurre al modo Actual. Los movimientos vertical/diagonal válidos se verifican en escenas simples y en K2M horizontal ±6..+24.
 - No hay movimientos de selección por teclado en el editor; el único traslado por teclado es la navegación de bornes, que no mueve componentes. La preferencia sí se cambia por teclado desde Configuración.
+- Correcciones posteriores al primer commit: `ae179d4` hace que una deformación local geométricamente válida pero con conectividad cambiada caiga al router; `8554906` rechaza mover un componente sobre un borne o una unión ajena (evita que `attachPoints` invente identidades). Ambos casos quedan cubiertos por la suite de `cable-move`.
