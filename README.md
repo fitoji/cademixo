@@ -2,7 +2,7 @@
 
 Simulador eléctrico con manejo de cables moderno, compatible con archivos de **CADe_SIMU** (`.cade` / `.cad`).
 
-**Versión actual:** 0.13.0 (release del 2026-11-27).
+**Versión actual:** 0.14.0 (release del 2026-11-27).
 
 ## Por qué existe
 
@@ -42,7 +42,7 @@ abrir/guardar   ver/dibujar  editar      simular      producto
 
 ### Dónde estamos
 
-Fecha: 2026-11-27 · rama `main` · v0.13.0
+Fecha: 2026-11-27 · rama `main` · v0.14.0
 
 **Hecho**
 - ✅ Parser `.cade`/`.cad` con round-trip byte a byte (107 tests, 3 archivos reales).
@@ -59,6 +59,8 @@ Fecha: 2026-11-27 · rama `main` · v0.13.0
 - ✅ Extracción de netlist: aparatos agrupados por designador, redes por proyección.
 - ✅ **Barra de inserción de componentes**: teclear desde el lienzo, recorrer variantes con flechas, `Enter` prepara y el clic en el lienzo coloca. Misma búsqueda, catálogo y orden que la paleta. Flotante, arrastrable, acoplable al borde inferior y minimizable.
 - ✅ Dos mundos visuales (clásico y moderno) con modo día/noche y preferencias persistidas.
+- ✅ **Guardado seguro de proyectos `.mixo`**: revisión verificada por relectura, apertura que rechaza sidecars inválidos sin reemplazar el documento y recuperación del dibujo como copia.
+- ✅ **Copias recuperables fuera del archivo candidato**: generación previa en IndexedDB antes de reemplazar, rotación sólo después de verificar la sucesora y menú «Recuperar versión…» que nunca repara el original. Ver [recuperación](docs/recuperacion-mixo.md).
 
 **En curso (Fase 5)**
 - 🟡 Empaquetado de escritorio (macOS y Windows): hoy se usa `pnpm dev` / `pnpm build`; todavía no hay configuración Tauri.
@@ -72,6 +74,7 @@ Fecha: 2026-11-27 · rama `main` · v0.13.0
 **Siguiente**
 1. Fase 5: empaquetar la app para macOS y Windows.
 2. Corregir los tres fallos E2E preexistentes documentados y ampliar la cobertura de la barra de inserción.
+3. Fase 3 del guardado seguro (contrato de bytes v2 y port a Rust), anotada como feature futuro en `odd/tasks/guardado-seguro-mixo-fase3-pendiente.md`.
 
 Plan detallado con todas las tareas: [`odd/tasks/simuelectro.md`](odd/tasks/simuelectro.md).
 
