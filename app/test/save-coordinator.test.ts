@@ -1,7 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { beginSave, isCurrentSave, type SaveContext } from '../src/ui/save-coordinator.ts';
+import {
+  beginSave,
+  completionHandle,
+  completionName,
+  isCurrentSave,
+  type SaveContext,
+} from '../src/ui/save-coordinator.ts';
 
 const handleA = { name: 'plano.mixo' } as FileSystemFileHandle;
 const handleB = { name: 'otro.mixo' } as FileSystemFileHandle;
@@ -33,6 +39,29 @@ test('una finalización vieja no marca guardado si el texto, los atajos o el doc
   assert.equal(isCurrentSave(saved, 'confirmed', context({ fileName: 'otro.mixo' }), 1), false);
   assert.equal(isCurrentSave(saved, 'confirmed', context({ handle: handleB }), 1), false);
   assert.equal(isCurrentSave(saved, 'confirmed', context(), 2), false);
+});
+
+test('una escritura confirmada compara contra el handle elegido, aunque aún no se haya adoptado', () => {
+  const picked = { name: 'nuevo.mixo' } as FileSystemFileHandle;
+  const saved = beginSave(context({ handle: picked, fileName: 'nuevo.mixo' }), 4);
+
+  assert.equal(completionHandle('confirmed', picked, handleA), picked);
+  assert.equal(
+    isCurrentSave(saved, 'confirmed', context({ handle: picked, fileName: 'nuevo.mixo' }), 4),
+    true,
+  );
+  assert.equal(completionHandle('download-started', picked, handleA), handleA);
+  assert.equal(completionName('confirmed', 'nuevo.mixo', 'viejo.cad'), 'nuevo.mixo');
+  assert.equal(completionName('download-started', 'nuevo.mixo', 'viejo.cad'), 'viejo.cad');
+  assert.equal(
+    isCurrentSave(
+      beginSave(context({ fileName: 'nuevo.mixo' }), 4),
+      'confirmed',
+      context({ fileName: 'viejo.cad' }),
+      4,
+    ),
+    false,
+  );
 });
 
 test('la instantánea congela los atajos y no depende del orden de las claves', () => {

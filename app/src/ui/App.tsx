@@ -102,7 +102,14 @@ import {
   writeBytes,
   writeHandle,
 } from './files.ts';
-import { beginSave, isCurrentSave, type SaveContext, type SaveOutcome } from './save-coordinator.ts';
+import {
+  beginSave,
+  completionHandle,
+  completionName,
+  isCurrentSave,
+  type SaveContext,
+  type SaveOutcome,
+} from './save-coordinator.ts';
 import { isApplePlatform, isTypingTarget, ownsSpaceKey, useShortcut, useShortcutHint } from './shortcuts.ts';
 import { getBindings, keyEventToKeys, subscribeBindings } from './shortcut-bindings.ts';
 import { JUNCTION_TEMPLATE, WIRE_TEMPLATES } from '../symbols/templates.ts';
@@ -766,8 +773,8 @@ export function App(): JSX.Element {
 
       const current: SaveContext = {
         text: stateRef.current?.text ?? '',
-        fileName: fileNameRef.current,
-        handle: fileHandle.current,
+        fileName: completionName(outcome, name, fileNameRef.current),
+        handle: completionHandle(outcome, handle, fileHandle.current),
         bindings: shortcutsRef.current.bindings,
       };
       if (isCurrentSave(snapshot, outcome, current, saveSequence.current)) {

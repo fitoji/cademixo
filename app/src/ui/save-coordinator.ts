@@ -43,6 +43,24 @@ export function beginSave(context: SaveContext, sequence: number): SaveSnapshot 
  * limpiar `dirty`. Un guardado anterior que termina después (secuencia vencida,
  * texto o atajos editados, otro documento o handle) no gana por llegar tarde.
  */
+/**
+ * Al terminar, la comparación usa el handle que realmente se escribió: con el
+ * selector, el handle elegido todavía no se adoptó cuando se evalúa el estado.
+ * Sólo una escritura confirmada puede cambiar ese handle de comparación.
+ */
+export function completionHandle(
+  outcome: SaveOutcome,
+  written: FileSystemFileHandle | null,
+  live: FileSystemFileHandle | null,
+): FileSystemFileHandle | null {
+  return outcome === 'confirmed' ? written : live;
+}
+
+/** Igual que el handle: la identidad adoptada llega después de la comparación. */
+export function completionName(outcome: SaveOutcome, written: string, live: string): string {
+  return outcome === 'confirmed' ? written : live;
+}
+
 export function isCurrentSave(
   snapshot: SaveSnapshot,
   outcome: SaveOutcome,
