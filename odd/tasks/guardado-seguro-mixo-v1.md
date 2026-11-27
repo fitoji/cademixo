@@ -97,6 +97,16 @@ su formato. Branch: `feat/guardado-seguro-mixo-v1`. Test runner: `pnpm test` y
   Advisories corregidos: comentario viejo en `samples.ts` y JSDoc huérfano en
   `save-coordinator.ts`. La recepción nativa aprobada cubre el candidato
   `b66b224`; este cambio posterior es un candidato nuevo y NO la reutiliza.
-- L11: scratching del verificador en
-  `/private/var/folders/yw/6bjyc44d1rgg5163wpzd1cr80000gn/T/opencode/verify-item3.tvOcSC`;
-  pendiente de limpieza por el orquestador.
+- L11: scratching del verificador
+  `/private/var/folders/yw/6bjyc44d1rgg5163wpzd1cr80000gn/T/opencode/verify-item3.tvOcSC`
+  y los archivos temporales de captura de revisión se borraron. Workspace sin
+  cambios nuevos de esta feature; los cambios ajenos siguen intactos.
+- L12: cierre: veredicto final S1-S5 met con el recheck del bloqueador; commit
+  `58eaea5`. `gentle-ai review assess --base-ref b66b224 --committed-only`
+  sobre ese candidato: `risk: medium`, `review_due: false`,
+  `review_due_reason: under_budget` (6 paths, 156 líneas). No se abre una nueva
+  revisión; la recepción `review-df69b086edf5169c` quedó burnada y no se
+  reutiliza. `tsc` limpio, build OK, suite 963/963, e2e foco 8/8.
+- L13: pendiente para fases futuras (no incluido): la duplicación del armado del
+  payload en tres caminos (R2-dup-payload) y el contrato booleano de
+  `buildVerifiedDocumentBytes` (R2-boolean-flag). Ninguno bloqueó la revisión.
