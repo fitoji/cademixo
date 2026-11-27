@@ -16,17 +16,15 @@ import { GROUP_LABEL, GROUP_TONE } from './symbol-presentation.ts';
 import { SymbolPreview } from './SymbolPreview.tsx';
 
 export interface ComponentInsertionBarHandle {
-  /** Enfoca la barra con el primer carácter ya escrito en la consulta. */
   openWith(char: string): void;
 }
 
 interface Props {
   scope: PaletteScope;
   placing: number | null;
-  /** El mismo callback de la paleta: arma la herramienta, no inserta. */
+  // El callback de la paleta: arma la herramienta, no inserta.
   onPick: (code: number) => void;
   onFocusCanvas: () => void;
-  /** Falso con simulación, cableado, arrastre o cualquier operación en curso. */
   canSearch: () => boolean;
 }
 

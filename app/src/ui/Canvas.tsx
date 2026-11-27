@@ -38,7 +38,6 @@ export interface View {
 }
 
 interface Props {
-  /** Expuesto al App para devolver el foco desde la barra de inserción. */
   canvasRef?: RefObject<SVGSVGElement | null>;
   records: CadeRecordModel[];
   selection: Set<number>;

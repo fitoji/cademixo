@@ -1,6 +1,5 @@
 import type { SymbolGroup } from '../symbols/library.ts';
 
-/** Etiqueta de familia compartida por la paleta y la barra de inserción. */
 export const GROUP_LABEL: Record<SymbolGroup, string> = {
   motor: 'Motores',
   potencia: 'Potencia',

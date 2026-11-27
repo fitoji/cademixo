@@ -1442,7 +1442,7 @@ export function App(): JSX.Element {
     setState((s) => (s ? selectVertex(select(s, [], false), null) : s));
   }, []);
 
-  // La paleta y la barra comparten este callback:arma la herramienta, no inserta.
+  // Compartido con la barra: arma la herramienta, nunca inserta.
   const paletteOnPick = useCallback(
     (code: number | null): void => {
       if (running) {
