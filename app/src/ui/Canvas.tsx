@@ -1005,7 +1005,7 @@ export function Canvas(props: Props): JSX.Element {
         <div
           role="status"
           aria-live="polite"
-          className="absolute top-3 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-destructive/60 bg-card px-3 py-1.5 text-xs text-destructive shadow-float"
+          className="pointer-events-none absolute top-3 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-destructive/60 bg-card px-3 py-1.5 text-xs text-destructive shadow-float"
         >
           Sin ruta válida: {moveRejection}
         </div>
