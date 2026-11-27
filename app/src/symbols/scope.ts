@@ -1,9 +1,10 @@
 /**
  * Alcance de la paleta de componentes.
  *
- * `cadesimu` muestra únicamente los códigos del catálogo extraído del binario;
- * `all` vuelve a incluir los símbolos propios que CADe_SIMU no tiene. El
- * catálogo completo queda documentado en `docs/re/componentes-completo.md`.
+ * `all` es el default: incluye los símbolos propios que CADe_SIMU no ofrece en
+ * su menú (8016, 8017, 8018…). `cadesimu` es un filtro opt-in a los códigos
+ * extraídos del binario. El catálogo completo está en
+ * `docs/re/componentes-completo.md`.
  *
  * Vive fuera de React para que la paleta y el menú compartan el valor; la UI se
  * suscribe con `useSyncExternalStore`.
@@ -15,10 +16,12 @@ const listeners = new Set<() => void>();
 
 function read(): PaletteScope {
   try {
-    return localStorage.getItem(KEY) === 'all' ? 'all' : 'cadesimu';
+    // Sin preferencia (o valor extraño) se muestran todos: los códigos que
+    // sólo aparecen en archivos reales también son parte de la librería.
+    return localStorage.getItem(KEY) === 'cadesimu' ? 'cadesimu' : 'all';
   } catch {
-    // Sin storage (SSR, modo privado, tests): solo CADe_SIMU.
-    return 'cadesimu';
+    // Sin storage (SSR, modo privado, tests): catálogo completo.
+    return 'all';
   }
 }
 

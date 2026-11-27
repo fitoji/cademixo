@@ -61,6 +61,8 @@ Con el lienzo activo y sin una operación en curso, la persona escribe `contacto
 
 La barra usa `Command` de UI SDK con `filter={false}` sobre resultados ya ordenados por `codeOrder` + `searchSymbols`, y comparte con la paleta el callback que arma la herramienta: la colocación sigue siendo un clic en el lienzo. El listener de activación va en `window`, detrás de los atajos de `document`, y exige foco en el lienzo, sin modificadores y sin operación en curso.
 
+El alcance inicial es `all`: paleta y barra muestran también los códigos dibujados que no están en el menú del binario (`8016`, `8017`, `8018`). El filtro «Solo componentes CADe_SIMU» sigue disponible en Ver para quien quiera restringirse al catálogo extraído.
+
 Sobre el diseño original se añadió, por pedido posterior, una **barra flotante** con apariencia de línea de comandos (`Insertar:`, prompt monoespaciado, lista sobre el campo) que sigue los tokens del mundo clásico o moderno. El tirador permite arrastrarla y moverla con flechas, `Inicio` la centra y soltarla cerca del borde inferior la acopla a todo el ancho como franja fija; el mismo botón la separa. El botón `-` la pliega a `+ Insertar:` con una transición de 200 ms que respeta `prefers-reduced-motion`.
 
 Verificación: 11 pruebas E2E propias en `app/e2e/component-insertion-bar.spec.ts`, 16 pruebas unitarias de paridad en `app/test/insertion-matches.test.ts` y veredicto S1-S10 «met» del verificador independiente. Seguimiento detallado en [`odd/tasks/component-insertion-bar.md`](../odd/tasks/component-insertion-bar.md).

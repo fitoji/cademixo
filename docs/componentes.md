@@ -11,7 +11,7 @@ Catálogo de componentes eléctricos que ofrece la paleta del editor: cómo se d
 
 Totales: **270 códigos** en el catálogo generado, **227 componentes dibujados**, **46 códigos del catálogo caen al fallback** (un rectángulo con el código adentro).
 
-Hay **3 componentes dibujados que no figuran en el catálogo**: `8016` (Lámpara de señalización), `8017` (Contacto del térmico), `8018` (Conmutador de dos posiciones). No salen del menú del CAD pero aparecen en archivos reales, así que su plantilla se generó desde los fixtures y el dibujo se escribió a mano. Por eso no tienen designador de catálogo.
+Hay **3 componentes dibujados que no figuran en el catálogo**: `8016` (Lámpara de señalización), `8017` (Contacto del térmico), `8018` (Conmutador de dos posiciones). No salen del menú del CAD pero aparecen en archivos reales, así que su plantilla se generó desde los fixtures y el dibujo se escribió a mano. Por eso no tienen designador de catálogo. En cadeMixo se muestran **por defecto** en la paleta y en la barra de inserción: el alcance inicial es `all`. El filtro «Solo componentes CADe_SIMU» de Ver permite limitarse a los 270 códigos del binario.
 
 El designador de la tabla es el prefijo con el que el CAD nombra el componente nuevo (`-M`, `-Q`…); `—` significa que el catálogo no lo define.
 

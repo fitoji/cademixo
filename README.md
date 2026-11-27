@@ -137,6 +137,8 @@ odd/tasks/                 plan de construcción por fases
 
 Con el lienzo enfocado, teclear un nombre o código abre la barra con el primer carácter ya incluido. Las flechas recorren las variantes, `Enter` prepara el símbolo y el clic en el lienzo lo coloca; confirmar en la barra nunca inserta por sí solo. Usa el mismo motor, catálogo y orden que la paleta, que sigue disponible.
 
+Por defecto se muestran todos los componentes de la librería, incluidos los que CADe_SIMU no ofrece en su menú (`8016`, `8017`, `8018`). Si querés limitarte a los códigos extraídos del binario, activá **Ver → Solo componentes CADe_SIMU**.
+
 La barra es flotante: se arrastra desde el tirador, se mueve con flechas (con `Mayús`, pasos grandes), `Inicio` la centra y el botón de esquina la fija a todo el ancho o la separa. Soltarla cerca del borde inferior también la acopla como franja fija, reservando su altura en el editor. El botón `-` la pliega a una pastilla con solo `Insertar:` y el `+` la restaura. La transición respeta `prefers-reduced-motion`.
 
 Especificación: [`docs/plan-barra-insercion.md`](docs/plan-barra-insercion.md). Seguimiento: [`odd/tasks/component-insertion-bar.md`](odd/tasks/component-insertion-bar.md).
