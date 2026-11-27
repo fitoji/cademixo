@@ -1,6 +1,6 @@
 # Barra de inserción de componentes
 
-**Estado:** plan para implementación; la funcionalidad aún no está implementada.  
+**Estado:** implementado y verificado en v0.13.0 (2026-11-27).  
 **Objetivo:** pasar de «sé qué componente necesito» a «lo tengo listo para colocar» sin recorrer categorías ni perder de vista el circuito.
 
 ## Experiencia de referencia
@@ -50,9 +50,17 @@ Con el lienzo activo y sin una operación en curso, la persona escribe `contacto
 
 ## Criterios de aceptación
 
-- [ ] Para una consulta por nombre, una por código y una con acentos o errata, barra y paleta devuelven los mismos símbolos en el mismo orden. Referencia: [pruebas del buscador](../app/test/symbol-search.test.ts).
-- [ ] Al escribir desde el lienzo se conserva la primera letra; las flechas permiten elegir una variante distinta de la primera sin alterar el circuito.
-- [ ] Confirmar por teclado o ratón prepara exactamente la variante elegida. Antes del clic de colocación no cambia el documento; después se agrega un solo componente y se puede deshacer como desde la paleta.
-- [ ] Consulta vacía, cero coincidencias, Escape, Tab y clic fuera no insertan nada. El siguiente evento de teclado llega al control que corresponde.
-- [ ] Escribir en una etiqueta o usar un atajo no abre la barra; con un cable o arrastre en curso la operación permanece intacta. En los modos que impiden insertar no hay una vía alternativa desde la barra.
-- [ ] Verificación en navegador: recorrido solo con teclado, nombre y opción activa accesibles, foco visible, símbolos reconocibles y lista utilizable en una ventana estrecha.
+- [x] Para una consulta por nombre, una por código y una con acentos o errata, barra y paleta devuelven los mismos símbolos en el mismo orden. Referencia: [pruebas del buscador](../app/test/symbol-search.test.ts).
+- [x] Al escribir desde el lienzo se conserva la primera letra; las flechas permiten elegir una variante distinta de la primera sin alterar el circuito.
+- [x] Confirmar por teclado o ratón prepara exactamente la variante elegida. Antes del clic de colocación no cambia el documento; después se agrega un solo componente y se puede deshacer como desde la paleta.
+- [x] Consulta vacía, cero coincidencias, Escape, Tab y clic fuera no insertan nada. El siguiente evento de teclado llega al control que corresponde.
+- [x] Escribir en una etiqueta o usar un atajo no abre la barra; con un cable o arrastre en curso la operación permanece intacta. En los modos que impiden insertar no hay una vía alternativa desde la barra.
+- [x] Verificación en navegador: recorrido solo con teclado, nombre y opción activa accesibles, foco visible, símbolos reconocibles y lista utilizable en una ventana estrecha.
+
+## Implementación final
+
+La barra usa `Command` de UI SDK con `filter={false}` sobre resultados ya ordenados por `codeOrder` + `searchSymbols`, y comparte con la paleta el callback que arma la herramienta: la colocación sigue siendo un clic en el lienzo. El listener de activación va en `window`, detrás de los atajos de `document`, y exige foco en el lienzo, sin modificadores y sin operación en curso.
+
+Sobre el diseño original se añadió, por pedido posterior, una **barra flotante** con apariencia de línea de comandos (`Insertar:`, prompt monoespaciado, lista sobre el campo) que sigue los tokens del mundo clásico o moderno. El tirador permite arrastrarla y moverla con flechas, `Inicio` la centra y soltarla cerca del borde inferior la acopla a todo el ancho como franja fija; el mismo botón la separa. El botón `-` la pliega a `+ Insertar:` con una transición de 200 ms que respeta `prefers-reduced-motion`.
+
+Verificación: 11 pruebas E2E propias en `app/e2e/component-insertion-bar.spec.ts`, 16 pruebas unitarias de paridad en `app/test/insertion-matches.test.ts` y veredicto S1-S10 «met» del verificador independiente. Seguimiento detallado en [`odd/tasks/component-insertion-bar.md`](../odd/tasks/component-insertion-bar.md).

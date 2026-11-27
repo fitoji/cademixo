@@ -2,6 +2,8 @@
 
 Simulador eléctrico con manejo de cables moderno, compatible con archivos de **CADe_SIMU** (`.cade` / `.cad`).
 
+**Versión actual:** 0.13.0 (release del 2026-11-27).
+
 ## Por qué existe
 
 CADe_SIMU es freeware cerrado, escrito en MFC 4.2 sobre Visual C++ 6 a partir del año 2000, y solo corre en Windows. Su punto débil es la interacción: dibujar y mover cables es arcaico.
@@ -16,7 +18,7 @@ Este proyecto **no** intenta decompilar ni reconstruir CADe_SIMU. Lo reimplement
 M1 ──────────● M2 ────────● M3 ────────● M4 ──────── M5
 abrir/guardar   ver/dibujar  editar      simular      producto
                                         ▲
-                                        estamos acá (M1-M3 cerrados, entrando a Fase 4)
+                                        estamos acá (M1-M4 cerrados, Fase 5 pendiente)
 ```
 
 | Fase | Objetivo | Entregable que lo prueba | Estado |
@@ -25,7 +27,7 @@ abrir/guardar   ver/dibujar  editar      simular      producto
 | **1 — Parser** | abrir y guardar sin pérdida | round-trip byte a byte | 🟢 5/5 |
 | **2 — Render** | ver y dibujar el esquema | esquema en pantalla con zoom y símbolos | 🟢 5/5 |
 | **3 — Cables** | editar cables como en 2026 | arrastrar extremo con auto-ruteo | 🟢 6/6 |
-| **4 — Simulación** | que el circuito funcione | arranque directo e inversión de giro | 🟡 3/4 |
+| **4 — Simulación** | que el circuito funcione | arranque directo e inversión de giro | 🟢 4/4 |
 | **5 — Producto** | que se pueda usar a diario | instalador macOS + Windows | ⚪ 0/4 |
 
 ### Hitos
@@ -35,12 +37,12 @@ abrir/guardar   ver/dibujar  editar      simular      producto
 | **M1** | Abrir un `.cade` y guardarlo idéntico, sin perder un byte | ✅ |
 | **M2** | Verlo dibujado y poder mover componentes | ✅ |
 | **M3** | Editar cables con ruteo moderno | ✅ |
-| **M4** | Simular el circuito | ⬜ |
+| **M4** | Simular el circuito | ✅ |
 | **M5** | Instalarlo en la máquina y usarlo | ⬜ |
 
 ### Dónde estamos
 
-Fecha: 2026-10-30 · rama `feat/simuelectro`
+Fecha: 2026-11-27 · rama `main` · v0.13.0
 
 **Hecho**
 - ✅ Parser `.cade`/`.cad` con round-trip byte a byte (107 tests, 3 archivos reales).
@@ -53,13 +55,14 @@ Fecha: 2026-10-30 · rama `feat/simuelectro`
 - ✅ Modelo de cable: número (`geometry[21]`), tramos, uniones (`4001`).
 - ✅ Arrastrar extremos con snap a bornes y codo ortogonal automático.
 - ✅ Validaciones de red en vivo con acciones de arreglo.
-- ✅ Solver de contactores con enclavamiento y detección de lazos inestables.
+- ✅ Solver de contactores con enclavamiento y detección de lazos inestables, con simulación y avisos de fallo.
 - ✅ Extracción de netlist: aparatos agrupados por designador, redes por proyección.
+- ✅ **Barra de inserción de componentes**: teclear desde el lienzo, recorrer variantes con flechas, `Enter` prepara y el clic en el lienzo coloca. Misma búsqueda, catálogo y orden que la paleta. Flotante, arrastrable, acoplable al borde inferior y minimizable.
+- ✅ Dos mundos visuales (clásico y moderno) con modo día/noche y preferencias persistidas.
 
-**En curso (Fase 4)**
-- 🟡 Conectar la netlist al solver: falta inferir la alimentación (fase/neutro).
-- 🟡 Animación de estados en el lienzo (T4.3).
-- 🟡 Tabla de códigos completa: faltan muestras o análisis del binario (T0.2).
+**En curso (Fase 5)**
+- 🟡 Empaquetado de escritorio (macOS y Windows): hoy se usa `pnpm dev` / `pnpm build`; todavía no hay configuración Tauri.
+- 🟡 Tres fallos E2E preexistentes, confirmados también en `main`: ver [fallos E2E preexistentes](docs/reportes/fallos-e2e-preexistentes.md).
 
 **Limitaciones declaradas**
 - La rotación es visual: el formato no expuso el campo de orientación.
@@ -67,16 +70,17 @@ Fecha: 2026-10-30 · rama `feat/simuelectro`
 - 1 de 161 registros sigue mal delimitado en `inversion-giro-cej.cade`.
 
 **Siguiente**
-1. Fase 4: solver booleano con contactos, bobinas y motor como carga.
-2. Cerrar la tabla de códigos con más muestras.
+1. Fase 5: empaquetar la app para macOS y Windows.
+2. Corregir los tres fallos E2E preexistentes documentados y ampliar la cobertura de la barra de inserción.
 
 Plan detallado con todas las tareas: [`odd/tasks/simuelectro.md`](odd/tasks/simuelectro.md).
 
 ## Stack
 
-- **TypeScript** ejecutado por Node 24 sin build (type stripping nativo).
-- **Sin dependencias** en el núcleo: tests con `node:test`.
-- A futuro: **Vite + React + SVG** para la UI y **Tauri** para el binario de escritorio (macOS y Windows).
+- **TypeScript** ejecutado por Node 24 sin build (type stripping nativo) en el núcleo; tests con `node:test` y sin dependencias.
+- **Vite + React + SVG** para la UI, con **Tailwind**, **shadcn/ui** y **UI SDK** en los componentes interactivos.
+- **Playwright** para pruebas E2E en Chrome.
+- A futuro: **Tauri** para el binario de escritorio (macOS y Windows).
 
 ## Uso
 
@@ -85,9 +89,9 @@ El repo es un workspace de pnpm: los scripts se corren **desde la raíz** y se e
 ```bash
 pnpm install
 
-pnpm dev        # abre la app en http://localhost:5187
-pnpm test       # 614 tests: formato, cables, símbolos y simulación
-pnpm test:e2e   # 9 smoke tests del editor en Chrome (Playwright)
+pnpm dev        # abre la app en http://localhost:5173
+pnpm test       # 944 tests: formato, cables, símbolos, editor y simulación
+pnpm test:e2e   # suite del editor en Chrome (Playwright): 53 pruebas
 pnpm build      # typecheck + bundle de producción
 
 # inventario de códigos de un archivo
@@ -97,6 +101,8 @@ pnpm report test/fixtures/arranque-paro-motor-3f.cad
 pnpm bump            # feat → minor, fix → patch, …! → major
 pnpm bump --dry-run  # muestra el salto sin escribir
 ```
+
+En el entorno de referencia, la suite E2E deja 49 pruebas en verde, 3 fallos preexistentes y 1 omitida; los detalles están en [fallos E2E preexistentes](docs/reportes/fallos-e2e-preexistentes.md). Dos pruebas de rendimiento (`parse-perf` y `wiring-performance`) pueden fluctuar con la carga de la máquina.
 
 El tramo de `pnpm bump` arranca en el último commit que tocó `app/package.json`, así que no dependen de tags. También acepta el tipo forzado (`pnpm bump minor`) y `--tag` para crear `vX.Y.Z`.
 
@@ -115,12 +121,25 @@ app/
   src/sim/solver.ts        lógica de contactores con enclavamiento
   src/symbols/library.ts   símbolos en SVG, dibujados a semejanza de CADe_SIMU
   src/symbols/templates.ts plantillas crudas por código (generadas)
-  src/ui/                  app React: canvas, paleta, inspector
+  src/ui/                  app React: canvas, paleta, inspector, barra de inserción
+  src/ui/ComponentInsertionBar.tsx  barra flotante/acople con UI SDK Command
+  src/ui/insertion-matches.ts       paridad de búsqueda con la paleta
+  src/ui/symbol-presentation.ts     etiquetas y tonos compartidos de familia
   src/report.ts            CLI de inventario
   test/                    tests y fixtures reales
+  e2e/                     pruebas de navegador (Playwright)
 docs/cade-format.md        gramática del formato, verificado vs. hipótesis
+docs/plan-barra-insercion.md  especificación de la barra de inserción
 odd/tasks/                 plan de construcción por fases
 ```
+
+## Barra de inserción de componentes
+
+Con el lienzo enfocado, teclear un nombre o código abre la barra con el primer carácter ya incluido. Las flechas recorren las variantes, `Enter` prepara el símbolo y el clic en el lienzo lo coloca; confirmar en la barra nunca inserta por sí solo. Usa el mismo motor, catálogo y orden que la paleta, que sigue disponible.
+
+La barra es flotante: se arrastra desde el tirador, se mueve con flechas (con `Mayús`, pasos grandes), `Inicio` la centra y el botón de esquina la fija a todo el ancho o la separa. Soltarla cerca del borde inferior también la acopla como franja fija, reservando su altura en el editor. El botón `-` la pliega a una pastilla con solo `Insertar:` y el `+` la restaura. La transición respeta `prefers-reduced-motion`.
+
+Especificación: [`docs/plan-barra-insercion.md`](docs/plan-barra-insercion.md). Seguimiento: [`odd/tasks/component-insertion-bar.md`](odd/tasks/component-insertion-bar.md).
 
 ## Informes y auditorías
 
@@ -145,7 +164,7 @@ Detalle completo en [`docs/cade-format.md`](docs/cade-format.md).
 ## Limitaciones conocidas
 
 - 2 de 161 registros mal delimitados en `inversion-giro-cej.cade` (códigos `0` y `5`).
-- La tabla de códigos de componente está incompleta: falta la extracción desde el binario.
+- La barra de inserción busca componentes del catálogo; no ejecuta comandos ni mantiene historial, favoritos o búsqueda remota.
 - La simulación modela contactos y bobinas; no modela temporizadores ni disparo de protecciones.
 - El motor se considera alimentado con dos o más fases con tensión (esquema unifilar), no por fase y neutro.
 
