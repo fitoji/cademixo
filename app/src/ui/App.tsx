@@ -99,9 +99,10 @@ import {
   pickSidecarHandle,
   planSaveAction,
   suggestedSaveName,
-  writeBytes,
   writeHandle,
 } from './files.ts';
+import { publishRevision } from './save-adapter.ts';
+import { browserRecoveryStore, projectIdFor, type RecoveryEntry } from './recovery-store.ts';
 import {
   beginSave,
   completionHandle,
@@ -182,6 +183,7 @@ import { ProjectSettingsDialog } from './ProjectSettingsDialog.tsx';
 import { TitleBlockDialog } from './TitleBlockDialog.tsx';
 import { ShortcutsDialog } from './ShortcutsDialog.tsx';
 import { SaveAsDialog } from './SaveAsDialog.tsx';
+import { RecoveryDialog } from './RecoveryDialog.tsx';
 import { getScope, setScope, subscribeScope } from '../symbols/scope.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { getSettings, setSettings, subscribeSettings, wireStroke } from './settings.ts';
@@ -237,6 +239,9 @@ function protectionStateOf(code: number, state?: 'closed' | 'open'): 'closed' | 
 /** Conjunto vacío de identidad estable: sin paso de simulación nadie cumple el retardo. */
 const NO_TIMER_READY: ReadonlySet<number> = new Set<number>();
 
+/** Copias de recuperación del navegador; no toca IndexedDB hasta que se usa. */
+const recoveryStore = browserRecoveryStore();
+
 export function App(): JSX.Element {
   const [state, setState] = useState<EditorState | null>(null);
   const [fileName, setFileName] = useState('');
@@ -278,6 +283,9 @@ export function App(): JSX.Element {
    */
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [saveAsTarget, setSaveAsTarget] = useState<'cade' | 'mixo'>('cade');
+  /** Copias buenas conservadas en el navegador, independientes del archivo actual. */
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryEntries, setRecoveryEntries] = useState<RecoveryEntry[]>([]);
   /** Primer clic de un cable: origen. El segundo clic lo cierra. */
   const [wireStart, setWireStart] = useState<{ x: number; y: number } | null>(null);
   // Drop de archivos: profundidad de `dragenter` para que el aviso no parpadee
@@ -520,6 +528,19 @@ export function App(): JSX.Element {
               },
             },
           });
+          void recoveryStore.list(projectIdFor(name)).then((entries) => {
+            if (entries.length > 0) {
+              toast(`hay ${entries.length} copia(s) recuperable(s) en este navegador`, {
+                action: {
+                  label: 'Ver copias',
+                  onClick: () => {
+                    setRecoveryEntries(entries);
+                    setRecoveryOpen(true);
+                  },
+                },
+              });
+            }
+          });
         } else {
           flash('no se cargó: el proyecto no contiene un esquema CADe_SIMU', 'error');
         }
@@ -662,11 +683,15 @@ export function App(): JSX.Element {
         flash('no se guardó: la revisión no coincide con los bytes a escribir', 'error');
         return 'failed';
       }
-      try {
-        await writeBytes(handle, payload.bytes);
-      } catch {
-        // `close` también puede fallar: no se da por guardado.
-        flash('no se guardó: no se pudo escribir el archivo', 'error');
+      // El adaptador conserva primero la generación previa, escribe y espera
+      // el cierre, y confirma por relectura antes de rotar las copias.
+      const published = await publishRevision({ handle, bytes: payload.bytes, store: recoveryStore });
+      if (!published.ok) {
+        const advice =
+          published.reason === 'preserve-failed'
+            ? ' no se tocó el archivo; probá Guardar como…'
+            : '';
+        flash(`no se guardó: ${published.detail}.${advice}`, 'error');
         return 'failed';
       }
       writeComponentBindings(hash, bindings, { drawingHash: hash, sourceName: handle.name });
@@ -922,6 +947,26 @@ export function App(): JSX.Element {
     },
     [state, flash, componentShortcuts, writeSidecar],
   );
+
+  /** Abre el inventario de copias; nunca modifica el archivo del documento. */
+  const openRecovery = useCallback(async (): Promise<void> => {
+    setRecoveryEntries(await recoveryStore.list(projectIdFor(fileNameRef.current)));
+    setRecoveryOpen(true);
+  }, []);
+
+  const downloadRecovery = useCallback(
+    (entry: RecoveryEntry): void => {
+      const name = cadFileName(entry.name);
+      downloadBytes(entry.bytes, name);
+      flash(`descarga iniciada: ${name}; el archivo original no se reparó`);
+    },
+    [flash],
+  );
+
+  const deleteRecovery = useCallback(async (entry: RecoveryEntry): Promise<void> => {
+    await recoveryStore.delete({ projectId: entry.projectId, revisionId: entry.revisionId });
+    setRecoveryEntries(await recoveryStore.list(projectIdFor(fileNameRef.current)));
+  }, []);
 
   /** Copia limpia para CADe, sin cambiar el archivo ni el modo actual. */
   const exportToCade = useCallback(async (): Promise<void> => {
@@ -1865,6 +1910,10 @@ export function App(): JSX.Element {
                     <DownloadIcon />
                     Exportar para CADe…
                   </MenubarItem>
+                  <MenubarItem onSelect={() => void openRecovery()}>
+                    <RotateCcwIcon />
+                    Recuperar versión…
+                  </MenubarItem>
                 </MenubarGroup>
                 <MenubarSeparator />
                 <MenubarGroup>
@@ -2420,6 +2469,15 @@ export function App(): JSX.Element {
         target={saveAsTarget}
         onCancel={() => setSaveAsOpen(false)}
         onConfirm={saveAsConfirmed}
+      />
+
+      <RecoveryDialog
+        open={recoveryOpen}
+        projectId={projectIdFor(fileNameRef.current)}
+        entries={recoveryEntries}
+        onCancel={() => setRecoveryOpen(false)}
+        onDownload={downloadRecovery}
+        onDelete={(entry) => void deleteRecovery(entry)}
       />
 
       <Toaster theme={mode} position="top-center" />

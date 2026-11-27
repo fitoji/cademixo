@@ -97,22 +97,29 @@ test('guardar un .mixo escribe un solo archivo con el dibujo y las keys', async 
   await page.addInitScript(() => {
     const state = { calls: 0, writes: [] as { name: string; data: number[] }[] };
     (window as unknown as { __mixo: typeof state }).__mixo = state;
-    const handle = () => ({
-      name: 'plano.mixo',
-      async getFile() {
-        return new File([], 'plano.mixo');
-      },
-      async createWritable() {
-        return {
-          async write(chunk: Uint8Array | string) {
-            const bytes = typeof chunk === 'string' ? Array.from(new TextEncoder().encode(chunk)) : Array.from(chunk);
-            state.writes.push({ name: 'plano.mixo', data: bytes });
-          },
-          async close() {},
-          async abort() {},
-        };
-      },
-    });
+    const handle = () => {
+      let current = new Uint8Array(0);
+      let pending = current;
+      return {
+        name: 'plano.mixo',
+        async getFile() {
+          return new File([current], 'plano.mixo');
+        },
+        async createWritable() {
+          return {
+            async write(chunk: Uint8Array | string) {
+              const bytes = typeof chunk === 'string' ? Array.from(new TextEncoder().encode(chunk)) : Array.from(chunk);
+              pending = Uint8Array.from(bytes);
+              state.writes.push({ name: 'plano.mixo', data: bytes });
+            },
+            async close() {
+              current = pending;
+            },
+            async abort() {},
+          };
+        },
+      };
+    };
     Object.defineProperty(window, 'showSaveFilePicker', {
       configurable: true,
       value: async () => {
@@ -153,22 +160,29 @@ test('guardar escribe el .cad y su sidecar .keys.json', async ({ page }) => {
   await page.addInitScript(() => {
     const state = { calls: 0, writes: [] as { name: string; data: number[] }[] };
     (window as unknown as { __sidecar: typeof state }).__sidecar = state;
-    const handle = (name: string) => ({
-      name,
-      async getFile() {
-        return new File([], name);
-      },
-      async createWritable() {
-        return {
-          async write(chunk: Uint8Array | string) {
-            const bytes = typeof chunk === 'string' ? Array.from(new TextEncoder().encode(chunk)) : Array.from(chunk);
-            state.writes.push({ name, data: bytes });
-          },
-          async close() {},
-          async abort() {},
-        };
-      },
-    });
+    const handle = (name: string) => {
+      let current = new Uint8Array(0);
+      let pending = current;
+      return {
+        name,
+        async getFile() {
+          return new File([current], name);
+        },
+        async createWritable() {
+          return {
+            async write(chunk: Uint8Array | string) {
+              const bytes = typeof chunk === 'string' ? Array.from(new TextEncoder().encode(chunk)) : Array.from(chunk);
+              pending = Uint8Array.from(bytes);
+              state.writes.push({ name, data: bytes });
+            },
+            async close() {
+              current = pending;
+            },
+            async abort() {},
+          };
+        },
+      };
+    };
     Object.defineProperty(window, 'showSaveFilePicker', {
       configurable: true,
       value: async () => handle(state.calls++ === 0 ? 'plano.cad' : 'plano.cad.keys.json'),
