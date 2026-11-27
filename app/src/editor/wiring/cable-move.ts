@@ -1070,6 +1070,25 @@ function validateProposalGeometry(ctx: CableMoveContext, proposal: MoveProposal)
     }
   }
 
+  // El componente movido no puede cubrir un borne ajeno ni una unión que no
+  // viaja con él: attachPoints las convertiría en bornes del componente y
+  // cambiaría las identidades aunque la geometría sea ortogonal.
+  const staticPins = ctx.pinPoints
+    .filter((p) => !ctx.selection.has(p.componentId))
+    .map((p) => p.point);
+  for (const box of movedBoxes) {
+    for (const p of staticPins) {
+      if (boxContains(box, p)) {
+        return { ok: false, reason: 'el componente movido cubre un borne ajeno' };
+      }
+    }
+    for (const j of ctx.junctionPoints) {
+      if (boxContains(box, j)) {
+        return { ok: false, reason: 'el componente movido cubre una unión' };
+      }
+    }
+  }
+
   // El componente movido no puede invadir cables que no se movieron.
   const changedIds = new Set<number>([...proposal.wires.keys(), ...proposal.removed]);
   for (const box of movedBoxes) {
