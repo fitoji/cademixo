@@ -8,7 +8,14 @@ import {
   CommandList,
   createCommandController,
 } from '@ui-sdk/react/command';
-import { CornerDownLeftIcon, GripVerticalIcon, Maximize2Icon, MinusIcon, PlusIcon } from 'lucide-react';
+import {
+  CornerDownLeftIcon,
+  GripVerticalIcon,
+  Maximize2Icon,
+  MinusIcon,
+  PanelBottomIcon,
+  PlusIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PaletteScope } from '../symbols/scope.ts';
 import { insertionMatches } from './insertion-matches.ts';
@@ -27,6 +34,7 @@ interface Props {
   onPick: (code: number) => void;
   onFocusCanvas: () => void;
   canSearch: () => boolean;
+  onDockChange: (docked: boolean) => void;
   className?: string;
 }
 
@@ -47,6 +55,7 @@ const STEP = 16;
 const BIG_STEP = 48;
 const THRESHOLD = 4;
 const MARGIN = 8;
+const DOCK_ZONE = 72;
 const PRESETS = ['abajo al centro', 'abajo a la izquierda', 'abajo a la derecha', 'arriba al centro'] as const;
 
 /** El mismo límite para puntero, teclado y presets: la barra no se pierde. */
@@ -62,7 +71,7 @@ function clamp(base: Offset, rect: Box, host: Box, next: Offset): Offset {
 }
 
 export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Props>(
-  function ComponentInsertionBar({ scope, placing, onPick, onFocusCanvas, canSearch, className }, ref) {
+  function ComponentInsertionBar({ scope, placing, onPick, onFocusCanvas, canSearch, onDockChange, className }, ref) {
     const controller = useMemo(() => createCommandController(), []);
     const [query, setQuery] = useState('');
     const matches = useMemo(() => insertionMatches(scope, query), [scope, query]);
@@ -83,6 +92,8 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
     const [preset, setPreset] = useState(0);
     const [announcement, setAnnouncement] = useState('');
     const [minimized, setMinimized] = useState(false);
+    const [docked, setDocked] = useState(false);
+    const floatingOffset = useRef<Offset>(HOME);
     const restoreRef = useRef<HTMLButtonElement | null>(null);
 
     const geometry = useCallback((): { rect: Box; host: Box } | null => {
@@ -110,17 +121,19 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
 
     useEffect(() => {
       const onResize = (): void => {
+        if (docked) return;
         const box = geometry();
         if (box === null) return;
         setOffset((current) => clamp(HOME, atHome(box.rect, current), box.host, current));
       };
       window.addEventListener('resize', onResize);
       return () => window.removeEventListener('resize', onResize);
-    }, [atHome, geometry]);
+    }, [atHome, docked, geometry]);
 
     // El ancho cambia al plegar: re-clamp y foco en el botón que queda visible.
     useEffect(() => {
       const frame = requestAnimationFrame(() => {
+        if (docked) return;
         const box = geometry();
         if (box !== null) {
           setOffset((current) => clamp(HOME, atHome(box.rect, current), box.host, current));
@@ -128,7 +141,7 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
         if (minimized) restoreRef.current?.focus({ preventScroll: true });
       });
       return () => cancelAnimationFrame(frame);
-    }, [atHome, geometry, minimized]);
+    }, [atHome, docked, geometry, minimized]);
 
     const clear = (): void => {
       controller.setQuery('');
@@ -174,15 +187,36 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
       setAnnouncement(`Barra ${PRESETS[next]}`);
     };
 
+    const dock = (): void => {
+      if (docked) return;
+      floatingOffset.current = offset;
+      setDocked(true);
+      setMinimized(false);
+      setOffset(HOME);
+      onDockChange(true);
+      setAnnouncement('Barra fijada abajo');
+    };
+
+    const float = (): void => {
+      if (!docked) return;
+      setDocked(false);
+      setOffset(floatingOffset.current);
+      onDockChange(false);
+      setAnnouncement('Barra separada del borde');
+    };
+
     return (
       <div
         ref={rootRef}
         data-component-insertion-bar=""
-        style={{ transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)` }}
+        data-docked={docked ? '' : undefined}
+        style={docked ? undefined : { transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)` }}
         className={cn(
-          'z-30 h-9 rounded-sm border border-border bg-card text-foreground shadow-float moderno:rounded-lg',
-          minimized ? 'w-[9.5rem]' : 'w-[min(720px,calc(100%-2rem))]',
-          'motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
+          'z-30 h-9 bg-card text-foreground motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
+          docked
+            ? 'inset-x-0 bottom-0 w-full rounded-none border-x-0 border-t border-b-0 shadow-none'
+            : 'bottom-32 left-1/2 rounded-sm border border-border shadow-float moderno:rounded-lg',
+          !docked && (minimized ? 'w-[9.5rem]' : 'w-[min(720px,calc(100%-2rem))]'),
           className,
         )}
         onKeyDownCapture={(event) => {
@@ -223,6 +257,16 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
         >
           <button
             type="button"
+            aria-label={docked ? 'Separar barra del borde' : 'Fijar barra abajo'}
+            title={docked ? 'Separar del borde' : 'Fijar abajo'}
+            className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            onClick={docked ? float : dock}
+          >
+            <PanelBottomIcon aria-hidden="true" className="size-3.5" />
+          </button>
+          {!docked && (
+          <button
+            type="button"
             data-drag-handle=""
             data-dragging={dragging ? '' : undefined}
             aria-label="Mover barra de inserción. Usá las flechas; con Mayús, pasos grandes; Inicio la centra."
@@ -260,7 +304,15 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
               const active = drag.current;
               drag.current = null;
               setDragging(false);
-              if (active?.moved === true) setAnnouncement('Barra movida');
+              if (active?.moved === true) {
+                const next = clamp(active.offset, active.rect, active.host, {
+                  x: active.offset.x + event.clientX - active.startX,
+                  y: active.offset.y + event.clientY - active.startY,
+                });
+                const bottom = active.rect.bottom + next.y - active.offset.y;
+                if (bottom >= active.host.bottom - DOCK_ZONE) dock();
+                else setAnnouncement('Barra movida');
+              }
               if (event.currentTarget.hasPointerCapture(event.pointerId)) {
                 event.currentTarget.releasePointerCapture(event.pointerId);
               }
@@ -286,6 +338,8 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
           >
             <GripVerticalIcon aria-hidden="true" className="size-3.5" />
           </button>
+          )}
+          {!docked && (
           <button
             type="button"
             aria-label={`Mover barra ${PRESETS[(preset + 1) % PRESETS.length]}`}
@@ -295,6 +349,7 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
           >
             <Maximize2Icon aria-hidden="true" className="size-3" />
           </button>
+          )}
           <span
             aria-hidden="true"
             className="shrink-0 font-mono text-[11px] font-medium text-ring moderno:text-primary"

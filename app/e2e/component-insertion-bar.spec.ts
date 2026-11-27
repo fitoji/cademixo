@@ -190,9 +190,8 @@ test('el tirador mueve la barra sin tocar el documento', async ({ page }) => {
   await page.mouse.move(grip!.x + grip!.width / 2 + 120, grip!.y + grip!.height / 2 - 80, { steps: 6 });
   await page.mouse.up();
 
-  const after = await bar.boundingBox();
-  expect(after!.x).toBeGreaterThan(before!.x + 80);
-  expect(after!.y).toBeLessThan(before!.y - 40);
+  await expect.poll(async () => (await bar.boundingBox())!.x).toBeGreaterThan(before!.x + 80);
+  await expect.poll(async () => (await bar.boundingBox())!.y).toBeLessThan(before!.y - 40);
   await expect(canvas.locator('g[data-id]')).toHaveCount(records);
 
   // La búsqueda sigue funcionando desde la nueva ubicación.
@@ -227,14 +226,13 @@ test('el tirador se mueve con teclado y Inicio lo centra', async ({ page }) => {
   await handle.focus();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowUp');
-  const after = await bar.boundingBox();
-  expect(after!.x).toBeGreaterThan(before!.x + 10);
-  expect(after!.y).toBeLessThan(before!.y - 10);
+  await expect.poll(async () => (await bar.boundingBox())!.x).toBeGreaterThan(before!.x + 10);
+  await expect.poll(async () => (await bar.boundingBox())!.y).toBeLessThan(before!.y - 10);
 
   await page.keyboard.press('Home');
+  await expect.poll(async () => Math.abs((await bar.boundingBox())!.x - before!.x)).toBeLessThan(2);
   const home = await bar.boundingBox();
-  expect(Math.abs(home!.x - before!.x)).toBeLessThan(2);
-  expect(Math.abs(home!.y - before!.y)).toBeLessThan(2);
+  await expect.poll(async () => Math.abs((await bar.boundingBox())!.y - before!.y)).toBeLessThan(2);
   await expect(bar.getByRole('status').first()).toContainText('abajo al centro');
 });
 
@@ -243,8 +241,7 @@ test('un clic mueve la barra a otra posición sin arrastre', async ({ page }) =>
   const bar = page.locator('[data-component-insertion-bar]');
   const before = await bar.boundingBox();
   await page.getByRole('button', { name: 'Mover barra abajo a la izquierda' }).click();
-  const after = await bar.boundingBox();
-  expect(after!.x).toBeLessThan(before!.x - 40);
+  await expect.poll(async () => (await bar.boundingBox())!.x).toBeLessThan(before!.x - 40);
 });
 
 test('minimizar deja sólo Insertar y un clic la restaura', async ({ page }) => {
@@ -277,6 +274,45 @@ test('minimizar deja sólo Insertar y un clic la restaura', async ({ page }) => 
   const restored = await bar.boundingBox();
   expect(Math.abs(restored!.width - wide!.width)).toBeLessThan(2);
   expect(Math.abs(restored!.x + restored!.width / 2 - (wide!.x + wide!.width / 2))).toBeLessThan(4);
+});
+
+test('soltar cerca del borde inferior fija la barra y se puede separar', async ({ page }) => {
+  const canvas = await openFixture(page);
+  const bar = page.locator('[data-component-insertion-bar]');
+  const records = await canvas.locator('g[data-id]').count();
+  const host = await page.evaluate(() => {
+    const r = document.querySelector('[data-component-insertion-bar]')!.parentElement!.getBoundingClientRect();
+    return { left: r.left, right: r.right, bottom: r.bottom };
+  });
+  const grip = await page.getByRole('button', { name: /Mover barra de inserción/ }).boundingBox();
+  expect(grip).not.toBeNull();
+
+  await page.mouse.move(grip!.x + grip!.width / 2, grip!.y + grip!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip!.x + grip!.width / 2, host.bottom - 16, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(bar).toHaveAttribute('data-docked', '');
+  await expect
+    .poll(async () => (await bar.boundingBox())!.width)
+    .toBeGreaterThan(host.right - host.left - 4);
+  const docked = await bar.boundingBox();
+  expect(docked!.y + docked!.height).toBeLessThanOrEqual(host.bottom + 1);
+  expect(
+    await page.evaluate(() =>
+      getComputedStyle(document.querySelector('[data-component-insertion-bar]')!.parentElement!).paddingBottom,
+    ),
+  ).toBe('36px');
+  await expect(canvas.locator('g[data-id]')).toHaveCount(records);
+
+  await page.getByRole('button', { name: 'Separar barra del borde' }).click();
+  await expect(bar).not.toHaveAttribute('data-docked', '');
+  await expect(page.getByRole('button', { name: /Mover barra de inserción/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Fijar barra abajo' }).click();
+  await expect(bar).toHaveAttribute('data-docked', '');
+  await page.getByRole('button', { name: 'Separar barra del borde' }).click();
+  await expect(bar).not.toHaveAttribute('data-docked', '');
 });
 
 test('la lista cabe y no desplaza la vista en una ventana estrecha', async ({ page }) => {

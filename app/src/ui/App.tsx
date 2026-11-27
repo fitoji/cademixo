@@ -231,6 +231,8 @@ const NO_TIMER_READY: ReadonlySet<number> = new Set<number>();
 export function App(): JSX.Element {
   const [state, setState] = useState<EditorState | null>(null);
   const [fileName, setFileName] = useState('');
+  /** La barra de inserción puede acoplarse al borde inferior como franja fija. */
+  const [insertionBarDocked, setInsertionBarDocked] = useState(false);
   /** `.cad` compatible o `.mixo` con las features custom adentro. */
   const [documentMode, setDocumentMode] = useState<'cade' | 'mixo'>('cade');
   const [activeSheet, setActiveSheet] = useState(0);
@@ -2110,7 +2112,7 @@ export function App(): JSX.Element {
           </Button>
         </header>
 
-        <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className={cn('relative flex min-h-0 flex-1 flex-col', insertionBarDocked && 'pb-9')}>
           {/* La paleta va arriba en horizontal y a la izquierda del lienzo en
               vertical: es la misma pieza, cambia sólo dónde se monta. */}
           {settings.paneles === 'horizontal' && palette}
@@ -2179,7 +2181,8 @@ export function App(): JSX.Element {
             onPick={paletteOnPick}
             onFocusCanvas={focusCanvas}
             canSearch={canSearch}
-            className="absolute bottom-32 left-1/2 z-30"
+            onDockChange={setInsertionBarDocked}
+            className="absolute z-30"
           />
         </div>
 
