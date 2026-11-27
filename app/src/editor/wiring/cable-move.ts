@@ -953,7 +953,6 @@ function validateProposalGeometry(ctx: CableMoveContext, proposal: MoveProposal)
   proposal.added.forEach((a, index) => {
     changed.push({ key: `a:${index}`, points: a.points, net: sameNet(ctx, a.wireId) });
   });
-  if (changed.length === 0) return okGeom;
 
   const movedBoxes = ctx.boxes
     .filter((b) => ctx.selection.has(b.id))
@@ -964,6 +963,7 @@ function validateProposalGeometry(ctx: CableMoveContext, proposal: MoveProposal)
       maxX: b.maxX + proposal.dx,
       maxY: b.maxY + proposal.dy,
     }));
+  if (changed.length === 0 && movedBoxes.length === 0) return okGeom;
 
   // La validación sólo necesita la zona afectada: cualquier tramo, borne o
   // símbolo que pueda chocar con lo nuevo está dentro de esta caja.

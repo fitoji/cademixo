@@ -1,7 +1,7 @@
 /**
  * Ajustes de apariencia del simulador.
  *
- * Ocho preferencias: cómo se dibuja el esquema y cómo se comporta la paleta —el
+ * Nueve preferencias: cómo se dibuja el esquema y cómo se comporta la paleta —el
  * tamaño de los bornes, el grosor de los cables, la orientación de los paneles
  * de componentes y el auto cierre— y qué suena (`sonidosInterfaz`,
  * `sonidosSimulacion`, S7), con su mute maestro (`silenciado`, S9) y el zumbido
