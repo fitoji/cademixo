@@ -29,3 +29,32 @@ test('Ver → Configuración sube un cajón desde abajo', async ({ page }) => {
   await sheet.getByRole('button', { name: 'Listo' }).click();
   await expect(sheet).toBeHidden();
 });
+
+test('el manejo de cables se elige por teclado y persiste al reabrir', async ({ page }) => {
+  await page.goto('/');
+  const open = async () => {
+    await page.getByRole('menuitem', { name: 'Ver' }).click();
+    await page.getByRole('menuitem', { name: 'Configuración…' }).click();
+    return page.getByRole('dialog');
+  };
+
+  let sheet = await open();
+  const actual = sheet.getByRole('radio', { name: 'Manejo de cables actual' });
+  const ortogonal = sheet.getByRole('radio', { name: 'Manejo de cables ortogonal Wybrow' });
+  await expect(actual).toBeChecked();
+
+  await ortogonal.focus();
+  await page.keyboard.press('Space');
+  await expect(ortogonal).toBeChecked();
+  await sheet.getByRole('button', { name: 'Listo' }).click();
+
+  // Reabrir la aplicación: la preferencia vive fuera del circuito.
+  await page.reload();
+  sheet = await open();
+  await expect(sheet.getByRole('radio', { name: 'Manejo de cables ortogonal Wybrow' })).toBeChecked();
+
+  await sheet.getByRole('radio', { name: 'Manejo de cables actual' }).focus();
+  await page.keyboard.press('Space');
+  await expect(sheet.getByRole('radio', { name: 'Manejo de cables actual' })).toBeChecked();
+  await sheet.getByRole('button', { name: 'Listo' }).click();
+});

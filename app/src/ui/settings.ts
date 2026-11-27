@@ -13,6 +13,8 @@
  * valores por defecto sin romper la aplicación.
  */
 
+import type { CableHandling } from '../editor/wiring/cable-move.ts';
+
 export type PinSize = 'chico' | 'normal' | 'grande';
 export type WireWidth = 'fino' | 'normal' | 'grueso';
 /** Orientación de la barra de componentes: arriba (horizontal) o al costado. */
@@ -38,6 +40,12 @@ export type Settings = {
    * defecto: nunca es la única señal, el motor ya se ve girando.
    */
   sonidoMotor: boolean;
+  /**
+   * Manejo de cables al mover componentes: `actual` (geometría de siempre) u
+   * `ortogonal` (deformación local + router de Wybrow). Ausente o desconocido
+   * cae a `actual`.
+   */
+  cableHandling: CableHandling;
 };
 
 /**
@@ -57,6 +65,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sonidosSimulacion: true,
   silenciado: false,
   sonidoMotor: true,
+  cableHandling: 'actual',
 };
 
 export const SETTINGS_KEY = 'simuelectro:ajustes';
@@ -64,6 +73,7 @@ export const SETTINGS_KEY = 'simuelectro:ajustes';
 const PIN_SIZES: readonly PinSize[] = ['chico', 'normal', 'grande'];
 const WIRE_WIDTHS: readonly WireWidth[] = ['fino', 'normal', 'grueso'];
 const PANELES: readonly Paneles[] = ['horizontal', 'vertical'];
+const CABLE_HANDLINGS: readonly CableHandling[] = ['actual', 'ortogonal'];
 
 function isPinSize(value: unknown): value is PinSize {
   return typeof value === 'string' && (PIN_SIZES as readonly string[]).includes(value);
@@ -75,6 +85,10 @@ function isWireWidth(value: unknown): value is WireWidth {
 
 function isPaneles(value: unknown): value is Paneles {
   return typeof value === 'string' && (PANELES as readonly string[]).includes(value);
+}
+
+function isCableHandling(value: unknown): value is CableHandling {
+  return typeof value === 'string' && (CABLE_HANDLINGS as readonly string[]).includes(value);
 }
 
 /** Lee un objeto de ajustes tolerando basura: campo inválido, default del campo. */
@@ -108,6 +122,9 @@ export function parseSettings(raw: string | null): Settings {
       typeof record.silenciado === 'boolean' ? record.silenciado : DEFAULT_SETTINGS.silenciado,
     sonidoMotor:
       typeof record.sonidoMotor === 'boolean' ? record.sonidoMotor : DEFAULT_SETTINGS.sonidoMotor,
+    cableHandling: isCableHandling(record.cableHandling)
+      ? record.cableHandling
+      : DEFAULT_SETTINGS.cableHandling,
   };
 }
 
@@ -121,6 +138,7 @@ export function serializeSettings(settings: Settings): string {
     sonidosSimulacion: settings.sonidosSimulacion,
     silenciado: settings.silenciado,
     sonidoMotor: settings.sonidoMotor,
+    cableHandling: settings.cableHandling,
   });
 }
 

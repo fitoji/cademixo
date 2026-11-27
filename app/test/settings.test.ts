@@ -35,6 +35,7 @@ test('sin nada guardado valen los ajustes por defecto', () => {
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
 });
 
@@ -56,6 +57,7 @@ test('un objeto parcial completa cada campo con su default', () => {
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
   assert.deepEqual(parseSettings('{"autoCierre":true}'), {
     pinSize: 'normal',
@@ -66,6 +68,7 @@ test('un objeto parcial completa cada campo con su default', () => {
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
 });
 
@@ -80,6 +83,7 @@ test('un valor desconocido cae sólo al default de su campo', () => {
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
   assert.deepEqual(parseSettings('{"pinSize":"chico","wireWidth":"fino"}'), {
     pinSize: 'chico',
@@ -90,6 +94,7 @@ test('un valor desconocido cae sólo al default de su campo', () => {
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
 });
 
@@ -105,6 +110,7 @@ test('un tipo equivocado cae sólo al default de su campo', () => {
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
 });
 
@@ -125,6 +131,7 @@ test('serializar y volver a parsear devuelve los mismos ajustes', () => {
       sonidosSimulacion: true,
       silenciado: true,
       sonidoMotor: true,
+      cableHandling: 'actual',
     },
     {
       pinSize: 'grande',
@@ -135,6 +142,7 @@ test('serializar y volver a parsear devuelve los mismos ajustes', () => {
       sonidosSimulacion: false,
       silenciado: false,
       sonidoMotor: false,
+      cableHandling: 'actual',
     },
   ] as const;
   for (const settings of values) {
@@ -149,6 +157,7 @@ test('serializar y volver a parsear devuelve los mismos ajustes', () => {
     sonidosSimulacion: true,
     silenciado: true,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
   assert.deepEqual(JSON.parse(text), {
     pinSize: 'grande',
@@ -159,6 +168,7 @@ test('serializar y volver a parsear devuelve los mismos ajustes', () => {
     sonidosSimulacion: true,
     silenciado: true,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
 });
 
@@ -190,6 +200,7 @@ test('una orientación inválida cae a horizontal sin tocar los otros campos', (
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
 });
 
@@ -304,6 +315,7 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
   assert.equal(avisos, 1);
 
@@ -317,6 +329,7 @@ test('sin storage el store arranca en los defaults y avisa sólo al cambiar', ()
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
   assert.equal(avisos, 2);
 
@@ -361,6 +374,7 @@ test('setSettings persiste el objeto mezclado bajo la clave y no escribe si nada
       sonidosSimulacion: true,
       silenciado: false,
       sonidoMotor: true,
+      cableHandling: 'actual',
     });
     assert.equal(store.get(SETTINGS_KEY), serializeSettings(getSettings()));
 
@@ -427,6 +441,7 @@ test('un localStorage viejo sin los sonidos sigue funcionando con los defaults',
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
   // Interfaz, simulación y motor suenan de entrada.
   assert.equal(parseSettings('{}').sonidosInterfaz, true);
@@ -445,6 +460,7 @@ test('un valor que no es booleano cae sólo al default de su campo de sonido', (
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
   // El campo inválido no arrastra al otro: el que vale, se respeta.
   assert.deepEqual(parseSettings('{"sonidosInterfaz":null,"sonidosSimulacion":true}'), {
@@ -469,6 +485,7 @@ test('un localStorage sin el mute parsea con el sonido prendido', () => {
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
 });
 
@@ -488,6 +505,7 @@ test('un valor que no es booleano en el mute cae sólo al default de ese campo',
     sonidosSimulacion: true,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
 });
 
@@ -507,6 +525,7 @@ test('un localStorage sin el zumbido del motor lo deja prendido', () => {
     sonidosSimulacion: false,
     silenciado: false,
     sonidoMotor: true,
+    cableHandling: 'actual',
   });
   // Y el interruptor guardado vuelve tal cual.
   assert.equal(parseSettings('{"sonidoMotor":true}').sonidoMotor, true);
@@ -526,5 +545,27 @@ test('un valor que no es booleano en el zumbido cae sólo al default de ese camp
     sonidosSimulacion: true,
     silenciado: true,
     sonidoMotor: true,
+    cableHandling: 'actual',
+  });
+});
+
+// --- Manejo de cables -----------------------------------------------------
+
+test('el manejo de cables es Actual por defecto y persiste Ortogonal', () => {
+  assert.equal(DEFAULT_SETTINGS.cableHandling, 'actual');
+  assert.equal(parseSettings(null).cableHandling, 'actual');
+  assert.equal(parseSettings('{}').cableHandling, 'actual');
+  assert.equal(parseSettings('{"cableHandling":"ortogonal"}').cableHandling, 'ortogonal');
+  const saved = serializeSettings({ ...DEFAULT_SETTINGS, cableHandling: 'ortogonal' });
+  assert.equal(JSON.parse(saved).cableHandling, 'ortogonal');
+  assert.equal(parseSettings(saved).cableHandling, 'ortogonal');
+});
+
+test('un manejo de cables desconocido cae a Actual sin tocar los demás campos', () => {
+  assert.deepEqual(parseSettings('{"cableHandling":"diagonal"}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"cableHandling":3}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"cableHandling":null,"pinSize":"grande"}'), {
+    ...DEFAULT_SETTINGS,
+    pinSize: 'grande',
   });
 });

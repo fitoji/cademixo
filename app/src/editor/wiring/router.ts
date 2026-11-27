@@ -22,6 +22,14 @@ export interface Box {
   maxY: number;
 }
 
+/** Tramo recto que la ruta no puede compartir en colineal. */
+export interface LineObstacle {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 export interface RouteRequest {
   from: Point;
   to: Point;
@@ -30,6 +38,23 @@ export interface RouteRequest {
   padding?: number;
   /** Coste de cada codo. Por defecto 20 (docs/WIRING_ARCHITECTURE.md:137). */
   bendPenalty?: number;
+  /**
+   * Trazado previo: en empates de coste se prefiere la ruta que reutiliza sus
+   * carriles. El dibujo manual no lo pasa, así que su comportamiento no cambia.
+   */
+  preferred?: readonly Point[];
+  /**
+   * Si es `true`, un obstáculo que sólo toca el borde de un extremo sigue
+   * bloqueando su interior (el extremo puede estar sobre el borde del símbolo).
+   * Por defecto se conserva la regla histórica de excluir el obstáculo entero.
+   */
+  keepBoundaryObstacles?: boolean;
+  /**
+   * Tramos de otras redes que la ruta no puede reutilizar en colineal. Un cruce
+   * perpendicular sigue permitido: el modelo eléctrico lo lee como cruce sin
+   * unión.
+   */
+  avoid?: readonly LineObstacle[];
 }
 
 export interface RouteResult {
@@ -38,6 +63,8 @@ export interface RouteResult {
   bends: number;
   /** Nodos expandidos por A*: útil para el benchmark de F5. */
   explored: number;
+  /** `false` si el grafo de visibilidad no encontró camino. */
+  found: boolean;
 }
 
 const EPS = 1e-6;
@@ -64,6 +91,8 @@ interface Entry {
   dir: number;
   parent: number;
   seq: number;
+  /** Longitud de arista que coincide con el trazado previo (desempate). */
+  pref: number;
 }
 
 /** Heap binario mínimo con tie-break por orden de inserción. */
@@ -109,7 +138,9 @@ class MinHeap {
   }
 
   private less(a: Entry, b: Entry): boolean {
-    return a.f < b.f || (a.f === b.f && a.seq < b.seq);
+    if (a.f !== b.f) return a.f < b.f;
+    if (a.pref !== b.pref) return a.pref > b.pref;
+    return a.seq < b.seq;
   }
 }
 
@@ -220,24 +251,31 @@ function routeCore(request: RouteRequest): RouteResult {
   const { from, to } = request;
   const padding = request.padding ?? 1;
   const bendPenalty = request.bendPenalty ?? 20;
+  const keepBoundary = request.keepBoundaryObstacles ?? false;
   const inflated: Box[] = request.obstacles.map((b) => ({
     minX: b.minX - padding,
     minY: b.minY - padding,
     maxX: b.maxX + padding,
     maxY: b.maxY + padding,
   }));
-  const touchesEndpoint = (b: Box, p: Point): boolean =>
-    p.x >= b.minX && p.x <= b.maxX && p.y >= b.minY && p.y <= b.maxY;
+  const contains = (b: Box, p: Point, strict: boolean): boolean =>
+    strict
+      ? p.x > b.minX + EPS && p.x < b.maxX - EPS && p.y > b.minY + EPS && p.y < b.maxY - EPS
+      : p.x >= b.minX && p.x <= b.maxX && p.y >= b.minY && p.y <= b.maxY;
   // Un borne puede caer justo sobre el borde inflado de su propio símbolo: ese
-  // obstáculo no puede bloquear la salida (Excalidraw lo llama overlap management).
-  const blockers = inflated.filter((b) => !touchesEndpoint(b, from) && !touchesEndpoint(b, to));
+  // obstáculo no puede bloquear la salida. Con `keepBoundaryObstacles` sólo se
+  // excluye si el extremo está ESTRICTAMENTE adentro, así el símbolo destino
+  // sigue bloqueando su interior y la ruta lo rodea.
+  const blockers = inflated.filter(
+    (b) => !contains(b, from, keepBoundary) && !contains(b, to, keepBoundary),
+  );
   const boxIndex = buildBoxIndex(blockers);
   const inside = (p: Point): boolean =>
     boxesAt(boxIndex, blockers, p).some(
       (b) => p.x > b.minX + EPS && p.x < b.maxX - EPS && p.y > b.minY + EPS && p.y < b.maxY - EPS,
     );
 
-  if (same(from, to)) return { waypoints: [{ ...from }], length: 0, bends: 0, explored: 0 };
+  if (same(from, to)) return { waypoints: [{ ...from }], length: 0, bends: 0, explored: 0, found: true };
 
   const xsSet = new Set<number>([from.x, to.x]);
   const ysSet = new Set<number>([from.y, to.y]);
@@ -267,7 +305,28 @@ function routeCore(request: RouteRequest): RouteResult {
   const end = index(to);
 
   /** ¿El tramo recto entre dos nodos atraviesa un obstáculo? */
+  const collinearShared = (a: Point, b: Point, line: LineObstacle): boolean => {
+    const vertical = Math.abs(a.x - b.x) < EPS;
+    const lineVertical = Math.abs(line.x1 - line.x2) < EPS;
+    if (vertical !== lineVertical) return false;
+    if (vertical) {
+      if (Math.abs(a.x - line.x1) > EPS) return false;
+      const alo = Math.min(a.y, b.y);
+      const ahi = Math.max(a.y, b.y);
+      const llo = Math.min(line.y1, line.y2);
+      const lhi = Math.max(line.y1, line.y2);
+      return Math.min(ahi, lhi) - Math.max(alo, llo) > EPS;
+    }
+    if (Math.abs(a.y - line.y1) > EPS) return false;
+    const alo = Math.min(a.x, b.x);
+    const ahi = Math.max(a.x, b.x);
+    const llo = Math.min(line.x1, line.x2);
+    const lhi = Math.max(line.x1, line.x2);
+    return Math.min(ahi, lhi) - Math.max(alo, llo) > EPS;
+  };
+  const avoid = request.avoid ?? [];
   const blocked = (a: Point, b: Point): boolean => {
+    if (avoid.some((line) => collinearShared(a, b, line))) return true;
     const vertical = Math.abs(a.x - b.x) < EPS;
     const lo = vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x);
     const hi = vertical ? Math.max(a.y, b.y) : Math.max(a.x, b.x);
@@ -306,9 +365,46 @@ function routeCore(request: RouteRequest): RouteResult {
   const order = (dir: number): number[] =>
     dir < 0 ? [0, 1, 2, 3] : [dir, right(dir), left(dir)]; // recto, derecha, izquierda
 
+  // Trazado previo: sólo desempata. Se compara la superposición colineal de
+  // cada arista con los tramos previos; el coste principal sigue siendo g.
+  const prefSegments: { x1: number; y1: number; x2: number; y2: number; vertical: boolean }[] = [];
+  if (request.preferred && request.preferred.length > 1) {
+    for (let i = 0; i + 1 < request.preferred.length; i++) {
+      const a = request.preferred[i]!;
+      const b = request.preferred[i + 1]!;
+      const isVertical = Math.abs(a.x - b.x) < EPS;
+      const isHorizontal = Math.abs(a.y - b.y) < EPS;
+      if (!isVertical && !isHorizontal) continue;
+      prefSegments.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, vertical: isVertical });
+    }
+  }
+  const preferredOverlap = (a: Point, b: Point): number => {
+    const isVertical = Math.abs(a.x - b.x) < EPS;
+    let total = 0;
+    for (const p of prefSegments) {
+      if (p.vertical !== isVertical) continue;
+      if (isVertical) {
+        if (Math.abs(a.x - p.x1) > EPS) continue;
+        const alo = Math.min(a.y, b.y);
+        const ahi = Math.max(a.y, b.y);
+        const plo = Math.min(p.y1, p.y2);
+        const phi = Math.max(p.y1, p.y2);
+        total += Math.max(0, Math.min(ahi, phi) - Math.max(alo, plo));
+      } else {
+        if (Math.abs(a.y - p.y1) > EPS) continue;
+        const alo = Math.min(a.x, b.x);
+        const ahi = Math.max(a.x, b.x);
+        const plo = Math.min(p.x1, p.x2);
+        const phi = Math.max(p.x1, p.x2);
+        total += Math.max(0, Math.min(ahi, phi) - Math.max(alo, plo));
+      }
+    }
+    return total;
+  };
+
   const heap = new MinHeap();
   const entries: Entry[] = [];
-  const best = new Map<string, number>();
+  const best = new Map<string, { g: number; pref: number }>();
   let sequence = 0;
   const initial: Entry = {
     f: manhattan(from, to),
@@ -319,10 +415,11 @@ function routeCore(request: RouteRequest): RouteResult {
     dir: -1,
     parent: -1,
     seq: sequence++,
+    pref: 0,
   };
   entries.push(initial);
   heap.push(initial);
-  best.set(`${start}|-1`, 0);
+  best.set(`${start}|-1`, { g: 0, pref: 0 });
   let explored = 0;
 
   while (heap.size > 0) {
@@ -342,10 +439,14 @@ function routeCore(request: RouteRequest): RouteResult {
         length: pathLength(waypoints),
         bends: Math.max(0, waypoints.length - 2),
         explored,
+        found: true,
       };
     }
     const key = `${current.node}|${current.dir}`;
-    if ((best.get(key) ?? Infinity) < current.g) continue;
+    const currentBest = best.get(key);
+    if (currentBest && (currentBest.g < current.g || (currentBest.g === current.g && currentBest.pref > current.pref))) {
+      continue;
+    }
     for (const dir of order(current.dir)) {
       const next = nearest(current.node, dir);
       if (next < 0) continue;
@@ -353,9 +454,11 @@ function routeCore(request: RouteRequest): RouteResult {
       const bends = current.bends + (current.dir < 0 || current.dir === dir ? 0 : 1);
       const length = current.length + stepLength;
       const g = length + bendPenalty * bends;
+      const pref = current.pref + preferredOverlap(nodes[current.node]!, nodes[next]!);
       const stateKey = `${next}|${dir}`;
-      if (g >= (best.get(stateKey) ?? Infinity)) continue;
-      best.set(stateKey, g);
+      const known = best.get(stateKey);
+      if (known && (g > known.g || (g === known.g && pref <= known.pref))) continue;
+      best.set(stateKey, { g, pref });
       const entry: Entry = {
         f: g + manhattan(nodes[next]!, to),
         g,
@@ -365,6 +468,7 @@ function routeCore(request: RouteRequest): RouteResult {
         dir,
         parent: current.seq,
         seq: sequence++,
+        pref,
       };
       entries.push(entry);
       heap.push(entry);
@@ -379,5 +483,6 @@ function routeCore(request: RouteRequest): RouteResult {
     length: manhattan(from, to),
     bends: Math.max(0, waypoints.length - 2),
     explored,
+    found: false,
   };
 }

@@ -59,6 +59,7 @@ import {
   addRoutedWire,
   removeJunction,
   applyDrag,
+  applyDragResult,
   takeCommittedNetwork,
   undo,
   redo,
@@ -1559,10 +1560,20 @@ export function App(): JSX.Element {
     setPreview(op);
   }, []);
 
-  const onDragCommit = useCallback((op: DragOp) => {
-    setState((s) => (s ? applyDrag(s, op) : s));
-    setPreview(null);
-  }, []);
+  const onDragCommit = useCallback(
+    (op: DragOp) => {
+      if (!state) return;
+      const mode = getSettings().cableHandling;
+      const result = applyDragResult(state, op, mode);
+      if (!result.ok) {
+        flash(`sin ruta válida: ${result.reason}`, 'rechazo');
+        return;
+      }
+      setState(result.state);
+      setPreview(null);
+    },
+    [state, flash],
+  );
 
   const onInsertVertex = useCallback((id: number, x: number, y: number) => {
     setState((s) => (s ? insertVertex(s, id, x, y) : s));

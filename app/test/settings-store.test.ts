@@ -23,6 +23,7 @@ const OTRO: Record<string, string> = {
   pinSize: 'grande',
   wireWidth: 'grueso',
   paneles: 'vertical',
+  cableHandling: 'ortogonal',
 };
 
 function cambiado<K extends keyof Settings>(key: K): Settings[K] {

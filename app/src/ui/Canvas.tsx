@@ -8,6 +8,7 @@ import { componentHitBox } from './hit-box.ts';
 import { designatorAt, pinLabelAt } from './labels.ts';
 import { idsInRect } from '../editor/selection-rect.ts';
 import { moveDelta, type DragOp, type MoveDelta, type Rotation } from '../editor/state.ts';
+import { cablePlanToDelta, planCableMove, prepareCableMove } from '../editor/wiring/cable-move.ts';
 import { bendPreviewLegs, isVertexPlanSafe, legsOf, planSegmentPolyline, planSplitBend, planVertexMove } from '../editor/wiring/preview-geometry.ts';
 import { pathPoints, wirePathsOf, type WirePath } from '../editor/wiring/types.ts';
 import { idle, startMarquee, startMove, startPan, startSegment, startVertex, step as advance, type Effect, type Gesture, type GestureEvent } from '../editor/wiring/controller.ts';
@@ -323,8 +324,26 @@ export function Canvas(props: Props): JSX.Element {
   );
 
   const pins = useMemo(() => attachPoints(records), [records]);
+  const network = useMemo(() => buildNetwork(records), [records]);
+  const cableMode = useSyncExternalStore(subscribeSettings, getSettings, getSettings).cableHandling;
   // Preview del gesto de mover: se dibuja desde acá y no toca el documento.
   const [movePreview, setMovePreview] = useState<{ dx: number; dy: number } | null>(null);
+  // Datos del inicio del gesto: bornes, redes y grupos no cambian mientras se
+  // arrastra, así el preview no reconstruye el circuito en cada evento.
+  const cableCtx = useMemo(
+    () =>
+      cableMode === 'ortogonal'
+        ? prepareCableMove(records, selection, pins, network, { groups: false })
+        : null,
+    [cableMode, records, selection, pins, network],
+  );
+  const orthogonalPlan = useMemo(
+    () =>
+      movePreview === null || cableCtx === null
+        ? null
+        : planCableMove(cableCtx, movePreview.dx, movePreview.dy, { validate: false }),
+    [movePreview, cableCtx],
+  );
   // Preview del gesto de tramo: la polilínea que el commit va a escribir, sin
   // reconstruir el documento. Sólo para cables de un solo tramo.
   const [wirePreview, setWirePreview] = useState<{
@@ -343,13 +362,17 @@ export function Canvas(props: Props): JSX.Element {
   } | null>(null);
   /**
    * Delta del gesto de mover: misma regla que el commit, sin reconstruir el
-   * documento ni la red. Sólo se recalcula cuando cambia el gesto.
+   * documento ni la red. En ortogonal se apoya en la propuesta del router.
    */
-  const dragDelta = useMemo(
-    () => (movePreview === null ? null : moveDelta(records, pins, selection, movePreview.dx, movePreview.dy)),
-    [movePreview, records, pins, selection],
-  );
-  const network = useMemo(() => buildNetwork(records), [records]);
+  const dragDelta = useMemo(() => {
+    if (movePreview === null) return null;
+    if (cableMode === 'actual') {
+      return moveDelta(records, pins, selection, movePreview.dx, movePreview.dy);
+    }
+    return orthogonalPlan?.ok ? cablePlanToDelta(orthogonalPlan.proposal) : null;
+  }, [movePreview, cableMode, records, pins, selection, orthogonalPlan]);
+  const moveRejection =
+    movePreview !== null && orthogonalPlan !== null && !orthogonalPlan.ok ? orthogonalPlan.reason : null;
   // Polilínea de cable por tramo, para previsualizar los agrupados.
   const wirePathById = useMemo(() => {
     const byId = new Map<number, WirePath>();
@@ -978,6 +1001,16 @@ export function Canvas(props: Props): JSX.Element {
         {notice}
       </div>
 
+      {moveRejection !== null && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute top-3 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-destructive/60 bg-card px-3 py-1.5 text-xs text-destructive shadow-float"
+        >
+          Sin ruta válida: {moveRejection}
+        </div>
+      )}
+
       {/*
        * Chrome flotante sobre el dibujo: el zoom en una esquina, las
        * herramientas del lienzo al centro. Así el chrome del editor queda
@@ -1177,6 +1210,7 @@ function SceneView({
           {records.map((rec) => {
             if (wirePreview !== null && wirePreview.ids.has(rec.id)) return null;
             if (vertexPreview !== null && vertexPreview.hidden.has(rec.id)) return null;
+            if (dragDelta !== null && dragDelta.hidden.has(rec.id)) return null;
             if (rec.kind === 'connection')
               return (
                 <Wire

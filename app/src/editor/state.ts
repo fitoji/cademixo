@@ -36,7 +36,6 @@ import {
   withWirePoints,
   wirePoints,
   type LampColor,
-  type WirePoints,
   boundsOf,
   GEOMETRY,
   type CadeRecordModel,
@@ -54,11 +53,20 @@ import type { Rotation } from '../model/transform.ts';
 import { CABLE_NUMBER_INDEX, JUNCTION_CODE, buildNetwork, cableNumberOf, cableSegments, netKey, nodeXY, type Network } from './network.ts';
 import { attachPoints, type Point } from './pins.ts';
 import { routeOrthogonal, type Box } from './wiring/router.ts';
+import {
+  connectionGroups,
+  planCableMove,
+  prepareCableMove,
+  type CableHandling,
+  type MoveDelta,
+  type MoveProposal,
+} from './wiring/cable-move.ts';
 import { projectOnSegment } from './wiring/geometry.ts';
 import { pathPoints, wirePathsOf } from './wiring/types.ts';
 import { planSegmentPolyline, planVertexMove } from './wiring/preview-geometry.ts';
 
 export type { Rotation };
+export type { CableHandling, MoveDelta } from './wiring/cable-move.ts';
 
 export interface EditorState {
   text: string;
@@ -326,20 +334,6 @@ function indexed(project: Project): IndexedRecord[] {
  * cálculo puro: el preview dibuja desde acá y el commit la usa para escribir.
  * No serializa, no parsea y no construye red.
  */
-export interface MoveDelta {
-  /** Posición nueva de cada componente seleccionado, por id. */
-  positions: Map<number, { x: number; y: number }>;
-  /** Puntos nuevos de cada cable afectado, por id. */
-  wires: Map<number, WirePoints>;
-  /** Codos que el preview dibuja como tramo móvil, por cable. */
-  codos: { wireId: number; moving: WirePoints }[];
-  /** Desplazamiento del gesto, para dibujar componentes movidos. */
-  dx: number;
-  dy: number;
-  /** Puntos que la poda no debe tocar: los que el gesto está moviendo. */
-  protect: Point[];
-}
-
 export function moveDelta(
   records: readonly CadeRecordModel[],
   pins: ReadonlyMap<number, Point[]>,
@@ -353,7 +347,16 @@ export function moveDelta(
     for (const p of pins.get(rec.id) ?? []) movedPins.add(`${p.x},${p.y}`);
   }
   const anchored = (x: number, y: number): boolean => movedPins.has(`${x},${y}`);
-  const out: MoveDelta = { positions: new Map(), wires: new Map(), codos: [], protect: [], dx, dy };
+  const out: MoveDelta = {
+    positions: new Map(),
+    wires: new Map(),
+    codos: [],
+    protect: [],
+    dx,
+    dy,
+    hidden: new Set(),
+    strategy: 'actual',
+  };
 
   for (const rec of records) {
     if (selection.has(rec.id) && rec.kind === 'component') {
@@ -418,10 +421,23 @@ export function takeCommittedNetwork(state: EditorState): Network | null {
 
 /**
  * Mueve la selección. Los extremos de cable que coinciden exactamente con un
- * borne de un componente movido viajan con él: se acabó la regla provisional de
- * proximidad ±4, que arrastraba cables que sólo pasaban cerca de la caja.
+ * borne de un componente movido viajan con él.
+ *
+ * La ruta **Actual** queda intacta (es la geometría de siempre). La ruta
+ * **ortogonal** delega en `cable-move.ts` y confirma exactamente la propuesta
+ * del preview; si no hay ruta válida no toca documento ni historial.
  */
-export function moveSelection(state: EditorState, dx: number, dy: number): EditorState {
+export function moveSelection(
+  state: EditorState,
+  dx: number,
+  dy: number,
+  mode: CableHandling = 'actual',
+): EditorState {
+  if (mode === 'actual') return moveSelectionActual(state, dx, dy);
+  return moveSelectionOrthogonal(state, dx, dy).state;
+}
+
+function moveSelectionActual(state: EditorState, dx: number, dy: number): EditorState {
   if (state.selection.length === 0 || (dx === 0 && dy === 0)) return state;
   const project = projectOf(state);
   const selected = new Set(state.selection);
@@ -452,6 +468,85 @@ export function moveSelection(state: EditorState, dx: number, dy: number): Edito
   const committed = commit(state, pruned.text);
   committedNetwork = pruned.net !== null && committed.text === pruned.text ? { text: committed.text, network: pruned.net } : null;
   return committed;
+}
+
+function moveSelectionOrthogonal(
+  state: EditorState,
+  dx: number,
+  dy: number,
+): { ok: boolean; state: EditorState; reason?: string } {
+  if (state.selection.length === 0 || (dx === 0 && dy === 0)) return { ok: true, state };
+  const project = projectOf(state);
+  const selected = new Set(state.selection);
+  const hasComponent = project.records.some((rec) => rec.kind === 'component' && selected.has(rec.id));
+  // Mover sólo cables no cambia el problema del componente: se conserva la
+  // traslación explícita de siempre.
+  if (!hasComponent) return { ok: true, state: moveSelectionActual(state, dx, dy) };
+
+  const ctx = prepareCableMove(project.records, selected);
+  const plan = planCableMove(ctx, dx, dy, { validate: true });
+  if (!plan.ok) return { ok: false, state, reason: plan.reason };
+
+  const text = serializeCableProposal(project, plan.proposal);
+  // Comprobación definitiva sobre el texto exacto que se va a confirmar.
+  const candidate = buildProject(parse(text));
+  const groups = connectionGroups(candidate.records);
+  if (!groupsEqual(groups, ctx.groups)) {
+    return { ok: false, state, reason: 'el movimiento cambia las conexiones de los bornes' };
+  }
+  const expected =
+    project.records.length - plan.proposal.removed.size + plan.proposal.added.length;
+  if (candidate.records.length !== expected) {
+    return { ok: false, state, reason: 'la propuesta no coincide con los registros confirmados' };
+  }
+
+  const committed = commit(state, text);
+  if (committed === state) return { ok: true, state };
+  committedNetwork = { text: committed.text, network: buildNetwork(candidate.records) };
+  return { ok: true, state: committed };
+}
+
+/** Serializa la propuesta conservando el orden del archivo y agregando al final. */
+function serializeCableProposal(project: Project, proposal: MoveProposal): string {
+  const byId = new Map(project.records.map((rec) => [rec.id, rec] as const));
+  const indexById = new Map(project.records.map((rec, index) => [rec.id, index] as const));
+  const edits = new Map<number, string>();
+  for (const [id, pos] of proposal.positions) {
+    const rec = byId.get(id);
+    if (!rec) continue;
+    edits.set(indexById.get(id)!, withPosition(rec, pos.x, pos.y));
+  }
+  for (const [id, pts] of proposal.wires) {
+    if (proposal.removed.has(id)) continue;
+    const rec = byId.get(id);
+    if (!rec) continue;
+    edits.set(indexById.get(id)!, withWirePoints(rec, pts));
+  }
+  const parts: string[] = [];
+  project.records.forEach((rec, index) => {
+    if (proposal.removed.has(rec.id)) return;
+    parts.push(edits.get(index) ?? rec.raw);
+  });
+  let next = nextId(project);
+  for (const add of proposal.added) {
+    const source = byId.get(add.wireId);
+    if (!source) continue;
+    const clone = { ...source, id: next, raw: withId(source, next), geometry: [...source.geometry] };
+    parts.push(withWirePoints(clone, add.points));
+    next++;
+  }
+  return (project.hasMagic ? 'CADe_SIMU' : '') + project.prefix + parts.join('');
+}
+
+function groupsEqual(a: readonly string[][], b: readonly string[][]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i]!;
+    const right = b[i]!;
+    if (left.length !== right.length) return false;
+    for (let j = 0; j < left.length; j++) if (left[j] !== right[j]) return false;
+  }
+  return true;
 }
 
 /**
@@ -1359,9 +1454,32 @@ export type DragOp =
   | { kind: 'bend'; id: number; at: Point; to: Point; sheet?: number }
   | { kind: 'segment'; id: number; at: Point; to: Point; sheet?: number };
 
-export function applyDrag(state: EditorState, op: DragOp): EditorState {
-  if (op.kind === 'move') return moveSelection(state, op.dx, op.dy);
-  if (op.kind === 'vertex') return moveVertex(state, op.from, op.to, op.sheet ?? 0);
-  if (op.kind === 'segment') return moveSegment(state, op.id, op.at, op.to, op.sheet ?? 0);
-  return bendCable(state, op.id, op.at, op.to, op.sheet ?? 0);
+export interface DragResult {
+  ok: boolean;
+  state: EditorState;
+  /** Motivo del rechazo en modo ortogonal. */
+  reason?: string;
+}
+
+/**
+ * Confirma un gesto. En modo ortogonal devuelve también el motivo cuando la
+ * propuesta no es válida, para que la interfaz lo muestre sin tocar el
+ * documento ni el historial.
+ */
+export function applyDragResult(
+  state: EditorState,
+  op: DragOp,
+  mode: CableHandling = 'actual',
+): DragResult {
+  if (op.kind === 'move') {
+    if (mode === 'actual') return { ok: true, state: moveSelectionActual(state, op.dx, op.dy) };
+    return moveSelectionOrthogonal(state, op.dx, op.dy);
+  }
+  if (op.kind === 'vertex') return { ok: true, state: moveVertex(state, op.from, op.to, op.sheet ?? 0) };
+  if (op.kind === 'segment') return { ok: true, state: moveSegment(state, op.id, op.at, op.to, op.sheet ?? 0) };
+  return { ok: true, state: bendCable(state, op.id, op.at, op.to, op.sheet ?? 0) };
+}
+
+export function applyDrag(state: EditorState, op: DragOp, mode: CableHandling = 'actual'): EditorState {
+  return applyDragResult(state, op, mode).state;
 }
