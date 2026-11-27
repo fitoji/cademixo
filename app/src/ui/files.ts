@@ -20,6 +20,9 @@ import {
   mixoFileName,
   suggestedSaveName as fileNameFor,
 } from '../format/filename.ts';
+import { encodeLatin1 } from '../format/latin1.ts';
+
+export { encodeLatin1 } from '../format/latin1.ts';
 
 /** Lo poco que se usa de los selectores del navegador. */
 interface PickerScope {
@@ -178,31 +181,17 @@ export async function pickOpenHandle(): Promise<{ handle: FileSystemFileHandle; 
 }
 
 /**
- * Codifica de vuelta a bytes: un carácter por byte, sin tocar nada.
- *
- * El tipo lleva `ArrayBuffer` explícito: con la lib de TypeScript instalada el
- * `Uint8Array` sin parámetro admite `SharedArrayBuffer`, y `createWritable` sólo
- * acepta buffers propios.
- */
-export function encodeLatin1(text: string): Uint8Array<ArrayBuffer> {
-  const out = new Uint8Array(text.length);
-  for (let i = 0; i < text.length; i++) out[i] = text.charCodeAt(i) & 0xff;
-  return out;
-}
-
-/**
- * Escribe `text` en el archivo del handle, con los mismos bytes que la descarga
- * (latin1, un carácter por byte).
+ * Escribe los bytes ya validados en el archivo del handle.
  *
  * Tanto `write` como `close` pueden fallar: `close` es donde el navegador
  * confirma el archivo, así que un fallo ahí deja el archivo a medio escribir.
  * En los dos casos se aborta el stream y se propaga el error original, para que
  * quien llama informe el fallo en vez de dar el guardado por bueno.
  */
-export async function writeHandle(handle: FileSystemFileHandle, text: string): Promise<void> {
+export async function writeBytes(handle: FileSystemFileHandle, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
   const writable = await handle.createWritable();
   try {
-    await writable.write(encodeLatin1(text));
+    await writable.write(bytes);
     await writable.close();
   } catch (error) {
     try {
@@ -212,4 +201,9 @@ export async function writeHandle(handle: FileSystemFileHandle, text: string): P
     }
     throw error;
   }
+}
+
+/** Escribe texto con los bytes latin1 de `format/latin1.ts`, sin re-codificar. */
+export async function writeHandle(handle: FileSystemFileHandle, text: string): Promise<void> {
+  return writeBytes(handle, encodeLatin1(text));
 }

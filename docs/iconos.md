@@ -30,8 +30,8 @@ Inventario de todo lo que dibuja iconografía en la interfaz: qué ícono se usa
 | `FilePlusIcon` | Nuevo | Empezar un documento en blanco válido (una hoja con bloque de título), previa confirmación si hay cambios sin guardar. |
 | `FolderOpenIcon` | Abrir… | Disparar el selector de archivos `.cade`/`.cad` del sistema. |
 | `BookOpenIcon` | Ejemplos | Marcar el submenú que lista los samples incluidos; el abierto se marca con "actual" a la derecha. |
-| `SaveIcon` | Guardar | Guardar el documento (⌘S), con tres casos según el navegador y el documento: reescribe el archivo abierto sin diálogo (File System Access API, con handle y permiso), pide destino y nombre cuando no hay archivo asociado pero el navegador sabe elegir, o descarga el archivo como respaldo cuando no sabe. Es el único botón primario de la aplicación. |
-| `SaveAllIcon` | Guardar como… | Pedir destino y nombre (⇧⌘S) aunque haya un archivo abierto; si el navegador no sabe elegir archivos, abre el diálogo «Guardar como» con el nombre editable y descarga con ese nombre. Guardar varios en uno: el ícono dice «copiar a otro lado», no «guardar todo». |
+| `SaveIcon` | Guardar | Guardar el documento (⌘S), con tres casos según el navegador y el documento: reescribe el archivo abierto sin diálogo (File System Access API, con handle y permiso), pide destino y nombre cuando no hay archivo asociado pero el navegador sabe elegir, o descarga el archivo como respaldo cuando no sabe. Sólo la escritura confirmada limpia los cambios pendientes: una descarga iniciada se anuncia como tal. Es el único botón primario de la aplicación. |
+| `SaveAllIcon` | Guardar como… | Pedir destino y nombre (⇧⌘S) aunque haya un archivo abierto; si el navegador no sabe elegir archivos, abre el diálogo «Guardar como» con el nombre editable y descarga con ese nombre. La descarga es una copia: no confirma el archivo ni quita el indicador de cambios sin guardar. Guardar varios en uno: el ícono dice «copiar a otro lado», no «guardar todo». |
 
 ## Menubar · Editar
 
