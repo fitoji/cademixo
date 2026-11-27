@@ -70,3 +70,6 @@ Feature: Fase 2 de `docs/plan-guardado-seguro-mixo.md`. Branch:
 - L10: límite no probado: agotamiento real de cuota y borrado de datos del sitio
   en navegador (no hay comando autorizado para forzarlos); el rechazo por cuota
   se probó a nivel de adaptador. Sin declaración de resistencia a cortes.
+- L11: cierre: commit `86a7a62` con los avisos atendidos y las 9 probes del
+  verificador. Assess sobre ese candidato (base `7249a32`): `medium`,
+  `review_due: false`, `under_budget` (6 paths, 204 líneas). Sin push ni PR.
