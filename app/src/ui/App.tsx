@@ -701,12 +701,15 @@ export function App(): JSX.Element {
         return 'failed';
       }
       const text = doc.text;
+      // «Guardar como…» NUNCA reescribe el archivo abierto, aunque haya handle:
+      // siempre pide destino (o abre el diálogo de nombre en el fallback).
+      const openHandle = mode === 'save' ? fileHandle.current : null;
       const action = planSaveAction({
-        hasHandle: fileHandle.current !== null,
+        hasHandle: openHandle !== null,
         browserSupportsPickers: hasFileSystemAccess(),
       });
 
-      let handle: FileSystemFileHandle | null = mode === 'save' ? fileHandle.current : null;
+      let handle: FileSystemFileHandle | null = openHandle;
       if (action === 'pick-location') {
         // Se sugiere el `.cad` normalizado; el nombre que queda en pantalla es
         // el del archivo que el usuario eligió.

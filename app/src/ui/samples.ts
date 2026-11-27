@@ -5,7 +5,7 @@
  * de UTF-8. El formato es texto de un byte por carácter y decodificarlo como
  * UTF-8 corrompería los acentos y rompería el round-trip.
  *
- * La codificación de vuelta a bytes vive en `ui/files.ts` (`encodeLatin1`),
+ * La codificación de vuelta a bytes vive en `format/latin1.ts` (`encodeLatin1`),
  * junto a la escritura del archivo del usuario: un solo lugar decide los bytes
  * que se guardan, se descargue o se reescriba el archivo abierto.
  */

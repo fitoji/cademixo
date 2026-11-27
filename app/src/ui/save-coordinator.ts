@@ -39,11 +39,6 @@ export function beginSave(context: SaveContext, sequence: number): SaveSnapshot 
 }
 
 /**
- * Sólo la escritura confirmada de la revisión que sigue siendo la actual puede
- * limpiar `dirty`. Un guardado anterior que termina después (secuencia vencida,
- * texto o atajos editados, otro documento o handle) no gana por llegar tarde.
- */
-/**
  * Al terminar, la comparación usa el handle que realmente se escribió: con el
  * selector, el handle elegido todavía no se adoptó cuando se evalúa el estado.
  * Sólo una escritura confirmada puede cambiar ese handle de comparación.
@@ -61,6 +56,11 @@ export function completionName(outcome: SaveOutcome, written: string, live: stri
   return outcome === 'confirmed' ? written : live;
 }
 
+/**
+ * Sólo la escritura confirmada de la revisión que sigue siendo la actual puede
+ * limpiar `dirty`. Un guardado anterior que termina después (secuencia vencida,
+ * texto o atajos editados, otro documento o handle) no gana por llegar tarde.
+ */
 export function isCurrentSave(
   snapshot: SaveSnapshot,
   outcome: SaveOutcome,

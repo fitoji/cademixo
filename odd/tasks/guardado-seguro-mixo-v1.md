@@ -33,6 +33,11 @@ su formato. Branch: `feat/guardado-seguro-mixo-v1`. Test runner: `pnpm test` y
 - T5 (S3, revisión): corrección acotada del bloqueador de adopción del handle
   elegido. Route: inline. DONE — commit `b66b224`, 123/-4 líneas, validado por
   el revisor dirigido y aprobado por el motor nativo.
+- T6 (S3, verificación independiente): corrección del bloqueador que el
+  verificador reprodujo: «Guardar como…» con archivo abierto reescribía el
+  original porque `planSaveAction` recibía el handle aunque el modo fuera
+  `save-as`. Route: inline. DONE — recheck 6/6 unitario y 8/8 e2e, suite
+  963/963, `tsc` limpio, build OK.
 
 ## Log
 
@@ -80,5 +85,18 @@ su formato. Branch: `feat/guardado-seguro-mixo-v1`. Test runner: `pnpm test` y
   autoridad quemada. Hallazgos informativos: duplicación del armado del
   payload, input booleano en `buildVerifiedDocumentBytes` y `writeHandle`
   (falso positivo: sigue usándose en `writeSidecar`).
-- L10: verifier técnico independiente en curso para el ítem 3; su veredicto se
-  incorpora al cerrar.
+- L10: verifier técnico independiente (ítem 3): S1/S2/S4/S5 met; S3 unmet por
+  un bloqueador real y reproducible: `planSaveAction` veía `hasHandle: true`
+  aunque el modo fuera `save-as`, así que «Guardar como…» con archivo abierto
+  caía en `write-in-place` y reescribía el original. La base usaba
+  `mode === 'save' ? fileHandle.current : null`. Se restauró esa regla y se
+  agregaron las dos pruebas durables que propuso el verificador:
+  `test/save-flow-parity.test.ts` (re-exports y stale completions) y el caso e2e
+  «guardar como con archivo abierto pide destino». Recheck limitado al
+  bloqueador: 6/6 unitario, 8/8 e2e, 963/963 suite, `tsc` y build limpios.
+  Advisories corregidos: comentario viejo en `samples.ts` y JSDoc huérfano en
+  `save-coordinator.ts`. La recepción nativa aprobada cubre el candidato
+  `b66b224`; este cambio posterior es un candidato nuevo y NO la reutiliza.
+- L11: scratching del verificador en
+  `/private/var/folders/yw/6bjyc44d1rgg5163wpzd1cr80000gn/T/opencode/verify-item3.tvOcSC`;
+  pendiente de limpieza por el orquestador.

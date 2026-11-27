@@ -115,3 +115,74 @@ test('guardar como con selector adopta el handle elegido y limpia los cambios pe
   await expect(page.locator('footer').getByText('plano.mixo')).toBeVisible();
   await expect(page.locator('footer span.bg-warn')).toHaveCount(0);
 });
+
+test('guardar como con archivo abierto pide destino en vez de reescribirlo', async ({ page }) => {
+  const bytes = Array.from(readFileSync(drawingFile));
+  await page.addInitScript((raw: number[]) => {
+    const state = { saveCalls: 0, writes: [] as string[] };
+    (window as unknown as { __sa: typeof state }).__sa = state;
+    const handle = (name: string) => ({
+      name,
+      async getFile() {
+        return new File([new Uint8Array(raw)], name, { type: 'application/octet-stream' });
+      },
+      async createWritable() {
+        return {
+          async write() {
+            state.writes.push(name);
+          },
+          async close() {},
+          async abort() {},
+        };
+      },
+    });
+    Object.defineProperty(window, 'showOpenFilePicker', {
+      configurable: true,
+      value: async () => [handle('abierto.cad')],
+    });
+    Object.defineProperty(window, 'showSaveFilePicker', {
+      configurable: true,
+      value: async () => {
+        state.saveCalls += 1;
+        return handle('nuevo.mixo');
+      },
+    });
+  }, bytes);
+  await page.goto('/');
+
+  await page.getByRole('menuitem', { name: 'Archivo', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Abrir…' }).click();
+  await expect(page.locator('footer').getByText('abierto.cad')).toBeVisible();
+
+  const items = page.getByRole('application', { name: /Lienzo del esquema/ }).locator('g[data-id]');
+  let dragged = false;
+  for (let i = 0; i < (await items.count()) && !dragged; i += 1) {
+    const b = await items.nth(i).boundingBox();
+    const vp = page.viewportSize();
+    if (!b || !vp || b.width < 2 || b.height < 2) continue;
+    if (b.x < 0 || b.y < 0 || b.x > vp.width || b.y > vp.height) continue;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(b.x + b.width / 2 + 24, b.y + b.height / 2 + 18, { steps: 4 });
+    await page.mouse.up();
+    dragged = true;
+  }
+  expect(dragged).toBe(true);
+  await expect(page.locator('footer span.bg-warn')).toBeVisible();
+
+  let download: string | null = null;
+  page.on('download', (d) => {
+    download = d.suggestedFilename();
+  });
+  await page.getByRole('menuitem', { name: 'Archivo', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Guardar como' }).click();
+  await page.getByRole('menuitem', { name: 'Proyecto cadeMixo (.mixo)' }).click();
+
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __sa: { writes: string[] } }).__sa.writes.length))
+    .toBe(1);
+  expect(await page.evaluate(() => (window as unknown as { __sa: { saveCalls: number } }).__sa.saveCalls)).toBe(1);
+  expect(download).toBeNull();
+  await expect(page.locator('footer').getByText('nuevo.mixo')).toBeVisible();
+  await expect(page.locator('footer span.bg-warn')).toHaveCount(0);
+});
