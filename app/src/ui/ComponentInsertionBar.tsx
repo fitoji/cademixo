@@ -8,7 +8,7 @@ import {
   CommandList,
   createCommandController,
 } from '@ui-sdk/react/command';
-import { CornerDownLeftIcon, GripVerticalIcon, Maximize2Icon } from 'lucide-react';
+import { CornerDownLeftIcon, GripVerticalIcon, Maximize2Icon, MinusIcon, PlusIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PaletteScope } from '../symbols/scope.ts';
 import { insertionMatches } from './insertion-matches.ts';
@@ -82,6 +82,8 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
     const [dragging, setDragging] = useState(false);
     const [preset, setPreset] = useState(0);
     const [announcement, setAnnouncement] = useState('');
+    const [minimized, setMinimized] = useState(false);
+    const restoreRef = useRef<HTMLButtonElement | null>(null);
 
     const geometry = useCallback((): { rect: Box; host: Box } | null => {
       const root = rootRef.current;
@@ -115,6 +117,18 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
       window.addEventListener('resize', onResize);
       return () => window.removeEventListener('resize', onResize);
     }, [atHome, geometry]);
+
+    // El ancho cambia al plegar: re-clamp y foco en el botón que queda visible.
+    useEffect(() => {
+      const frame = requestAnimationFrame(() => {
+        const box = geometry();
+        if (box !== null) {
+          setOffset((current) => clamp(HOME, atHome(box.rect, current), box.host, current));
+        }
+        if (minimized) restoreRef.current?.focus({ preventScroll: true });
+      });
+      return () => cancelAnimationFrame(frame);
+    }, [atHome, geometry, minimized]);
 
     const clear = (): void => {
       controller.setQuery('');
@@ -166,7 +180,9 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
         data-component-insertion-bar=""
         style={{ transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)` }}
         className={cn(
-          'z-30 rounded-sm border border-border bg-card text-foreground shadow-float moderno:rounded-lg',
+          'z-30 h-9 rounded-sm border border-border bg-card text-foreground shadow-float moderno:rounded-lg',
+          minimized ? 'w-[9.5rem]' : 'w-[min(720px,calc(100%-2rem))]',
+          'motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out',
           className,
         )}
         onKeyDownCapture={(event) => {
@@ -198,7 +214,13 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
         <span role="status" aria-live="polite" className="sr-only">
           {announcement}
         </span>
-        <div className="flex h-9 items-center gap-2 px-2.5 focus-within:ring-2 focus-within:ring-ring/40 moderno:focus-within:ring-primary/30">
+        <div
+          inert={minimized}
+          className={cn(
+            'absolute inset-0 flex h-9 items-center gap-2 px-2.5 transition-opacity focus-within:ring-2 focus-within:ring-ring/40 motion-safe:duration-200 moderno:focus-within:ring-primary/30',
+            minimized && 'pointer-events-none opacity-0',
+          )}
+        >
           <button
             type="button"
             data-drag-handle=""
@@ -359,6 +381,47 @@ export const ComponentInsertionBar = forwardRef<ComponentInsertionBarHandle, Pro
             ) : (
               <span>Clic en el lienzo para colocar</span>
             )}
+          </span>
+          <button
+            type="button"
+            aria-label="Minimizar barra de inserción"
+            title="Minimizar"
+            className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            onClick={() => {
+              clear();
+              setMinimized(true);
+              setAnnouncement('Barra minimizada');
+            }}
+          >
+            <MinusIcon aria-hidden="true" className="size-3" />
+          </button>
+        </div>
+        <div
+          inert={!minimized}
+          className={cn(
+            'absolute inset-0 flex h-9 items-center gap-2 px-2.5 transition-opacity focus-within:ring-2 focus-within:ring-ring/40 motion-safe:duration-200 moderno:focus-within:ring-primary/30',
+            !minimized && 'pointer-events-none opacity-0',
+          )}
+        >
+          <button
+            ref={restoreRef}
+            type="button"
+            aria-label="Restaurar barra de inserción"
+            title="Restaurar"
+            className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            onClick={() => {
+              setMinimized(false);
+              setAnnouncement('Barra restaurada');
+              requestAnimationFrame(() => controller.focus());
+            }}
+          >
+            <PlusIcon aria-hidden="true" className="size-3" />
+          </button>
+          <span
+            aria-hidden="true"
+            className="shrink-0 font-mono text-[11px] font-medium text-ring moderno:text-primary"
+          >
+            Insertar:
           </span>
         </div>
       </div>

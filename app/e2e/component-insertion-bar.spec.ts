@@ -170,7 +170,9 @@ test('la barra flotante no tapa los controles del lienzo', async ({ page }) => {
   await page.getByRole('button', { name: 'Atajos del lienzo' }).click();
   expect(overlaps(await page.locator('div.bottom-14').boundingBox())).toBe(false);
 
-  const prompt = page.locator('[data-component-insertion-bar]').getByText('Insertar:', { exact: true });
+  const prompt = page
+    .locator('[data-component-insertion-bar] > div:not([inert]) > span')
+    .filter({ hasText: 'Insertar:' });
   expect(await prompt.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/mono/i);
 });
 
@@ -243,6 +245,38 @@ test('un clic mueve la barra a otra posición sin arrastre', async ({ page }) =>
   await page.getByRole('button', { name: 'Mover barra abajo a la izquierda' }).click();
   const after = await bar.boundingBox();
   expect(after!.x).toBeLessThan(before!.x - 40);
+});
+
+test('minimizar deja sólo Insertar y un clic la restaura', async ({ page }) => {
+  const canvas = await openFixture(page);
+  const bar = page.locator('[data-component-insertion-bar]');
+  const input = page.getByRole('combobox', { name: 'Buscar componente para insertar' });
+  const records = await canvas.locator('g[data-id]').count();
+  const wide = await bar.boundingBox();
+
+  await canvas.focus();
+  await page.keyboard.type('motor');
+  await expect(page.getByRole('listbox')).toBeVisible();
+  await page.getByRole('button', { name: 'Minimizar barra de inserción' }).click();
+
+  await expect.poll(async () => (await bar.boundingBox())!.width).toBeLessThan(wide!.width - 300);
+  await expect(input).toBeHidden();
+  await expect(bar.locator('> div:not([inert]) > span').filter({ hasText: 'Insertar:' })).toHaveCount(1);
+  await expect(canvas.locator('g[data-id]')).toHaveCount(records);
+  await expect(page.getByRole('button', { name: 'Restaurar barra de inserción' })).toBeFocused();
+
+  expect(await bar.evaluate((el) => getComputedStyle(el).transitionDuration)).toContain('0.2s');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  expect(await bar.evaluate((el) => getComputedStyle(el).transitionDuration)).toBe('0s');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+  await page.getByRole('button', { name: 'Restaurar barra de inserción' }).click();
+  await expect(input).toBeVisible();
+  await expect(input).toBeFocused();
+  await expect.poll(async () => (await bar.boundingBox())!.width).toBeGreaterThan(wide!.width - 2);
+  const restored = await bar.boundingBox();
+  expect(Math.abs(restored!.width - wide!.width)).toBeLessThan(2);
+  expect(Math.abs(restored!.x + restored!.width / 2 - (wide!.x + wide!.width / 2))).toBeLessThan(4);
 });
 
 test('la lista cabe y no desplaza la vista en una ventana estrecha', async ({ page }) => {
