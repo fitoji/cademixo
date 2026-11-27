@@ -1,0 +1,50 @@
+# Manejo de cables al mover componentes (Actual / Ortogonal Wybrow)
+
+Rama: `feat/manejo-cables-wybrow`; entrega: work-unit commits en la rama, sin push.
+Runner: `pnpm test` (`node --test`). Riesgo: item 3 — cambia el contrato de movimiento compartido (`moveDelta` / `applyDrag`) y el dibujo de cables del editor.
+
+## Specs
+
+- **S1** — «Agregar en **Ver → Configuración → Manejo de cables** dos modos excluyentes: **Actual** (predeterminado) y **Ortogonal (Wybrow)**. El nuevo modo permite cambiar la geometría, no la conectividad. No modificar el archivo de ejemplo para que pase la prueba.»
+- **S2** — «Cargar `app/test/fixtures/motor_con_inversion_giro.cad`. Identificar el contactor K2M por tipo 2001 y registro 55; no confundirlo con su bobina ni sus auxiliares.»
+- **S3** — «Capturar el resultado del modo actual al desplazarlo 12 unidades a la derecha. Conservar esa prueba de compatibilidad, sin dar por probado un cortocircuito eléctrico solo por observar una superposición.»
+- **S4** — «Escribir la prueba inicialmente fallida para el modo nuevo: el desplazamiento debe aceptarse, los seis bornes deben conservar sus conexiones y los tramos deben conservar sus carriles escalonados sin superposición entre redes. No alcanza con rechazar todo movimiento.»
+- **S5** — «Localizar la configuración real de Ver y reutilizar su mecanismo de preferencias. Mostrar la elección activa, permitir el cambio por teclado y restaurarla al reabrir. Si el valor falta o es desconocido, usar Actual. No guardar la preferencia dentro del circuito.»
+- **S6** — «Partir de `moveDelta` en `app/src/editor/state.ts`. Mantener intacta la ruta Actual. La nueva estrategia recibe el circuito original, la selección y el desplazamiento; devuelve una propuesta completa o un rechazo con motivo. Cambiar de modo no modifica ni recablea el documento abierto.»
+- **S7** — «Aplicar la estrategia a la previsualización y la confirmación de traslados de componentes. Verificar también los movimientos por teclado si existen. No cambiar el dibujo manual de cables, el giro ni el espejo. En selecciones mixtas, respetar la traslación de los cables seleccionados explícitamente.»
+- **S8** — «Antes de escribir otro buscador, evaluar `app/src/editor/wiring/router.ts`: identificar qué primitivas se pueden reutilizar, qué etapas de Wybrow faltan y cómo aislar el comportamiento existente del dibujo manual.»
+- **S9** — «Al iniciar el gesto, registrar los bornes por identidad estable (componente y terminal), las redes, las derivaciones y los recorridos afectados. Mantener fijos los anclajes externos. Revisar también los cables que el componente o las nuevas rutas puedan invadir.»
+- **S10** — «Intentar primero una deformación local: trasladar el tramo de salida de cada borne hasta el primer codo móvil y estirar el siguiente tramo. En K2M esto conserva los tres carriles superiores y los tres inferiores. No arrastrar una derivación compartida como si fuera un codo libre.»
+- **S11** — «Si esa propuesta no es válida, aplicar el algoritmo de Wybrow, Marriott y Stuckey: construir un **grafo de visibilidad ortogonal** entre puertos y obstáculos, buscar con **A\*** considerando longitud y giros, y **ordenar y separar** los tramos paralelos antes de validar. Preferir el trazado previo en empates. Un A* genérico sobre cuadrícula no equivale por sí solo a este algoritmo.»
+- **S12** — «Adaptar las rutas a la rejilla y a las reglas de unión del editor. Prohibir tramos compartidos por redes distintas y contactos accidentales con bornes o derivaciones. Un cruce perpendicular solo es admisible si el modelo eléctrico lo interpreta como cruce sin unión. No redibujar el resto del esquema.»
+- **S13** — «Reconstruir la conectividad del candidato con las mismas reglas que usa el simulador. Comparar los grupos de **identidades de bornes** antes y después, incluidos los aislados; no comparar números de red, coordenadas ni solo la cantidad de redes. Preservar también las derivaciones y los extremos libres externos al movimiento.»
+- **S14** — «Confirmar exactamente la propuesta mostrada, como una sola operación deshacible. Si no hay ruta válida, indicar el conflicto y dejar documento e historial intactos. Nunca recurrir silenciosamente al modo Actual.»
+- **S15** — «Evitar reconstruir todo el circuito en cada evento del puntero: reutilizar los datos del inicio del gesto, actualizar la zona afectada y ejecutar la comprobación definitiva antes de confirmar.»
+- **S16** — Evidencia: «Regresión K2M: geometría y conectividad antes/después de +12; conservar ambas tras guardar y reabrir. Deshacer restaura el original y rehacer reproduce el resultado.»; «Casos de borde: movimiento vertical y diagonal, selección múltiple, derivación fija, cruce sin unión, obstáculo con desvío posible y destino sin solución. El caso con obstáculo debe ejercitar el enrutador Wybrow, no solo la deformación local.»; «Interfaz y compatibilidad: probar selección y persistencia del modo desde Ver → Configuración; verificar que Actual sigue produciendo la geometría de referencia y que la previsualización coincide con el resultado confirmado.»; «Rendimiento: medir el arrastre en el ejemplo y en un esquema grande, informando latencia de previsualización y confirmación por separado. Entregar pruebas ejecutadas, resultados y limitaciones. No declarar resuelto el problema solo con una captura de pantalla.»
+
+## Tasks
+
+- T1 (S1-S4, delegated, done, commit: pendiente): prueba RED de aceptación K2M +12 en modo ortogonal, regresión del modo Actual y grupos de bornes antes/después.
+- T2 (S5-S7, inline, done, commit: pendiente): preferencia persistida en `settings.ts` + campo en el cajón Ver → Configuración; rama Actual intacta y estrategia ortogonal conectada a preview y commit.
+- T3 (S8-S12, inline, done, commit: pendiente): enrutado incremental: contexto del gesto, deformación local, fallback Wybrow con `router.ts` (preferencia de trazado previo, rejilla y separación de paralelos).
+- T4 (S13-S15, inline, done, commit: pendiente): validación por identidad de bornes con las reglas del simulador, candidato exacto y una sola entrada de historial; sin reconstrucción completa en cada evento.
+- T5 (S16, inline, done, commit: pendiente): casos de borde, persistencia, preview vs commit, undo/redo, rendimiento y evidencia.
+
+Route: inline + un explorador de solo lectura para el mapa del editor. El trigger de writer no se dispara: una sola conducta cohesiva, sin unidades paralelas ni backstop de contexto. Verificación: verificador independiente al cierre por el riesgo 3 (contrato compartido de movimiento/dibujo).
+
+## Log
+
+L1 (verbatim): «implementa @docs/plan-manejo-cables-wybrow.md» con el archivo adjunto `docs/plan-manejo-cables-wybrow.md`.
+
+- Mapa: `state.ts` concentra `moveDelta` (preview) y `moveSelection` (commit); `Canvas.tsx` dibuja el preview y `App.tsx` confirma. `router.ts` ya implementa grafo de visibilidad ortogonal + A* con penalidad de codos; faltan preferencia por trazado previo, indicador de ruta encontrada y separación de paralelos. `network.ts` + `sim/netlist.ts` definen la conectividad que hay que preservar. `settings.ts` es el store persistido de Ver → Configuración.
+- Línea base observada en modo Actual para K2M (registro 55) +12: se editan los cables 140, 144, 146 y 149 y se agregan cinco tramos (152-156); los carriles 129/123/117 y 147/153/159 no se conservan como tales. Esa geometría se congela como regresión.
+- RED: `app/test/cable-move.test.ts` no puede importar `cable-move.ts` antes de implementarlo.
+- GREEN: `node --test test/cable-move.test.ts` 12/12. K2M +12 (registro 55) conserva los seis bornes, los carriles 129/123/117 y 147/153/159, cero registros nuevos y los mismos grupos de identidades de borne. El cruce perpendicular del carril 125 sobre el tronco x=201 no crea nodo.
+- Regresión Actual: se congelaron las geometrías de los cables 124/131/137/140/144/146/149 y los cinco codos 152-156 capturados antes del cambio. `move-delta` sigue pasando.
+- Persistencia/undo: guardar y reabrir conserva geometría y grupos; deshacer restaura el texto original y rehacer reproduce el resultado; el commit es una sola entrada de historial.
+- Casos de borde en escenas sintéticas: vertical y diagonal, selección múltiple, selección mixta con cable explícito, derivación fija con unión 4001, obstáculo con desvío (estrategia `wybrow`, el A* rodea el obstáculo) y destino sin salida (rechazo sin tocar documento ni historial).
+- Interfaz: E2E `e2e/settings-drawer.spec.ts` 2/2. El modo se elige por teclado (Space sobre el radio), se muestra como activo y persiste tras recargar. `settings.test.ts` cubre falta/valor desconocido → Actual.
+- Rendimiento (`node --expose-gc bench/cable-move.ts`): K2M 111 registros → prepare 4,83 ms, preview 0,04 ms/evento, commit 1,64 ms; hoja de 4.915 registros → prepare 41,3 ms, preview 8,0 ms/evento, verificación 5,35 ms. El A* ve sólo la zona afectada (±200) y la validación filtra por la caja de lo cambiado; la comprobación final recorre todos los obstáculos.
+- Suite completa: 996/996 en la corrida limpia; `wiring-performance` volvió a fallar una vez por el flake de timing ya documentado (2,68 ms/evento contra 2,5) y pasó al correrse solo.
+- Limitación declarada: un movimiento vertical/diagonal de un manojo denso puede rechazarse cuando un borne o codo del componente cae sobre el carril de otra red (es un contacto real) o cuando el router no encuentra una ruta que respete todos los carriles. En ese caso se informa el conflicto y el documento queda intacto; no se recurre al modo Actual. Los movimientos vertical/diagonal válidos se verifican en escenas simples y en K2M horizontal ±6..+24.
+- No hay movimientos de selección por teclado en el editor; el único traslado por teclado es la navegación de bornes, que no mueve componentes. La preferencia sí se cambia por teclado desde Configuración.
