@@ -207,3 +207,35 @@ export async function writeBytes(handle: FileSystemFileHandle, bytes: Uint8Array
 export async function writeHandle(handle: FileSystemFileHandle, text: string): Promise<void> {
   return writeBytes(handle, encodeLatin1(text));
 }
+
+export function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  for (let i = 0; i < a.byteLength; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** El cierre terminó, pero el archivo leído no coincide: no es guardado. */
+export class VerificationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'VerificationError';
+  }
+}
+
+export async function readHandleBytes(handle: FileSystemFileHandle): Promise<Uint8Array<ArrayBuffer>> {
+  const file = await handle.getFile();
+  return new Uint8Array(await file.arrayBuffer());
+}
+
+/**
+ * Escribe, espera el cierre y vuelve a leer. Un fallo de `close` ya lanza en
+ * `writeBytes`; una relectura distinta lanza `VerificationError`.
+ */
+export async function writeVerifiedBytes(
+  handle: FileSystemFileHandle,
+  bytes: Uint8Array<ArrayBuffer>,
+): Promise<void> {
+  await writeBytes(handle, bytes);
+  const read = await readHandleBytes(handle);
+  if (!bytesEqual(read, bytes)) throw new VerificationError('la relectura no coincide con los bytes escritos');
+}
