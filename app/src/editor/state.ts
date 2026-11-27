@@ -484,25 +484,38 @@ function moveSelectionOrthogonal(
   if (!hasComponent) return { ok: true, state: moveSelectionActual(state, dx, dy) };
 
   const ctx = prepareCableMove(project.records, selected);
-  const plan = planCableMove(ctx, dx, dy, { validate: true });
+  // Preview rápido: geometría local/router sin reconstruir la red. La
+  // comprobación definitiva se hace sobre el texto exacto que se confirma.
+  let plan = planCableMove(ctx, dx, dy, { validate: false });
   if (!plan.ok) return { ok: false, state, reason: plan.reason };
 
-  const text = serializeCableProposal(project, plan.proposal);
-  // Comprobación definitiva sobre el texto exacto que se va a confirmar.
-  const candidate = buildProject(parse(text));
-  const groups = connectionGroups(candidate.records);
+  let text = serializeCableProposal(project, plan.proposal);
+  let candidate = buildProject(parse(text));
+  let candidateNet = buildNetwork(candidate.records);
+  let groups = connectionGroups(candidate.records, candidateNet);
   if (!groupsEqual(groups, ctx.groups)) {
-    return { ok: false, state, reason: 'el movimiento cambia las conexiones de los bornes' };
+    // La deformación local era geométricamente válida pero cambió las
+    // conexiones: el router todavía puede resolverlo.
+    const routed = planCableMove(ctx, dx, dy, { validate: true });
+    if (!routed.ok) return { ok: false, state, reason: routed.reason };
+    plan = routed;
+    text = serializeCableProposal(project, plan.proposal);
+    candidate = buildProject(parse(text));
+    candidateNet = buildNetwork(candidate.records);
+    groups = connectionGroups(candidate.records, candidateNet);
+    if (!groupsEqual(groups, ctx.groups)) {
+      return { ok: false, state, reason: 'el movimiento cambia las conexiones de los bornes' };
+    }
   }
-  const expected =
-    project.records.length - plan.proposal.removed.size + plan.proposal.added.length;
+
+  const expected = project.records.length - plan.proposal.removed.size + plan.proposal.added.length;
   if (candidate.records.length !== expected) {
     return { ok: false, state, reason: 'la propuesta no coincide con los registros confirmados' };
   }
 
   const committed = commit(state, text);
   if (committed === state) return { ok: true, state };
-  committedNetwork = { text: committed.text, network: buildNetwork(candidate.records) };
+  committedNetwork = { text: committed.text, network: candidateNet };
   return { ok: true, state: committed };
 }
 

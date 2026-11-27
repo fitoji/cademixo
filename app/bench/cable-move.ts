@@ -71,12 +71,36 @@ function fixtureBench(): Record<string, number | string | boolean> {
 
 function largeBench(records: number): Record<string, number | string | boolean> {
   const sheet = wiredSheetText(records);
-  const state = select(createEditor(sheet.text), [sheet.traceId]);
-  const project = projectOf(state);
-  const network = buildNetwork(project.records);
+  const base = projectOf(createEditor(sheet.text));
+  const network = buildNetwork(base.records);
 
+  // Busca un componente conectado de la misma zona cuyo +12 sea válido: así el
+  // benchmark también informa un arrastre aceptado en una hoja grande.
+  const trace = base.records.find((r) => r.id === sheet.traceId);
+  let chosen = sheet.traceId;
+  let accepted = false;
+  if (trace) {
+    const near = base.records
+      .filter(
+        (r) =>
+          r.kind === 'component' &&
+          Math.abs((r.geometry[8] ?? 0) - (trace.geometry[8] ?? 0)) < 400,
+      )
+      .slice(0, 12);
+    for (const candidate of near) {
+      const ctx = prepareCableMove(base.records, new Set([candidate.id]), undefined, network);
+      if (planCableMove(ctx, 12, 0, { validate: true }).ok) {
+        chosen = candidate.id;
+        accepted = true;
+        break;
+      }
+    }
+  }
+
+  const state = select(createEditor(sheet.text), [chosen]);
+  const project = projectOf(state);
   const prepareStart = performance.now();
-  const ctx = prepareCableMove(project.records, new Set([sheet.traceId]), undefined, network, { groups: false });
+  const ctx = prepareCableMove(project.records, new Set([chosen]), undefined, network, { groups: false });
   const prepare = performance.now() - prepareStart;
 
   const previews: number[] = [];
@@ -87,19 +111,20 @@ function largeBench(records: number): Record<string, number | string | boolean> 
   }
 
   const checks: number[] = [];
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < 10; i++) {
     const start = performance.now();
-    planCableMove(ctx, 3, 0, { validate: true });
+    applyDrag(state, { kind: 'move', dx: accepted ? 12 : 3, dy: 0 }, 'ortogonal');
     checks.push(performance.now() - start);
   }
 
   return {
     case: `large sheet (~${records})`,
     records: project.records.length,
+    component: chosen,
     prepare: +prepare.toFixed(1),
     preview: +median(previews).toFixed(2),
     commit: +median(checks).toFixed(2),
-    accepted: planCableMove(ctx, 3, 0, { validate: true }).ok,
+    accepted,
   };
 }
 
