@@ -48,3 +48,15 @@ test('cuando ambos aceptan, el preview es la geometría confirmada', () => {
     }
   }
 });
+
+test('el auxiliar 7001 de K2M decide igual en preview y confirmación', () => {
+  const aux = 90;
+  const records = projectOf(createEditor(FIXTURE)).records;
+  const mismatch: string[] = [];
+  for (const dx of [-24, -12, -9, -6, -3, 0, 3, 6, 12, 24]) {
+    const preview = planCableMove(prepareCableMove(records, new Set([aux])), dx, 0, { validate: false });
+    const commit = applyDragResult(select(createEditor(FIXTURE), [aux]), { kind: 'move', dx, dy: 0 }, 'ortogonal');
+    if (preview.ok !== commit.ok) mismatch.push(`(${dx},0) preview=${preview.ok} commit=${commit.ok}`);
+  }
+  assert.deepEqual(mismatch, []);
+});

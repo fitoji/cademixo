@@ -402,6 +402,36 @@ test('el preview del router coincide con la confirmación (tramos agregados y qu
 
 
 
+test('el contacto auxiliar 7001 de K2M mueve sus cables y conserva la derivación interior', () => {
+  const before = project();
+  const plan = planFor(before.records, [90], -6, 0);
+  assert.ok(plan.ok, plan.ok ? '' : plan.reason);
+  const after = projectOf(applyDrag(select(createEditor(FIXTURE), [90]), { kind: 'move', dx: -6, dy: 0 }, 'ortogonal'));
+
+  assert.equal(after.records.find((r) => r.id === 90)!.geometry[8], 60);
+  assert.deepEqual(pinsOf(after.records, 90), [
+    { x: 60, y: 123 },
+    { x: 60, y: 135 },
+  ]);
+
+  // La unión interior de (66,141) no se movió y el lado lejano del tramo sigue ahí.
+  assert.ok(after.records.find((r) => r.code === 4001 && r.geometry[8] === 66 && r.geometry[9] === 141));
+  assert.deepEqual(wireOf(after.records, 82), { x1: 66, y1: 141, x2: 66, y2: 144 });
+
+  // Hay un tramo nuevo desde el borne desplazado hasta la unión.
+  const stub = after.records.find((r) => {
+    const pts = wirePoints(r);
+    return pts !== null && (
+      (Math.abs(pts.x1 - 60) < 0.01 && Math.abs(pts.y1 - 135) < 0.01) ||
+      (Math.abs(pts.x2 - 60) < 0.01 && Math.abs(pts.y2 - 135) < 0.01)
+    );
+  });
+  assert.ok(stub, 'el borne nuevo se conecta con un tramo');
+
+  assert.deepEqual(connectionGroups(after.records), connectionGroups(before.records));
+  assert.deepEqual(differentNetOverlaps(after.records), []);
+});
+
 test('una selección mixta traslada el cable elegido explícitamente', () => {
   const text = syntheticText({
     components: [{ template: K2M, id: 2, x: 0, y: 0 }],

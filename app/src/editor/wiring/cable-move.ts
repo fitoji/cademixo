@@ -110,6 +110,12 @@ interface AttachedWire {
   movedB: boolean;
   sharedA: boolean;
   sharedB: boolean;
+  /**
+   * Unión o derivación en T en el INTERIOR del tramo: el tramo no se puede
+   * estirar entero porque arrastraría esa rama. Se conserva el lado lejano y se
+   * enruta el borne nuevo hasta este punto.
+   */
+  splitAt: Point | null;
 }
 
 export interface CableMoveContext {
@@ -363,6 +369,16 @@ export function prepareCableMove(
     const movedA = movedPortKeys.has(netKey(rec.sheet, a.x, a.y));
     const movedB = movedPortKeys.has(netKey(rec.sheet, b.x, b.y));
     if (!movedA && !movedB) continue;
+    const interior = [...net.nodes.values()]
+      .filter((n) => n.through.includes(rec.id))
+      .map((n) => ({ x: n.x, y: n.y }));
+    let splitAt: Point | null = null;
+    if (interior.length > 0) {
+      const from = movedA ? a : b;
+      splitAt = interior.sort(
+        (p, q) => Math.hypot(p.x - from.x, p.y - from.y) - Math.hypot(q.x - from.x, q.y - from.y),
+      )[0]!;
+    }
     attached.push({
       id: rec.id,
       rec,
@@ -373,6 +389,7 @@ export function prepareCableMove(
       movedB,
       sharedA: movedA ? shared(rec, a) : false,
       sharedB: movedB ? shared(rec, b) : false,
+      splitAt,
     });
   }
 
@@ -464,6 +481,9 @@ function tryLocal(ctx: CableMoveContext, dx: number, dy: number): MoveProposal |
 
   for (const wire of ctx.attached) {
     if (handled.has(wire.id)) continue;
+    // Una derivación interior no se puede estirar entera: la resuelve el router
+    // conservando el lado lejano y conectando el borne nuevo a la unión.
+    if (wire.splitAt) return null;
 
     if (wire.movedA && wire.movedB) {
       if (wire.sharedA || wire.sharedB) return null; // derivación: router
@@ -782,7 +802,7 @@ function tryRouter(ctx: CableMoveContext, dx: number, dy: number): MoveProposal 
   }
   for (const wire of ctx.attached) {
     if (handled.has(wire.id) || ctx.selection.has(wire.id)) continue;
-    if (wire.movedA && wire.movedB && !wire.sharedA && !wire.sharedB) {
+    if (wire.movedA && wire.movedB && !wire.sharedA && !wire.sharedB && !wire.splitAt) {
       translated.set(wire.id, {
         x1: wire.a.x + dx,
         y1: wire.a.y + dy,
@@ -790,7 +810,7 @@ function tryRouter(ctx: CableMoveContext, dx: number, dy: number): MoveProposal 
         y2: wire.b.y + dy,
       });
       replaced.add(wire.id);
-    } else if (!wire.sharedA && !wire.sharedB) {
+    } else if (!wire.sharedA && !wire.sharedB && !wire.splitAt) {
       replaced.add(wire.id);
     }
   }
@@ -831,6 +851,35 @@ function tryRouter(ctx: CableMoveContext, dx: number, dy: number): MoveProposal 
   for (const wire of ctx.attached) {
     if (handled.has(wire.id)) continue;
     const net = sameNet(ctx, wire.id);
+
+    // Derivación en el interior del tramo: se conserva el lado lejano y se
+    // conecta el borne nuevo a la unión. No se arrastra la rama compartida.
+    if (wire.splitAt) {
+      if (wire.movedA && wire.movedB) {
+        for (const p of [wire.a, wire.b]) {
+          const route = routeStub(ctx, translatePt(p, dx, dy), p, obstacles, risk, net);
+          if (!route) return { reason: `no hay ruta válida desde el borne ${wire.id} hasta su derivación` };
+          usedRouting = true;
+          addStub(wire.id, route);
+        }
+        handled.add(wire.id);
+        continue;
+      }
+      const moving = wire.movedA ? wire.a : wire.b;
+      const far = wire.movedA ? wire.b : wire.a;
+      const from = translatePt(moving, dx, dy);
+      const route = routeStub(ctx, from, wire.splitAt, obstacles, risk, net, [moving, wire.splitAt]);
+      if (!route) return { reason: `no hay ruta válida desde el borne ${wire.id} hasta su derivación` };
+      usedRouting = true;
+      const farPart = startsAt(wire.points, far)
+        ? toWirePoints(far, wire.splitAt)
+        : toWirePoints(wire.splitAt, far);
+      wires.set(wire.id, farPart);
+      risk.push({ points: farPart, net });
+      addStub(wire.id, route);
+      handled.add(wire.id);
+      continue;
+    }
 
     if (wire.movedA && wire.movedB && !wire.sharedA && !wire.sharedB) {
       handled.add(wire.id);
