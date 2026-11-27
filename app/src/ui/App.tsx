@@ -85,6 +85,7 @@ import { changeoverPositions, groupIdsWith, linkedProtection } from '../sim/appa
 import type { ProtectionStates } from '../sim/apparatus.ts';
 import type { Point } from '../editor/pins.ts';
 import { Canvas } from './Canvas.tsx';
+import { ComponentInsertionBar, type ComponentInsertionBarHandle } from './ComponentInsertionBar.tsx';
 // Esquinas redondeadas: sólo pintado, y sólo en el estilo moderno (S3).
 import { WIRE_CORNER_RADIUS } from './wire-corner.ts';
 import { Palette } from './Palette.tsx';
@@ -253,6 +254,8 @@ export function App(): JSX.Element {
   const [aboutOpen, setAboutOpen] = useState(false);
   /** La marca abre «Acerca de…»; al cerrar, el foco vuelve a ella. */
   const aboutTrigger = useRef<HTMLButtonElement | null>(null);
+  const canvasRef = useRef<SVGSVGElement | null>(null);
+  const insertionBar = useRef<ComponentInsertionBarHandle | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [titleBlockOpen, setTitleBlockOpen] = useState(false);
   /** Propiedades/Avisos: el mismo Drawer lateral con dos entradas. */
@@ -1439,6 +1442,73 @@ export function App(): JSX.Element {
     setState((s) => (s ? selectVertex(select(s, [], false), null) : s));
   }, []);
 
+  // La paleta y la barra comparten este callback:arma la herramienta, no inserta.
+  const paletteOnPick = useCallback(
+    (code: number | null): void => {
+      if (running) {
+        flash('detené la simulación para editar el circuito', 'rechazo');
+        return;
+      }
+      setWireStart(null);
+      setPlacing(code);
+    },
+    [running, flash],
+  );
+
+  const focusCanvas = useCallback((): void => {
+    canvasRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  const canSearch = useCallback(
+    (): boolean =>
+      state !== null &&
+      !running &&
+      placing === null &&
+      wireStart === null &&
+      preview === null &&
+      !settingsOpen &&
+      !projectSettingsOpen &&
+      !aboutOpen &&
+      !shortcutsOpen &&
+      !titleBlockOpen &&
+      !propertiesOpen &&
+      !saveAsOpen &&
+      faultDialog === null,
+    [
+      state,
+      running,
+      placing,
+      wireStart,
+      preview,
+      settingsOpen,
+      projectSettingsOpen,
+      aboutOpen,
+      shortcutsOpen,
+      titleBlockOpen,
+      propertiesOpen,
+      saveAsOpen,
+      faultDialog,
+    ],
+  );
+
+  // La barra se abre desde el lienzo, pero este listener va al final: si un
+  // atajo ya marcó la tecla como manejada, no la robamos.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented || event.repeat || event.isComposing) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key.length !== 1 || isTypingTarget(event.target)) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('svg[aria-label^="Lienzo del esquema"]') === null) return;
+      if (!canSearch()) return;
+      event.preventDefault();
+      insertionBar.current?.openWith(event.key);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [canSearch]);
+
   const onPlace = useCallback(
     (x: number, y: number) => {
       if (placing === null) return;
@@ -1577,14 +1647,7 @@ export function App(): JSX.Element {
   const palette = (
     <Palette
       placing={placing}
-      onPick={(code) => {
-        if (running) {
-          flash('detené la simulación para editar el circuito', 'rechazo');
-          return;
-        }
-        setWireStart(null);
-        setPlacing(code);
-      }}
+      onPick={paletteOnPick}
       sheets={project.sheets}
       activeSheet={activeSheet}
       onSheet={setActiveSheet}
@@ -2071,6 +2134,7 @@ export function App(): JSX.Element {
             {/* Sin `defaultSize`: el lienzo se queda con lo que dejan los otros dos. */}
             <ResizablePanel id="lienzo">
               <Canvas
+                canvasRef={canvasRef}
                 records={records}
                 selection={selection}
                 rotation={state.rotation}
@@ -2107,6 +2171,15 @@ export function App(): JSX.Element {
             </ResizablePanel>
 
           </Resizable>
+
+          <ComponentInsertionBar
+            ref={insertionBar}
+            scope={scope}
+            placing={placing}
+            onPick={paletteOnPick}
+            onFocusCanvas={focusCanvas}
+            canSearch={canSearch}
+          />
         </div>
 
         <footer className="relative z-10 flex h-[26px] shrink-0 items-center gap-3.5 border-t border-border bg-card px-3 font-mono text-[11px] tabular-nums text-muted-foreground shadow-chrome-up">

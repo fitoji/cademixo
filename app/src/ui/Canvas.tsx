@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { JSX } from 'react';
+import type { JSX, RefObject } from 'react';
 import { Grid3x3Icon, KeyboardIcon, MagnetIcon, MaximizeIcon, MinusIcon, PlusIcon } from 'lucide-react';
 import { GEOMETRY, baseBoxOf, boundsOf, boxOf, wirePoints, type CadeRecordModel, type WirePoints } from '../model/project.ts';
 import { resolveSymbol } from '../symbols/library.ts';
@@ -38,6 +38,8 @@ export interface View {
 }
 
 interface Props {
+  /** Expuesto al App para devolver el foco desde la barra de inserción. */
+  canvasRef?: RefObject<SVGSVGElement | null>;
   records: CadeRecordModel[];
   selection: Set<number>;
   rotation: Record<number, Rotation>;
@@ -141,6 +143,7 @@ const samePoint = (a: Point, b: Point): boolean => dist(a, b) < 0.01;
 
 export function Canvas(props: Props): JSX.Element {
   const {
+    canvasRef,
     records,
     selection,
     rotation,
@@ -909,7 +912,10 @@ export function Canvas(props: Props): JSX.Element {
   return (
     <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
       <svg
-        ref={svgRef}
+        ref={(node) => {
+          svgRef.current = node;
+          if (canvasRef) canvasRef.current = node;
+        }}
         className={cursorClass}
         tabIndex={0}
         role="application"
