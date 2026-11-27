@@ -996,6 +996,39 @@ function validateProposalGeometry(ctx: CableMoveContext, proposal: MoveProposal)
     .map((s) => ({ id: s.id, points: s.points, net: s.net }));
   const all = [...rest, ...changed.map((c) => ({ id: -1, points: c.points, net: c.net }))];
 
+  // Identidades de borne: `attachPoints` convierte en pin todo extremo de cable
+  // dentro de una caja. El preview debe decidir lo mismo que la confirmación,
+  // así que se comparan los extremos finales dentro de cada caja movida con los
+  // bornes que el componente tenía antes (trasladados).
+  const pointKey = (p: Point): string => `${Math.round(p.x * 100) / 100},${Math.round(p.y * 100) / 100}`;
+  for (const box of movedBoxes) {
+    const expected = new Set((ctx.pins.get(box.id) ?? []).map((p) => pointKey(translatePt(p, proposal.dx, proposal.dy))));
+    const seen = new Set<string>();
+    for (const seg of all) {
+      for (const p of [{ x: seg.points.x1, y: seg.points.y1 }, { x: seg.points.x2, y: seg.points.y2 }]) {
+        if (boxContains(box, p)) seen.add(pointKey(p));
+      }
+    }
+    if (seen.size !== expected.size || [...expected].some((k) => !seen.has(k))) {
+      return { ok: false, reason: 'el movimiento cambia las identidades de borne del componente' };
+    }
+  }
+
+  // Un extremo nuevo dentro de la caja de otro símbolo también le inventaría un
+  // borne a ese componente, aunque la caja no se mueva.
+  const changedEndpoints: Point[] = [];
+  for (const seg of changed) {
+    changedEndpoints.push({ x: seg.points.x1, y: seg.points.y1 }, { x: seg.points.x2, y: seg.points.y2 });
+  }
+  for (const box of ctx.boxes.filter((b) => !ctx.selection.has(b.id) && boxHits(b, region))) {
+    const existing = new Set((ctx.pins.get(box.id) ?? []).map(pointKey));
+    for (const p of changedEndpoints) {
+      if (boxContains(box, p) && !existing.has(pointKey(p))) {
+        return { ok: false, reason: 'un extremo nuevo cae dentro de otro símbolo' };
+      }
+    }
+  }
+
   for (const seg of changed) {
     if (!vertical(seg.points) && !horizontal(seg.points)) {
       return { ok: false, reason: `el tramo ${seg.key} quedó en diagonal` };
@@ -1037,10 +1070,6 @@ function validateProposalGeometry(ctx: CableMoveContext, proposal: MoveProposal)
 
   // Un extremo nuevo no puede caer en el interior de un tramo de otra red: sería
   // una unión en T no declarada.
-  const changedEndpoints: Point[] = [];
-  for (const seg of changed) {
-    changedEndpoints.push({ x: seg.points.x1, y: seg.points.y1 }, { x: seg.points.x2, y: seg.points.y2 });
-  }
   for (const p of changedEndpoints) {
     for (const other of all) {
       if (other.net === -1) continue;

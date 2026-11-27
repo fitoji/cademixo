@@ -316,7 +316,7 @@ test('un destino sin solución se rechaza sin tocar documento ni historial', () 
   const past = editor.past.length;
   const result = applyDragResult(editor, { kind: 'move', dx: 24, dy: 0 }, 'ortogonal');
   assert.equal(result.ok, false, 'la ruta no existe');
-  assert.match(result.reason ?? '', /ruta|conflicto|obstáculo|conexiones/i);
+  assert.match(result.reason ?? '', /ruta|conflicto|obstáculo|conexiones|identidades/i);
   assert.equal(result.state.text, before);
   assert.equal(result.state.past.length, past);
   assert.equal(result.state.dirty, false);
