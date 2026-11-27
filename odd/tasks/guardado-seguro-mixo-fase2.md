@@ -73,3 +73,6 @@ Feature: Fase 2 de `docs/plan-guardado-seguro-mixo.md`. Branch:
 - L11: cierre: commit `86a7a62` con los avisos atendidos y las 9 probes del
   verificador. Assess sobre ese candidato (base `7249a32`): `medium`,
   `review_due: false`, `under_budget` (6 paths, 204 líneas). Sin push ni PR.
+- L12: la persona decidió dejar la Fase 3 como feature futuro. Handoff en
+  `odd/tasks/guardado-seguro-mixo-fase3-pendiente.md`: contrato v2, SHA-256 por
+  sección, conversión como copia y fixtures TS ↔ Rust; sin implementar.
