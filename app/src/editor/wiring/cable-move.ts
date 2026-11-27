@@ -466,6 +466,7 @@ function tryLocal(ctx: CableMoveContext, dx: number, dy: number): MoveProposal |
     if (handled.has(wire.id)) continue;
 
     if (wire.movedA && wire.movedB) {
+      if (wire.sharedA || wire.sharedB) return null; // derivación: router
       wires.set(wire.id, {
         x1: wire.a.x + dx,
         y1: wire.a.y + dy,
@@ -897,9 +898,13 @@ export function planCableMove(ctx: CableMoveContext, dx: number, dy: number, opt
   if (local) {
     if (opts.validate !== false) {
       const check = validateCableProposal(ctx, local);
-      if (!check.ok) return check;
+      // Una deformación local geométricamente válida puede cambiar la
+      // conectividad (por ejemplo, al arrastrar una derivación). En ese caso el
+      // router todavía puede preservarla.
+      if (check.ok) return { ok: true, proposal: local };
+    } else {
+      return { ok: true, proposal: local };
     }
-    return { ok: true, proposal: local };
   }
 
   const routed = tryRouter(ctx, dx, dy);
