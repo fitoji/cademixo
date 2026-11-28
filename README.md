@@ -59,7 +59,7 @@ Fecha: 2026-11-27 · rama `main` · v0.15.0
 - ✅ Extracción de netlist: aparatos agrupados por designador, redes por proyección.
 - ✅ **Barra de inserción de componentes**: teclear desde el lienzo, recorrer variantes con flechas, `Enter` prepara y el clic en el lienzo coloca. Misma búsqueda, catálogo y orden que la paleta. Flotante, arrastrable, acoplable al borde inferior y minimizable.
 - ✅ Dos mundos visuales (clásico y moderno) con modo día/noche y preferencias persistidas.
-- ✅ **Manejo de cables al mover componentes**: en **Ver → Configuración** se elige **Actual** o **Ortogonal (Wybrow)**. El modo ortogonal conserva los carriles escalonados, enruta alrededor de obstáculos y derivaciones interiores, y confirma sólo si los grupos de bornes no cambian; si no hay ruta válida, avisa el conflicto y deja el documento intacto.
+- ✅ **Manejo de cables al mover componentes**: en **Ver → Configuración** o el botón del lienzo se elige **Actual** o **Ortogonal (Wybrow)**. El modo ortogonal conserva los carriles escalonados, enruta alrededor de obstáculos y derivaciones interiores, y confirma sólo si los grupos de bornes no cambian; si no hay ruta válida, avisa el conflicto y deja el documento intacto.
 - ✅ **Guardado seguro de proyectos `.mixo`**: revisión verificada por relectura, apertura que rechaza sidecars inválidos sin reemplazar el documento y recuperación del dibujo como copia.
 - ✅ **Copias recuperables fuera del archivo candidato**: generación previa en IndexedDB antes de reemplazar, rotación sólo después de verificar la sucesora y menú «Recuperar versión…» que nunca repara el original. Ver [recuperación](docs/recuperacion-mixo.md).
 

@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { JSX, RefObject } from 'react';
-import { Grid3x3Icon, KeyboardIcon, MagnetIcon, MaximizeIcon, MinusIcon, PlusIcon } from 'lucide-react';
+import { Grid3x3Icon, KeyboardIcon, MagnetIcon, MaximizeIcon, MinusIcon, PlusIcon, RouteIcon } from 'lucide-react';
 import { GEOMETRY, baseBoxOf, boundsOf, boxOf, wirePoints, type CadeRecordModel, type WirePoints } from '../model/project.ts';
 import { resolveSymbol } from '../symbols/library.ts';
 import { shapesBounds } from '../symbols/draw.ts';
@@ -22,7 +22,9 @@ import { hitContext, hitTest, segmentAttachedTo } from '../editor/wiring/hitTest
 import { WIRE_TEMPLATES } from '../symbols/templates.ts';
 import { conductorToneOf, type ConductorTone } from '../editor/conductor.ts';
 import { SymbolGlyph } from './SymbolGlyph.tsx';
-import { attachPinRadius, getSettings, pinStroke, subscribeSettings } from './settings.ts';
+import { toast } from 'sonner';
+import { CABLE_PREVIEW_TOAST_ID, cableConflict } from './cable-toast.ts';
+import { attachPinRadius, getSettings, pinStroke, setSettings, subscribeSettings } from './settings.ts';
 import { isProtection } from '../model/component-spec.ts';
 import type { VisualState } from '../sim/visual.ts';
 import { WIRE_CORNER_TOL, wireCornerPaths, type WireSegment } from './wire-corner.ts';
@@ -94,6 +96,8 @@ interface Props {
   onFit: () => void;
   onToggleGrid: () => void;
   onToggleSnap: () => void;
+  /** Abre el diálogo con atajos globales y del plano actual. */
+  onShortcuts: () => void;
   /**
    * El estilo moderno flota el chrome sobre el dibujo; el clásico conserva las
    * barras fijas del editor, que es el look de CADe_SIMU. No lo decide el
@@ -175,6 +179,7 @@ export function Canvas(props: Props): JSX.Element {
     onFit,
     onToggleGrid,
     onToggleSnap,
+    onShortcuts,
     floatingChrome,
   } = props;
 
@@ -183,7 +188,6 @@ export function Canvas(props: Props): JSX.Element {
   const panButton = useRef<number | null>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 4 });
   /** Las pistas de teclado dejaron de ser una barra fija: se piden desde el dock. */
-  const [hintsOpen, setHintsOpen] = useState(false);
   // Hints del registro compartido, con las teclas que el usuario tenga guardadas.
   const bindings = useSyncExternalStore(subscribeBindings, getBindings, getBindings);
   const fitHint = useShortcutHint(bindings.fit).text;
@@ -373,6 +377,13 @@ export function Canvas(props: Props): JSX.Element {
   }, [movePreview, cableMode, records, pins, selection, orthogonalPlan]);
   const moveRejection =
     movePreview !== null && orthogonalPlan !== null && !orthogonalPlan.ok ? orthogonalPlan.reason : null;
+  useEffect(() => {
+    if (moveRejection === null) {
+      toast.dismiss(CABLE_PREVIEW_TOAST_ID);
+      return;
+    }
+    cableConflict(moveRejection, { id: CABLE_PREVIEW_TOAST_ID, persistent: true });
+  }, [moveRejection]);
   // Polilínea de cable por tramo, para previsualizar los agrupados.
   const wirePathById = useMemo(() => {
     const byId = new Map<number, WirePath>();
@@ -1001,16 +1012,6 @@ export function Canvas(props: Props): JSX.Element {
         {notice}
       </div>
 
-      {moveRejection !== null && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none absolute top-3 left-1/2 z-10 -translate-x-1/2 rounded-lg border border-destructive/60 bg-card px-3 py-1.5 text-xs text-destructive shadow-float"
-        >
-          Sin ruta válida: {moveRejection}
-        </div>
-      )}
-
       {/*
        * Chrome flotante sobre el dibujo: el zoom en una esquina, las
        * herramientas del lienzo al centro. Así el chrome del editor queda
@@ -1060,6 +1061,14 @@ export function Canvas(props: Props): JSX.Element {
           label="Imán a bornes"
           icon={<MagnetIcon className="size-3.5" />}
         />
+        <DockButton
+          pressed={cableMode === 'ortogonal'}
+          onClick={() =>
+            setSettings({ cableHandling: cableMode === 'ortogonal' ? 'actual' : 'ortogonal' })
+          }
+          label="Cables ortogonales (Wybrow)"
+          icon={<RouteIcon className="size-3.5" />}
+        />
         <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
         <DockButton
           onClick={onFit}
@@ -1068,18 +1077,11 @@ export function Canvas(props: Props): JSX.Element {
           icon={<MaximizeIcon className="size-3.5" />}
         />
         <DockButton
-          pressed={hintsOpen}
-          onClick={() => setHintsOpen((open) => !open)}
-          label="Atajos del lienzo"
+          onClick={onShortcuts}
+          label="Atajos y gestos"
           icon={<KeyboardIcon className="size-3.5" />}
         />
       </div>
-
-      {hintsOpen && (
-        <div className="absolute bottom-14 left-1/2 max-w-[min(640px,calc(100%-1.5rem))] -translate-x-1/2 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] text-muted-foreground shadow-float">
-          {canvasHints}
-        </div>
-      )}
         </>
       ) : (
         <>

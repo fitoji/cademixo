@@ -220,3 +220,23 @@ test('guardar escribe el .cad y su sidecar .keys.json', async ({ page }) => {
   assert.equal(typeof sidecar.drawingHash, 'string');
   assert.equal(sidecar.bindings.Q1, 'q');
 });
+
+test('el dock muestra atajos generales y los del plano abierto', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('input[type="file"]').setInputFiles(inversion);
+  await expect(page.locator('footer').getByText('motor_con_inversion_giro.cad')).toBeVisible();
+
+  const q1 = await component(page, '23');
+  await page.mouse.click(q1.x, q1.y);
+  await page.locator('button[data-slot="component-shortcut"]').click();
+  await page.keyboard.press('q');
+
+  await page.getByRole('button', { name: 'Activar estilo moderno' }).click();
+  await page.getByRole('button', { name: 'Atajos y gestos' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('Guardar', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Componentes del plano')).toBeVisible();
+  await expect(dialog.getByText('Q1', { exact: true })).toBeVisible();
+});

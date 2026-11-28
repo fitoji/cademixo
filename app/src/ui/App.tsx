@@ -178,6 +178,7 @@ import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { Resizable, ResizableHandle, ResizablePanel, layoutStorage } from '@/components/ui/resizable';
 import { Toaster } from '@/components/ui/sonner';
+import { cableConflict } from './cable-toast.ts';
 import { AboutDialog } from './AboutDialog.tsx';
 import { SettingsDrawer } from './SettingsDrawer.tsx';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog.tsx';
@@ -277,6 +278,12 @@ export function App(): JSX.Element {
   const [titleBlockOpen, setTitleBlockOpen] = useState(false);
   /** Propiedades/Avisos: el mismo Drawer lateral con dos entradas. */
   const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const openShortcuts = useCallback(() => {
+    // El Inspector es una capa nativa del navegador y quedaría por encima del
+    // diálogo; el referente de atajos se abre sin esa competencia.
+    setPropertiesOpen(false);
+    setShortcutsOpen(true);
+  }, []);
   const [sheetView, setSheetView] = useState<'propiedades' | 'avisos'>('propiedades');
   /**
    * «Guardar como…» sin File System Access API: el navegador no tiene selector
@@ -1566,7 +1573,8 @@ export function App(): JSX.Element {
       const mode = getSettings().cableHandling;
       const result = applyDragResult(state, op, mode);
       if (!result.ok) {
-        flash(`sin ruta válida: ${result.reason}`, 'rechazo');
+        cue('rechazo');
+        cableConflict(result.reason ?? 'conflicto de enrutado');
         return;
       }
       setState(result.state);
@@ -2044,7 +2052,7 @@ export function App(): JSX.Element {
                 </MenubarGroup>
                 <MenubarSeparator />
                 <MenubarGroup>
-                  <MenubarItem onSelect={() => setShortcutsOpen(true)}>
+                  <MenubarItem onSelect={openShortcuts}>
                     <BookOpenIcon />
                     Atajos
                   </MenubarItem>
@@ -2321,6 +2329,7 @@ export function App(): JSX.Element {
                 onFit={() => setFitToken((t) => t + 1)}
                 onToggleGrid={() => setShowGrid((on) => !on)}
                 onToggleSnap={() => setSnap((on) => !on)}
+                onShortcuts={openShortcuts}
                 floatingChrome={styleMode === 'moderno'}
               />
             </ResizablePanel>
@@ -2475,7 +2484,11 @@ export function App(): JSX.Element {
         version={pkg.version}
         returnFocusTo={aboutTrigger}
       />
-      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <ShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+        componentShortcuts={componentShortcuts}
+      />
 
       <SaveAsDialog
         open={saveAsOpen}
@@ -2495,6 +2508,7 @@ export function App(): JSX.Element {
       />
 
       <Toaster theme={mode} position="top-center" />
+      <Toaster theme={mode} position="bottom-center" id="cables" />
     </TooltipProvider>
   );
 }

@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { isApplePlatform, useShortcutHint } from './shortcuts.ts';
+import type { ComponentShortcuts } from './component-shortcuts.ts';
 import {
   getBindings,
   keyEventToKeys,
@@ -83,6 +84,12 @@ const EDITABLE_LABELS: Record<ShortcutId, string> = Object.fromEntries(
 
 const ROW_CLASS = 'flex items-center justify-between gap-4 py-1 text-sm';
 
+/** Tecla: superficie de control, sin sombra y con números tabulares. */
+const KEY_CLASS =
+  'shrink-0 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] leading-none tabular-nums text-foreground';
+
+const SECTION_CLASS = 'pt-3 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase';
+
 /** Fila editable: muestra el hint o, mientras captura, el botón que lo graba. */
 function EditableRow({
   id,
@@ -122,7 +129,7 @@ function EditableRow({
           {capturing ? 'Presioná la combinación…' : <kbd aria-hidden="true">{hint}</kbd>}
         </button>
       ) : (
-        <kbd aria-hidden="true" className="shrink-0 font-mono text-xs text-muted-foreground">
+        <kbd aria-hidden="true" className={KEY_CLASS}>
           {hint}
         </kbd>
       )}
@@ -136,7 +143,7 @@ function FixedRow({ label, keys }: { label: string; keys: string }): JSX.Element
   return (
     <li className={ROW_CLASS}>
       <span>{label}</span>
-      <kbd aria-hidden="true" className="shrink-0 font-mono text-xs text-muted-foreground">
+      <kbd aria-hidden="true" className={KEY_CLASS}>
         {hint}
       </kbd>
     </li>
@@ -147,8 +154,21 @@ function TextRow({ label, text }: { label: string; text: string }): JSX.Element 
   return (
     <li className={ROW_CLASS}>
       <span>{label}</span>
-      <kbd aria-hidden="true" className="shrink-0 font-mono text-xs text-muted-foreground">
+      <kbd aria-hidden="true" className={KEY_CLASS}>
         {text}
+      </kbd>
+    </li>
+  );
+}
+
+/** Atajo asignado a un componente del plano abierto. */
+function ComponentRow({ designator, keys }: { designator: string; keys: string }): JSX.Element {
+  const hint = useShortcutHint(keys).text;
+  return (
+    <li className={ROW_CLASS}>
+      <span className="font-mono text-xs text-foreground">{designator}</span>
+      <kbd aria-hidden="true" className={KEY_CLASS}>
+        {hint}
       </kbd>
     </li>
   );
@@ -157,9 +177,12 @@ function TextRow({ label, text }: { label: string; text: string }): JSX.Element 
 export function ShortcutsDialog({
   open,
   onOpenChange,
+  componentShortcuts,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Atajos del plano abierto, guardados en el sidecar `.keys.json`. */
+  componentShortcuts?: ComponentShortcuts | null;
 }): JSX.Element {
   const [editing, setEditing] = useState(false);
   const [capturing, setCapturing] = useState<ShortcutId | null>(null);
@@ -207,15 +230,67 @@ export function ShortcutsDialog({
     setStatus('');
   };
 
+  const componentEntries = Object.entries(componentShortcuts?.bindings ?? {}).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+
+  const renderCategory = (category: (typeof CATEGORIES)[number]): JSX.Element => (
+    <section key={category.name}>
+      <h3 className={SECTION_CLASS}>{category.name}</h3>
+      <ul>
+        {category.entries.map((entry) =>
+          'id' in entry ? (
+            <EditableRow
+              key={entry.id}
+              id={entry.id}
+              label={entry.label}
+              keys={bindings[entry.id]}
+              editing={editing}
+              capturing={capturing === entry.id}
+              onStart={() => startCapture(entry.id)}
+              onCapture={(event) => capture(entry.id, event)}
+            />
+          ) : 'keys' in entry ? (
+            <FixedRow key={entry.label} label={entry.label} keys={entry.keys} />
+          ) : (
+            <TextRow key={entry.label} label={entry.label} text={entry.text} />
+          ),
+        )}
+      </ul>
+    </section>
+  );
+
+  const componentSection = (
+    <section>
+      <div className="flex items-center justify-between gap-4">
+        <h3 className={SECTION_CLASS}>Componentes del plano</h3>
+        <span className="rounded-full border border-border px-1.5 py-px font-mono text-[10px] tabular-nums text-muted-foreground">
+          {componentEntries.length}
+        </span>
+      </div>
+      {componentEntries.length === 0 ? (
+        <p className="py-1 text-sm text-muted-foreground">
+          Este plano no tiene atajos de componente. Seleccioná uno y asignalo desde el inspector.
+        </p>
+      ) : (
+        <ul>
+          {componentEntries.map(([designator, keys]) => (
+            <ComponentRow key={designator} designator={designator} keys={keys} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[min(32rem,85vh)] overflow-y-auto">
+      <DialogContent className="max-h-[min(38rem,88vh)] overflow-y-auto sm:w-[min(768px,calc(100vw-2rem))]">
         <div className="flex items-start justify-between gap-4">
           <DialogHeader>
             <DialogTitle>Atajos de teclado</DialogTitle>
             <DialogDescription>
-              Los atajos disponibles, agrupados por lo que hacen. Las teclas se muestran para tu
-              plataforma.
+              Los atajos del editor y los del plano abierto, agrupados por lo que hacen. Las teclas se
+              muestran para tu plataforma.
             </DialogDescription>
           </DialogHeader>
           <Button size="sm" variant="outline" aria-pressed={editing} onClick={toggleEditing}>
@@ -223,33 +298,15 @@ export function ShortcutsDialog({
           </Button>
         </div>
 
-        {CATEGORIES.map((category) => (
-          <section key={category.name}>
-            <h3 className="pt-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              {category.name}
-            </h3>
-            <ul>
-              {category.entries.map((entry) =>
-                'id' in entry ? (
-                  <EditableRow
-                    key={entry.id}
-                    id={entry.id}
-                    label={entry.label}
-                    keys={bindings[entry.id]}
-                    editing={editing}
-                    capturing={capturing === entry.id}
-                    onStart={() => startCapture(entry.id)}
-                    onCapture={(event) => capture(entry.id, event)}
-                  />
-                ) : 'keys' in entry ? (
-                  <FixedRow key={entry.label} label={entry.label} keys={entry.keys} />
-                ) : (
-                  <TextRow key={entry.label} label={entry.label} text={entry.text} />
-                ),
-              )}
-            </ul>
-          </section>
-        ))}
+        <div className="grid gap-x-6 sm:grid-cols-2 sm:divide-x sm:divide-border">
+          <div className="sm:pr-6">
+            {CATEGORIES.filter((category) => category.name !== 'Lienzo').map(renderCategory)}
+          </div>
+          <div className="sm:pl-6">
+            {componentShortcuts !== undefined && componentSection}
+            {CATEGORIES.filter((category) => category.name === 'Lienzo').map(renderCategory)}
+          </div>
+        </div>
 
         <p id={STATUS_ID} role="status" aria-live="polite" className="min-h-4 pt-2 text-xs text-muted-foreground">
           {status}
