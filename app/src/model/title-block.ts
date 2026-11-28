@@ -193,9 +193,9 @@ export const TITLE_NUMERIC_INDEX = {
 export type CajetinKind = 0 | 1 | 2;
 export type PageFormat = 0 | 1 | 2 | 3 | 4;
 
-/** Valor numérico de un token, ignorando el sufijo `&&&` del último. */
+/** Valor numérico de un token, ignorando el relleno y el sufijo `&&&` del último. */
 function numericAt(block: TitleBlock, index: number): number {
-  const match = /^-?\d+/.exec(block.numeric[index] ?? '');
+  const match = /-?\d+/.exec(block.numeric[index] ?? '');
   return match ? Number(match[0]) : 0;
 }
 
@@ -252,6 +252,64 @@ export function titlePageSize(block: TitleBlock): { alto: number; ancho: number 
     alto: numericAt(block, TITLE_NUMERIC_INDEX.alto),
     ancho: numericAt(block, TITLE_NUMERIC_INDEX.ancho),
   };
+}
+
+/**
+ * Presets de `Archivo → Configuración`, en el orden del grupo de radios.
+ * `alto` es el vertical y `ancho` el horizontal, como los muestra el diálogo.
+ */
+export const SHEET_PRESETS: ReadonlyArray<{
+  format: PageFormat;
+  label: string;
+  alto: number;
+  ancho: number;
+}> = [
+  { format: 0, label: 'A4 Vertical', alto: 297, ancho: 210 },
+  { format: 1, label: 'A4 Horizontal', alto: 210, ancho: 297 },
+  { format: 2, label: 'A3 Formato 1', alto: 297, ancho: 420 },
+  { format: 3, label: 'A3 Formato 2', alto: 297, ancho: 420 },
+];
+
+/** Límites que valida el diálogo de CADe para Personalizado. */
+export const SHEET_SIZE_MIN = 1;
+export const SHEET_SIZE_MAX = 800;
+
+const clampSheetSize = (value: number): number =>
+  Math.min(SHEET_SIZE_MAX, Math.max(SHEET_SIZE_MIN, Math.round(value)));
+
+/**
+ * Área útil que CADe dibuja, en mm y con el origen arriba a la izquierda.
+ *
+ * Para los presets sale de la página menos 18 mm de ancho (9 por lado); el
+ * Personalizado usa tal cual los numéricos 9 y 10. Verificado con las capturas
+ * de `Ver → Zoom Todo` y las variantes guardadas desde CADe
+ * (`docs/reportes/informe-tamano-hoja-cadesimu.md`).
+ */
+export function sheetAreaOf(block: TitleBlock): { width: number; height: number } {
+  const format = titlePageFormat(block);
+  if (format === 0) return { width: 192, height: 297 };
+  if (format === 1) return { width: 279, height: 210 };
+  if (format === 2 || format === 3) return { width: 402, height: 297 };
+
+  const { alto, ancho } = titlePageSize(block);
+  return { width: clampSheetSize(ancho), height: clampSheetSize(alto) };
+}
+
+/**
+ * Escribe el formato de hoja en el trailer. Los tamaños sólo se escriben con
+ * Personalizado: los presets no tocan los numéricos 9 y 10, igual que CADe.
+ */
+export function withSheetFormat(
+  text: string,
+  format: PageFormat,
+  size?: { alto: number; ancho: number },
+): string {
+  let next = withTitleNumeric(text, TITLE_NUMERIC_INDEX.formato, format);
+  if (format === 4 && size) {
+    next = withTitleNumeric(next, TITLE_NUMERIC_INDEX.alto, clampSheetSize(size.alto));
+    next = withTitleNumeric(next, TITLE_NUMERIC_INDEX.ancho, clampSheetSize(size.ancho));
+  }
+  return next;
 }
 
 /** Escribe un numérico conservando el ancho del token y el sufijo `&&&`. */

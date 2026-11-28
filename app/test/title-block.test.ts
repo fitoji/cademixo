@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { parse, serialize } from '../src/format/cade.ts';
 import {
   parseTitleBlock,
+  sheetAreaOf,
   titleCableNumbers,
   titleCajetin,
   titleContorno,
@@ -15,6 +16,7 @@ import {
   titleSymbolConnections,
   titleValues,
   titleZoom,
+  withSheetFormat,
   withTitleField,
   withTitleFlags,
   withTitleNumeric,
@@ -130,4 +132,38 @@ test('ocultar el cajetín en CADe es el campo 4 a 0, no los flags', () => {
   // El trailer sigue completo; CADe no borra los textos al ocultar el cajetín.
   assert.equal(titleValues(b)[9], 'arranque-paro-motor-3f.cad');
   assert.equal(serialize(parse(hidden)), hidden);
+});
+
+test('el área útil sale del formato, no del tamaño guardado', () => {
+  const a4h = parseTitleBlock(BASE)!;
+  assert.deepEqual(sheetAreaOf(a4h), { width: 279, height: 210 });
+
+  // A3 F1 con 279*210 guardados (caso real): manda el preset.
+  const a3 = parseTitleBlock(withTitleNumeric(BASE, 0, 2))!;
+  assert.deepEqual(sheetAreaOf(a3), { width: 402, height: 297 });
+
+  const a4v = parseTitleBlock(withTitleNumeric(BASE, 0, 0))!;
+  assert.deepEqual(sheetAreaOf(a4v), { width: 192, height: 297 });
+});
+
+test('Personalizado usa alto y ancho guardados', () => {
+  const text = withSheetFormat(BASE, 4, { alto: 300, ancho: 400 });
+  const block = parseTitleBlock(text)!;
+  assert.equal(titlePageFormat(block), 4);
+  assert.deepEqual(titlePageSize(block), { alto: 300, ancho: 400 });
+  assert.deepEqual(sheetAreaOf(block), { width: 400, height: 300 });
+  assert.equal(serialize(parse(text)), text);
+});
+
+test('elegir un preset no toca los numéricos 9 y 10', () => {
+  const text = withSheetFormat(BASE, 2);
+  const block = parseTitleBlock(text)!;
+  assert.equal(titlePageFormat(block), 2);
+  assert.deepEqual(titlePageSize(block), { alto: 279, ancho: 210 });
+  assert.equal(text.includes('*2*1*1*2*5*0*1*0*0*279*210&&&'), true);
+});
+
+test('Personalizado valida 1..800', () => {
+  const text = withSheetFormat(BASE, 4, { alto: 0, ancho: 900 });
+  assert.deepEqual(titlePageSize(parseTitleBlock(text)!), { alto: 1, ancho: 800 });
 });

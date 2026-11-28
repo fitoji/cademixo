@@ -2475,6 +2475,8 @@ export function App(): JSX.Element {
       <ProjectSettingsDialog
         open={projectSettingsOpen}
         onOpenChange={setProjectSettingsOpen}
+        text={state?.text ?? ''}
+        onApply={(next) => setState((s) => (s ? setTitleBlock(s, next) : s))}
         titleBlockHidden={titleBlockHidden}
         onTitleBlockHiddenChange={setTitleBlockHidden}
       />

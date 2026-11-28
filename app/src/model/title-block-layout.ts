@@ -10,15 +10,16 @@
  * Todo se expresa en unidades del documento (mm), con **y hacia abajo** y el
  * origen en la esquina superior izquierda de la hoja.
  *
- * Alcance: sólo A4 horizontal con cajetín 2. Cualquier otra combinación
- * devuelve `null` en vez de dibujar algo que no corresponde.
+ * El tamaño de la página sale de `sheetAreaOf` (formato del trailer). El bloque
+ * medido es sólo el de A4 horizontal: en el resto se dibuja la página y el
+ * contorno, pero no se inventa el cajetín.
  */
 
 import {
+  sheetAreaOf,
   titleCajetin,
   titleContorno,
   titlePageFormat,
-  titlePageSize,
   titleReferenciado,
   titleValues,
   type TitleBlock,
@@ -235,32 +236,42 @@ function rectLines(x: number, y: number, w: number, h: number, weight: 1 | 2): L
 }
 
 /**
- * Layout de la hoja, o `null` cuando no hay nada que dibujar.
+ * Layout de la hoja, o `null` si no hay trailer.
  *
- * Devuelve `null` sin trailer, con cajetín distinto del 2 y con un formato que
- * no sea A4 horizontal: sólo esa combinación está medida.
+ * La página siempre se conoce (sale del formato). El cajetín medido se dibuja
+ * sólo en A4 horizontal con cajetín 1 o 2; para el resto quedan el marco y el
+ * contorno.
  */
 export function titleBlockLayout(
   block: TitleBlock | null,
   visibility?: readonly boolean[],
 ): SheetLayout | null {
   if (!block) return null;
-  const cajetin = titleCajetin(block);
-  if (cajetin !== 1 && cajetin !== 2) return null;
-  if (titlePageFormat(block) !== 1) return null;
 
-  const size = titlePageSize(block);
-  const width = Math.max(size.alto, size.ancho);
-  const height = Math.min(size.alto, size.ancho);
+  const { width, height } = sheetAreaOf(block);
   if (width <= 0 || height <= 0) return null;
+
+  const cajetin = titleCajetin(block);
+  const contorno = titleContorno(block);
+  const referenciado = titleReferenciado(block);
+
+  // Fuera de A4 horizontal no hay geometría medida del bloque: se dibuja la
+  // página (y su contorno si está activo), nada más.
+  if (titlePageFormat(block) !== 1 || (cajetin !== 1 && cajetin !== 2)) {
+    const lines: Line[] = [];
+    if (contorno) {
+      lines.push(...rectLines(0, 0, width, height, 2));
+      lines.push(
+        ...rectLines(MARGIN, MARGIN, width - MARGIN * 2, height - MARGIN * 2, 2),
+      );
+    }
+    return { page: { width, height }, lines, cells: [], labels: [] };
+  }
 
   const values = titleValues(block);
   if (cajetin === 1) {
     return cajetin1Layout(values, (row) => alignOf(block.alignment[row]));
   }
-
-  const contorno = titleContorno(block);
-  const referenciado = titleReferenciado(block);
 
   // Las filas apagadas no se dibujan y el bloque se acorta: la caja queda
   // anclada al borde inferior del marco. La visibilidad viene de la sesión y no

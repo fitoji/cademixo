@@ -31,7 +31,7 @@ const hasLine = (
   y2: number,
 ): boolean => lines.some((l) => l.x1 === x1 && l.y1 === y1 && l.x2 === x2 && l.y2 === y2);
 
-test('sin cajetín no hay layout', () => {
+test('sin trailer no hay layout', () => {
   assert.equal(titleBlockLayout(null), null);
 });
 
@@ -52,15 +52,30 @@ test('el cajetín 1 en A4 mide 207 × 36 y queda abajo a la derecha', () => {
   assert.ok(texts.includes('cajetin-probe.cad'));
 });
 
-test('cajetín «ninguno» no se dibuja', () => {
-  assert.equal(layoutOf(withTitleNumeric(PROBE, 3, 0)), null);
+test('cajetín «ninguno» no dibuja el bloque, pero la página sigue', () => {
+  const layout = layoutOf(withTitleNumeric(PROBE, 3, 0))!;
+  assert.deepEqual(layout.page, { width: 279, height: 210 });
+  assert.equal(layout.cells.length, 0);
+  assert.equal(layout.labels.length, 0);
+  // Contorno activo en el fixture: marco exterior e interior.
+  assert.ok(hasLine(layout.lines, 0, 0, 279, 0));
+  assert.ok(hasLine(layout.lines, 10, 10, 269, 10));
 });
 
-test('un formato que no es A4 horizontal no se dibuja', () => {
-  assert.equal(layoutOf(withTitleNumeric(PROBE, 0, 2)), null);
+test('A3 conoce la página aunque no tenga el cajetín medido', () => {
+  const layout = layoutOf(withTitleNumeric(PROBE, 0, 2))!;
+  assert.deepEqual(layout.page, { width: 402, height: 297 });
+  assert.equal(layout.cells.length, 0);
+  assert.equal(layout.labels.length, 0);
+  assert.ok(hasLine(layout.lines, 0, 0, 402, 0));
 });
 
-test('la página útil toma el lado mayor como ancho', () => {
+test('A4 vertical usa el área vertical de CADe', () => {
+  const layout = layoutOf(withTitleNumeric(PROBE, 0, 0))!;
+  assert.deepEqual(layout.page, { width: 192, height: 297 });
+});
+
+test('la página de A4 horizontal mide 279 × 210', () => {
   const layout = layoutOf(PROBE)!;
   assert.deepEqual(layout.page, { width: 279, height: 210 });
 });
