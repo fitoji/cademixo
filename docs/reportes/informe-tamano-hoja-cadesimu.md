@@ -25,8 +25,9 @@ La app hoy:
 - no tiene UI para cambiar el formato.
 
 El cambio propuesto: modelar el formato como fuente de verdad del tamaño, sumar
-el selector a «Configuración del proyecto» y dibujar el marco de página para los
-cinco formatos. El cajetín medido sigue siendo sólo el de A4 horizontal.
+el selector a «Configuración del proyecto» y dibujar el marco de página y el
+cajetín en los cinco formatos. El bloque conserva los 207 mm medidos y se ajusta
+al ancho disponible cuando la hoja es más angosta (A4 vertical).
 
 ## Método
 
@@ -167,9 +168,12 @@ horizontal. Para A4 vertical y A3 se dibuja el marco de página y el contorno
    - `withSheetFormat(text, format, size?)`: escribe el índice 0 y, sólo con
      formato 4, los índices 9/10; preserva el ancho de los tokens y `&&&`.
 2. `app/src/model/title-block-layout.ts`
-   - `page` sale de `sheetAreaOf`.
-   - El bloque y las franjas medidas se siguen dibujando sólo en A4 horizontal.
-   - Para el resto: marco exterior, marco interior y nada más.
+   - `page` sale de `sheetAreaOf` y el mismo bloque se dibuja en los cinco
+     formatos.
+   - El bloque conserva los 207 mm de ancho del binario; si la hoja es más
+     angosta (A4 vertical: 192) se ajusta al ancho disponible y las columnas
+     escalan en la misma proporción. Las filas siguen midiendo 6 mm.
+   - Las franjas del referenciado siguen midiéndose sobre A4 horizontal.
 3. `app/src/ui/ProjectSettingsDialog.tsx`
    - Grupo «Formato» con las cinco opciones y los dos campos de Personalizado
      (validación 1..800), aplicados en el acto como el resto del diálogo.
@@ -178,7 +182,9 @@ horizontal. Para A4 vertical y A3 se dibuja el marco de página y el contorno
 
 ## Pendientes
 
-- Geometría del cajetín en A4 vertical y A3 (no medida; no se inventa).
+- Geometría exacta del cajetín por formato en CADe: la medición preliminar de
+  A3 muestra un bloque más ancho que los 207 mm del binario. La app conserva
+  207 y lo achica sólo cuando no entra; falta la tabla exacta por formato.
 - Diferencia exacta entre A3 Formato 1 y A3 Formato 2 (misma página; cambia la
   hoja).
 - Multi-hoja: el formato vive en el trailer de cada hoja; hoy el parser toma el

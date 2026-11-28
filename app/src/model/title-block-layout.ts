@@ -10,16 +10,15 @@
  * Todo se expresa en unidades del documento (mm), con **y hacia abajo** y el
  * origen en la esquina superior izquierda de la hoja.
  *
- * El tamaño de la página sale de `sheetAreaOf` (formato del trailer). El bloque
- * medido es sólo el de A4 horizontal: en el resto se dibuja la página y el
- * contorno, pero no se inventa el cajetín.
+ * El tamaño de la página sale de `sheetAreaOf` (formato del trailer). El mismo
+ * bloque se dibuja en los cinco formatos: conserva los 207 de ancho medidos y
+ * se ajusta al ancho disponible cuando la hoja es más angosta (A4 vertical).
  */
 
 import {
   sheetAreaOf,
   titleCajetin,
   titleContorno,
-  titlePageFormat,
   titleReferenciado,
   titleValues,
   type TitleBlock,
@@ -107,16 +106,28 @@ export const TITLE_LAYOUT = {
     pageHeight - BLOCK_INSET - rows * ROW_HEIGHT,
   /** Borde izquierdo del bloque, medido desde el borde izquierdo de la hoja. */
   blockLeft: (_pageWidth: number): number => BLOCK_INSET,
-  /** Ancho del bloque en una hoja de ese ancho. */
-  widthFor: (_pageWidth: number): number => BLOCK_WIDTH,
+  /**
+   * Ancho del bloque en una hoja de ese ancho: el medido (207) mientras entre,
+   * y el ancho disponible cuando la hoja es más angosta (A4 vertical).
+   */
+  widthFor: (pageWidth: number): number =>
+    Math.min(BLOCK_WIDTH, Math.max(1, pageWidth - BLOCK_INSET * 2)),
+  /** Ancho de la columna de rótulos, en la misma proporción que el bloque. */
+  labelWidthFor: (pageWidth: number): number =>
+    TITLE_LAYOUT.widthFor(pageWidth) * (LABEL_WIDTH / BLOCK_WIDTH),
 };
 
-function cajetin1Layout(values: string[], alignOfRow: (row: number) => 0 | 1 | 2): SheetLayout {
-  const width = 279;
-  const height = 210;
-  const left = width - BLOCK_INSET - BLOCK1.width;
-  const top = height - BLOCK_INSET - BLOCK1.height;
-  const [, c1, c2, c3, c4, c5] = BLOCK1.columns;
+function cajetin1Layout(
+  values: string[],
+  alignOfRow: (row: number) => 0 | 1 | 2,
+  pageWidth: number,
+  pageHeight: number,
+): SheetLayout {
+  const blockWidth = TITLE_LAYOUT.widthFor(pageWidth);
+  const scale = blockWidth / BLOCK1.width;
+  const left = pageWidth - BLOCK_INSET - blockWidth;
+  const top = pageHeight - BLOCK_INSET - BLOCK1.height;
+  const [, c1, c2, c3, c4, c5] = BLOCK1.columns.map((x) => x * scale);
   const [, r1, r2, r3, r4, r5] = [0, 6, 12, 18, 27, 36].map((y) => top + y);
 
   const lines: Line[] = [
@@ -148,7 +159,7 @@ function cajetin1Layout(values: string[], alignOfRow: (row: number) => 0 | 1 | 2
   });
 
   return {
-    page: { width, height },
+    page: { width: pageWidth, height: pageHeight },
     lines,
     cells: [
       cell(6, c1, 0, c2 - c1, r1 - top, 'Fecha'),
@@ -238,9 +249,8 @@ function rectLines(x: number, y: number, w: number, h: number, weight: 1 | 2): L
 /**
  * Layout de la hoja, o `null` si no hay trailer.
  *
- * La página siempre se conoce (sale del formato). El cajetín medido se dibuja
- * sólo en A4 horizontal con cajetín 1 o 2; para el resto quedan el marco y el
- * contorno.
+ * La página siempre se conoce (sale del formato). Con cajetín 1 o 2 se dibuja
+ * el bloque en cualquier formato; sin cajetín quedan el marco y el contorno.
  */
 export function titleBlockLayout(
   block: TitleBlock | null,
@@ -255,9 +265,9 @@ export function titleBlockLayout(
   const contorno = titleContorno(block);
   const referenciado = titleReferenciado(block);
 
-  // Fuera de A4 horizontal no hay geometría medida del bloque: se dibuja la
-  // página (y su contorno si está activo), nada más.
-  if (titlePageFormat(block) !== 1 || (cajetin !== 1 && cajetin !== 2)) {
+  // Sin cajetín no hay bloque: se dibuja la página (y su contorno si está
+  // activo), nada más.
+  if (cajetin !== 1 && cajetin !== 2) {
     const lines: Line[] = [];
     if (contorno) {
       lines.push(...rectLines(0, 0, width, height, 2));
@@ -270,7 +280,7 @@ export function titleBlockLayout(
 
   const values = titleValues(block);
   if (cajetin === 1) {
-    return cajetin1Layout(values, (row) => alignOf(block.alignment[row]));
+    return cajetin1Layout(values, (row) => alignOf(block.alignment[row]), width, height);
   }
 
   // Las filas apagadas no se dibujan y el bloque se acorta: la caja queda
@@ -286,8 +296,9 @@ export function titleBlockLayout(
   const top = TITLE_LAYOUT.blockTop(width, height, rows.length);
   const blockBottom = top + blockHeight;
   const blockRight = left + blockWidth;
-  const valueLeft = left + LABEL_WIDTH;
-  const valueWidth = blockWidth - LABEL_WIDTH;
+  const labelWidth = TITLE_LAYOUT.labelWidthFor(width);
+  const valueLeft = left + labelWidth;
+  const valueWidth = blockWidth - labelWidth;
 
   const lines: Line[] = [];
   const cells: Cell[] = [];

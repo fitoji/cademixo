@@ -62,17 +62,21 @@ test('cajetín «ninguno» no dibuja el bloque, pero la página sigue', () => {
   assert.ok(hasLine(layout.lines, 10, 10, 269, 10));
 });
 
-test('A3 conoce la página aunque no tenga el cajetín medido', () => {
+test('A3 dibuja el mismo bloque sobre la página A3', () => {
   const layout = layoutOf(withTitleNumeric(PROBE, 0, 2))!;
   assert.deepEqual(layout.page, { width: 402, height: 297 });
-  assert.equal(layout.cells.length, 0);
-  assert.equal(layout.labels.length, 0);
-  assert.ok(hasLine(layout.lines, 0, 0, 402, 0));
+  assert.ok(layout.cells.length > 0);
+  const last = layout.cells.at(-1)!;
+  assert.equal(last.rect.x + last.rect.w, 210);
 });
 
-test('A4 vertical usa el área vertical de CADe', () => {
+test('A4 vertical usa el área vertical y ajusta el bloque al ancho', () => {
   const layout = layoutOf(withTitleNumeric(PROBE, 0, 0))!;
   assert.deepEqual(layout.page, { width: 192, height: 297 });
+  assert.ok(layout.cells.length > 0);
+  const last = layout.cells.at(-1)!;
+  assert.equal(last.rect.x + last.rect.w, 189);
+  assert.ok(last.rect.x + last.rect.w <= 192);
 });
 
 test('la página de A4 horizontal mide 279 × 210', () => {
@@ -225,4 +229,13 @@ test('el énfasis queda en Entidad y Título', () => {
   const layout = titleBlockLayout(block, ALL)!;
   const emphasised = layout.cells.filter((c) => c.emphasis).map((c) => c.text);
   assert.deepEqual(emphasised, ['EMPRESA', 'TITULO']);
+});
+
+test('el cajetín 1 también entra en A4 vertical', () => {
+  const text = withTitleNumeric(fixture('cajetin1-medido.cad'), 0, 0);
+  const layout = layoutOf(text)!;
+  assert.deepEqual(layout.page, { width: 192, height: 297 });
+  assert.ok(layout.cells.length > 0);
+  const last = layout.cells.at(-1)!;
+  assert.equal(last.rect.x + last.rect.w, 189);
 });
