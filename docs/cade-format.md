@@ -90,7 +90,11 @@ Es la razón por la que un parser que divide por `#` falla: la frontera del regi
 | 3005 / 3003 | 1 / 1 | desconocido |
 | 8016 | 1 | desconocido |
 | 20000 | 2 | cabecera de hoja |
-| 10501 | 1 | configuración de hoja (nombre, dimensiones) |
+| 10501 | 1 | símbolo compuesto del catálogo; **no** es la configuración de hoja |
+
+⚠️ Corrección: la configuración de hoja (formato y tamaño) **no** es un registro:
+vive en el trailer `$$$*…&&&` de cada hoja (numéricos 1, 10 y 11). Ver
+`docs/reportes/informe-tamano-hoja-cadesimu.md`.
 
 ## Códigos nuevos (segundo archivo)
 
